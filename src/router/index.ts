@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-rou
 import BackupsView from "../views/BackupsView.vue";
 import InstancesView from "../views/InstancesView.vue";
 import OverviewView from "../views/OverviewView.vue";
+import SettingsView from "../views/SettingsView.vue";
 import VersionsView from "../views/VersionsView.vue";
 
 const routes: RouteRecordRaw[] = [
@@ -24,6 +25,11 @@ const routes: RouteRecordRaw[] = [
     path: "/backups",
     name: "backups",
     component: BackupsView,
+  },
+  {
+    path: "/settings",
+    name: "settings",
+    component: SettingsView,
   },
   {
     path: "/:pathMatch(.*)*",

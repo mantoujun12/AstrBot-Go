@@ -11,7 +11,6 @@ export default defineConfig(() => ({
     vue(),
     vuetify({
       autoImport: true,
-      styles: "none",
     }),
   ],
 
