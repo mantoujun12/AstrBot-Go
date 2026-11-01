@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-router";
 import BackupsView from "../views/BackupsView.vue";
 import InstancesView from "../views/InstancesView.vue";
+import LogsView from "../views/LogsView.vue";
 import OverviewView from "../views/OverviewView.vue";
 import SettingsView from "../views/SettingsView.vue";
 import VersionsView from "../views/VersionsView.vue";
@@ -25,6 +26,11 @@ const routes: RouteRecordRaw[] = [
     path: "/backups",
     name: "backups",
     component: BackupsView,
+  },
+  {
+    path: "/logs",
+    name: "logs",
+    component: LogsView,
   },
   {
     path: "/settings",

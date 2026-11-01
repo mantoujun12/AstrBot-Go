@@ -5,6 +5,7 @@ import SidebarNavItem from "./SidebarNavItem.vue";
 const props = defineProps<{
   permanent: boolean;
   rail: boolean;
+  homeActive: boolean;
 }>();
 
 const drawerOpen = defineModel<boolean>({ required: true });
@@ -38,6 +39,39 @@ const toggleLabel = computed(() =>
           label="概览"
           to="/"
           :tooltip-disabled="!props.rail"
+          :active="props.homeActive ? undefined : false"
+          @select="emit('navigate')"
+        />
+        <SidebarNavItem
+          icon="mdi-server-outline"
+          label="实例"
+          to="/instances"
+          :tooltip-disabled="!props.rail"
+          :active="props.homeActive ? undefined : false"
+          @select="emit('navigate')"
+        />
+        <SidebarNavItem
+          icon="mdi-tag-multiple-outline"
+          label="版本"
+          to="/versions"
+          :tooltip-disabled="!props.rail"
+          :active="props.homeActive ? undefined : false"
+          @select="emit('navigate')"
+        />
+        <SidebarNavItem
+          icon="mdi-archive-outline"
+          label="备份"
+          to="/backups"
+          :tooltip-disabled="!props.rail"
+          :active="props.homeActive ? undefined : false"
+          @select="emit('navigate')"
+        />
+        <SidebarNavItem
+          icon="mdi-text-box-outline"
+          label="日志"
+          to="/logs"
+          :tooltip-disabled="!props.rail"
+          :active="props.homeActive ? undefined : false"
           @select="emit('navigate')"
         />
       </v-list>
@@ -53,6 +87,7 @@ const toggleLabel = computed(() =>
             label="设置"
             to="/settings"
             :tooltip-disabled="!props.rail"
+            :active="props.homeActive ? undefined : false"
             @select="emit('navigate')"
           />
         </v-list>

@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { computed, nextTick, ref, watch } from "vue";
+import { useRoute } from "vue-router";
+import InstanceWebuiView from "../views/InstanceWebuiView.vue";
+import { useLauncherStore } from "../stores/launcher";
+import { HOME_TAB, useTabsStore } from "../stores/tabs";
+
 defineProps<{
   mobile: boolean;
 }>();
@@ -6,6 +12,29 @@ defineProps<{
 const emit = defineEmits<{
   (event: "open-menu"): void;
 }>();
+
+const route = useRoute();
+const { instanceIds, activeTab } = useTabsStore();
+const { instances } = useLauncherStore();
+const homePane = ref<HTMLElement | null>(null);
+
+const isHome = computed(() => activeTab.value === HOME_TAB);
+
+const instanceTabs = computed(() =>
+  instanceIds.value.map((id) => ({
+    id,
+    exists: instances.value.some((instance) => instance.id === id),
+  })),
+);
+
+watch(
+  () => route.fullPath,
+  () => {
+    void nextTick(() => {
+      homePane.value?.scrollTo({ top: 0 });
+    });
+  },
+);
 </script>
 
 <template>
@@ -23,7 +52,27 @@ const emit = defineEmits<{
         <v-icon icon="mdi-menu" />
       </v-btn>
 
-      <router-view />
+      <div
+        v-show="isHome"
+        id="tabpanel-home"
+        ref="homePane"
+        class="launcher-home-pane"
+        role="tabpanel"
+        aria-label="首页"
+      >
+        <router-view />
+      </div>
+
+      <div
+        v-for="tab in instanceTabs"
+        :key="tab.id"
+        v-show="activeTab === tab.id"
+        :id="`tabpanel-${tab.id}`"
+        class="launcher-instance-pane"
+        role="tabpanel"
+      >
+        <InstanceWebuiView v-if="tab.exists" :instance-id="tab.id" />
+      </div>
     </div>
   </v-main>
 </template>
@@ -43,24 +92,36 @@ const emit = defineEmits<{
   height: calc(100% - 16px);
   min-height: 0;
   margin: 8px;
-  padding: 16px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 12px;
   background: rgb(var(--v-theme-background));
 }
 
+.launcher-home-pane {
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.launcher-instance-pane {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .launcher-mobile-menu {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   top: 16px;
   left: 16px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 @media (max-width: 959px) {
-  .launcher-main__canvas {
+  .launcher-home-pane {
     padding: 72px 16px 16px;
   }
 }

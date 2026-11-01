@@ -6,10 +6,13 @@ import "@fontsource-variable/outfit";
 import "@mdi/font/css/materialdesignicons.css";
 import "vuetify/styles";
 import "./scss/style.scss";
+import "./styles/pages.css";
 import App from "./App.vue";
 import { PurpleTheme } from "./theme/LightTheme";
 import { PurpleThemeDark } from "./theme/DarkTheme";
 import { router } from "./router";
+import { applyThemeColors, readStoredThemeColors } from "./theme/customColors";
+import { readCachedTheme } from "./utils/themeCache";
 
 const vuetify = createVuetify({
   icons: {
@@ -20,13 +23,18 @@ const vuetify = createVuetify({
     },
   },
   theme: {
-    defaultTheme: "system",
+    defaultTheme: readCachedTheme(),
     themes: {
       light: PurpleTheme,
       dark: PurpleThemeDark,
     },
   },
 });
+
+const storedThemeColors = readStoredThemeColors();
+if (storedThemeColors) {
+  applyThemeColors(vuetify.theme, storedThemeColors);
+}
 
 async function bootstrap(): Promise<void> {
   // Browser-only development uses the mock backend; `pnpm tauri dev` keeps

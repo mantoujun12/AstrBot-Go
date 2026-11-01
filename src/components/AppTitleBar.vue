@@ -8,6 +8,7 @@ import {
   showSnapOverlay,
   toggleMaximizeWindow,
 } from "../services/windowControls";
+import TitleBarTabs from "./TitleBarTabs.vue";
 
 const isMaximized = ref(false);
 let snapOverlayTimer: ReturnType<typeof setTimeout> | undefined;
@@ -94,6 +95,7 @@ onBeforeUnmount(() => {
     data-tauri-decorum-tb
     aria-label="应用标题栏"
   >
+    <TitleBarTabs />
     <div
       class="app-titlebar__drag"
       data-tauri-drag-region
@@ -151,8 +153,8 @@ onBeforeUnmount(() => {
 }
 
 .app-titlebar__drag {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1 1 48px;
+  min-width: 48px;
 }
 
 .app-titlebar__controls {

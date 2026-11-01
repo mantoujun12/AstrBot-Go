@@ -4,6 +4,7 @@ defineProps<{
   label: string;
   to: string;
   tooltipDisabled: boolean;
+  active?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -23,6 +24,7 @@ const emit = defineEmits<{
       <v-list-item
         v-bind="tooltipProps"
         exact
+        :active="active"
         :aria-label="label"
         rounded="lg"
         :to="to"
