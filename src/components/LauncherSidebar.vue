@@ -153,7 +153,6 @@ const toggleLabel = computed(() =>
   gap: 6px;
   margin-top: auto;
   padding-top: 10px;
-  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .launcher-sidebar__footer-nav {
