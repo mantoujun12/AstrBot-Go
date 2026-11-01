@@ -71,6 +71,8 @@ cargo clippy --all-targets -- -D warnings
 - Use Vuetify 4 components and its theme system for new interfaces. Reuse existing design tokens and interaction patterns, and do not casually introduce a second UI framework.
 - Ensure keyboard access, visible focus states, readable contrast, and meaningful labels. Critical actions must remain reachable when the desktop window is resized.
 - Do not output sensitive paths, tokens, user configuration, or complete command arguments to frontend logs or the console.
+- **Do not add unnecessary literary copy or sentences to the WebUI.**
+- **Minimize explanatory text, especially in UI titles.**
 
 ## Tauri and Rust Conventions
 
