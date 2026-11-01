@@ -98,6 +98,14 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   }
 }
 
+// Dialogs: Vuetify pins the surface radius to 4px. Follow the app's 16px cards.
+.v-dialog > .v-overlay__content > .v-card,
+.v-dialog > .v-overlay__content > .v-sheet,
+.v-dialog > .v-overlay__content > form > .v-card,
+.v-dialog > .v-overlay__content > form > .v-sheet {
+  border-radius: 16px;
+}
+
 // Dark mode global overrides
 .v-theme--dark {
   // Override code text color for dark mode
