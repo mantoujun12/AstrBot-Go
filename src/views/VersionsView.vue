@@ -1,3 +1,772 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
+import ConfirmDialog from "../components/common/ConfirmDialog.vue";
+import EmptyState from "../components/common/EmptyState.vue";
+import PageHeader from "../components/common/PageHeader.vue";
+import DownloadProgressBar from "../components/versions/DownloadProgressBar.vue";
+import ReleaseNotesDialog from "../components/versions/ReleaseNotesDialog.vue";
+import { useOperation } from "../composables/useOperation";
+import { openFolder } from "../services/app";
+import {
+  clearUvCache,
+  installComponent,
+  reinstallComponent,
+  uninstallComponent,
+} from "../services/components";
+import { toUserMessage } from "../services/errors";
+import {
+  fetchReleases,
+  installVersion,
+  uninstallVersion,
+} from "../services/versions";
+import { useLauncherStore } from "../stores/launcher";
+import { useProgressStore } from "../stores/progress";
+import { showErrorToast, showToast } from "../stores/toast";
+import type {
+  ComponentId,
+  ComponentStatus,
+  DownloadProgress,
+  GitHubRelease,
+  InstanceStatus,
+  InstalledVersion,
+} from "../types/launcher";
+import { formatDateTime, formatFileSize } from "../utils/format";
+import { dirname } from "../utils/path";
+
+const CLEAR_UV_CACHE_KEY = "component:uv:cache";
+
+const {
+  instances,
+  versions,
+  components,
+  loading: snapshotLoading,
+  error: snapshotError,
+  refresh: refreshSnapshot,
+} = useLauncherStore();
+const { downloads } = useProgressStore();
+const { isBusy, run } = useOperation();
+
+const releases = ref<GitHubRelease[]>([]);
+const releasesLoading = ref(false);
+const releasesError = ref<string | null>(null);
+
+const notesOpen = ref(false);
+const notesRelease = ref<GitHubRelease | null>(null);
+
+type PendingAction =
+  | { kind: "reinstall-component"; id: ComponentId; name: string }
+  | { kind: "uninstall-component"; id: ComponentId; name: string }
+  | { kind: "uninstall-version"; version: string };
+
+const pendingAction = ref<PendingAction | null>(null);
+
+interface ComponentRow {
+  status: ComponentStatus;
+  componentId: ComponentId | null;
+  progress: DownloadProgress | null;
+  busy: boolean;
+}
+
+interface InstalledRow {
+  version: InstalledVersion;
+  instances: InstanceStatus[];
+  busy: boolean;
+}
+
+interface ReleaseRow {
+  release: GitHubRelease;
+  installed: boolean;
+  busy: boolean;
+  progress: DownloadProgress | null;
+  size: number;
+}
+
+function isComponentId(value: string): value is ComponentId {
+  return value === "python" || value === "nodejs" || value === "uv";
+}
+
+function releaseSize(release: GitHubRelease): number {
+  const zipAsset = release.assets.find((asset) =>
+    asset.name.toLowerCase().endsWith(".zip"),
+  );
+  return zipAsset?.size ?? release.assets[0]?.size ?? 0;
+}
+
+const componentRows = computed<ComponentRow[]>(() =>
+  components.value.map((status) => {
+    const componentId = isComponentId(status.id) ? status.id : null;
+    return {
+      status,
+      componentId,
+      progress: downloads.value[status.id] ?? null,
+      busy: componentId !== null && isBusy(`component:${componentId}`),
+    };
+  }),
+);
+
+const hasUvComponent = computed(() =>
+  components.value.some((component) => component.id === "uv"),
+);
+
+const installedRows = computed<InstalledRow[]>(() =>
+  versions.value.map((version) => ({
+    version,
+    instances: instances.value.filter(
+      (instance) => instance.version === version.version,
+    ),
+    busy: isBusy(`version:${version.version}`),
+  })),
+);
+
+const installedVersionSet = computed(
+  () => new Set(versions.value.map((version) => version.version)),
+);
+
+const releaseRows = computed<ReleaseRow[]>(() =>
+  releases.value.map((release) => ({
+    release,
+    installed: installedVersionSet.value.has(release.tag_name),
+    busy: isBusy(`version:${release.tag_name}`),
+    progress: downloads.value[release.tag_name] ?? null,
+    size: releaseSize(release),
+  })),
+);
+
+const allReleasesInstalled = computed(
+  () =>
+    releaseRows.value.length > 0 &&
+    releaseRows.value.every((row) => row.installed),
+);
+
+const confirmLoading = computed(() => {
+  const action = pendingAction.value;
+  if (!action) {
+    return false;
+  }
+  if (action.kind === "uninstall-version") {
+    return isBusy(`version:${action.version}`);
+  }
+  return isBusy(`component:${action.id}`);
+});
+
+const confirmOpen = computed({
+  get: () => pendingAction.value !== null,
+  set: (value: boolean) => {
+    if (!value) {
+      pendingAction.value = null;
+    }
+  },
+});
+
+const confirmTitle = computed(() => {
+  switch (pendingAction.value?.kind) {
+    case "reinstall-component":
+      return "重新下载组件";
+    case "uninstall-component":
+      return "卸载组件";
+    case "uninstall-version":
+      return "卸载版本";
+    default:
+      return "";
+  }
+});
+
+const confirmMessage = computed(() => {
+  const action = pendingAction.value;
+  if (!action) {
+    return "";
+  }
+  switch (action.kind) {
+    case "reinstall-component":
+      return `将重新下载 ${action.name}，现有安装会被覆盖。`;
+    case "uninstall-component":
+      return `确定要卸载 ${action.name} 吗？`;
+    case "uninstall-version":
+      return `确定要卸载版本 ${action.version} 吗？正在使用该版本的实例将无法启动。`;
+  }
+});
+
+const confirmLabel = computed(() => {
+  switch (pendingAction.value?.kind) {
+    case "reinstall-component":
+      return "重新下载";
+    case "uninstall-component":
+    case "uninstall-version":
+      return "卸载";
+    default:
+      return "确认";
+  }
+});
+
+const confirmColor = computed(() =>
+  pendingAction.value?.kind === "reinstall-component" ? "primary" : "error",
+);
+
+let releasesRequest = 0;
+
+async function loadReleases(forceRefresh = false): Promise<void> {
+  const request = ++releasesRequest;
+  releasesLoading.value = true;
+  releasesError.value = null;
+
+  try {
+    const result = await fetchReleases(forceRefresh);
+    if (request === releasesRequest) {
+      releases.value = result;
+    }
+  } catch (cause) {
+    if (request === releasesRequest) {
+      releasesError.value = toUserMessage(cause);
+    }
+  } finally {
+    if (request === releasesRequest) {
+      releasesLoading.value = false;
+    }
+  }
+}
+
+onMounted(() => {
+  void loadReleases();
+});
+
+function handleRefresh(): void {
+  void loadReleases(true);
+  void refreshSnapshot();
+}
+
+function retrySnapshot(): void {
+  void refreshSnapshot();
+}
+
+function retryReleases(): void {
+  void loadReleases(true);
+}
+
+function requestReinstallComponent(id: string, name: string): void {
+  if (!isComponentId(id)) {
+    return;
+  }
+  pendingAction.value = { kind: "reinstall-component", id, name };
+}
+
+function requestUninstallComponent(id: string, name: string): void {
+  if (!isComponentId(id)) {
+    return;
+  }
+  pendingAction.value = { kind: "uninstall-component", id, name };
+}
+
+function requestUninstallVersion(version: string): void {
+  pendingAction.value = { kind: "uninstall-version", version };
+}
+
+async function runComponentCommand(
+  componentId: ComponentId,
+  task: () => Promise<string>,
+): Promise<boolean> {
+  let message = "";
+  const ok = await run(`component:${componentId}`, async () => {
+    message = await task();
+  });
+
+  if (ok) {
+    const text = message.trim();
+    showToast(text !== "" ? text : "操作完成", "success");
+  }
+  return ok;
+}
+
+function handleInstallComponent(id: string): void {
+  if (!isComponentId(id)) {
+    return;
+  }
+  const componentId = id;
+  void runComponentCommand(componentId, () => installComponent(componentId));
+}
+
+function handleClearUvCache(): void {
+  void run(CLEAR_UV_CACHE_KEY, clearUvCache, {
+    success: "已清理 uv 缓存",
+  });
+}
+
+async function handleConfirm(): Promise<void> {
+  const action = pendingAction.value;
+  if (!action) {
+    return;
+  }
+
+  let ok = false;
+  switch (action.kind) {
+    case "reinstall-component":
+      ok = await runComponentCommand(action.id, () =>
+        reinstallComponent(action.id),
+      );
+      break;
+    case "uninstall-component":
+      ok = await runComponentCommand(action.id, () =>
+        uninstallComponent(action.id),
+      );
+      break;
+    case "uninstall-version":
+      ok = await run(
+        `version:${action.version}`,
+        () => uninstallVersion(action.version),
+        { success: `已卸载 ${action.version}` },
+      );
+      break;
+  }
+
+  if (ok) {
+    pendingAction.value = null;
+  }
+}
+
+async function handleOpenVersionFolder(
+  version: InstalledVersion,
+): Promise<void> {
+  try {
+    await openFolder(dirname(version.zip_path));
+  } catch (cause) {
+    showErrorToast(cause);
+  }
+}
+
+function handleInstallRelease(release: GitHubRelease): void {
+  if (installedVersionSet.value.has(release.tag_name)) {
+    return;
+  }
+  void run(`version:${release.tag_name}`, () => installVersion(release), {
+    success: `已安装 ${release.tag_name}`,
+  });
+}
+
+function openReleaseNotes(release: GitHubRelease): void {
+  notesRelease.value = release;
+  notesOpen.value = true;
+}
+</script>
+
 <template>
-  <div class="app-page" />
+  <div class="page-shell">
+    <PageHeader title="版本">
+      <template #actions>
+        <v-btn
+          variant="tonal"
+          color="primary"
+          prepend-icon="mdi-refresh"
+          :loading="releasesLoading"
+          @click="handleRefresh"
+        >
+          刷新
+        </v-btn>
+      </template>
+    </PageHeader>
+
+    <v-alert
+      v-if="snapshotError"
+      class="version-alert"
+      type="error"
+      variant="tonal"
+      density="comfortable"
+    >
+      {{ snapshotError }}
+      <template #append>
+        <v-btn
+          size="small"
+          variant="text"
+          :loading="snapshotLoading"
+          @click="retrySnapshot"
+        >
+          重试
+        </v-btn>
+      </template>
+    </v-alert>
+
+    <section class="page-section">
+      <div class="page-section-head">
+        <h2 class="page-section-title version-section-title">组件管理</h2>
+      </div>
+      <div class="page-card version-card">
+        <div
+          v-if="snapshotLoading && componentRows.length === 0"
+          class="version-loading"
+        >
+          <v-progress-linear indeterminate color="primary" height="5" rounded />
+          <div class="page-muted">加载中…</div>
+        </div>
+        <EmptyState
+          v-else-if="componentRows.length === 0"
+          text="暂无组件信息"
+          icon="mdi-puzzle-outline"
+        />
+        <div v-else class="version-rows">
+          <div
+            v-for="row in componentRows"
+            :key="row.status.id"
+            class="version-row"
+          >
+            <div class="version-row__main">
+              <div class="version-row__title">
+                <span>{{ row.status.display_name }}</span>
+                <v-chip
+                  size="x-small"
+                  label
+                  :color="row.status.installed ? 'success' : 'secondary'"
+                  variant="tonal"
+                >
+                  {{ row.status.installed ? "已安装" : "未安装" }}
+                </v-chip>
+              </div>
+              <div class="version-row__sub">{{ row.status.description }}</div>
+              <DownloadProgressBar :progress="row.progress" />
+            </div>
+            <div class="version-row__actions">
+              <template v-if="row.componentId">
+                <v-btn
+                  v-if="!row.status.installed"
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  :loading="row.busy"
+                  @click="handleInstallComponent(row.status.id)"
+                >
+                  下载
+                </v-btn>
+                <template v-else>
+                  <v-btn
+                    size="small"
+                    variant="tonal"
+                    color="primary"
+                    :disabled="row.busy"
+                    @click="
+                      requestReinstallComponent(
+                        row.status.id,
+                        row.status.display_name,
+                      )
+                    "
+                  >
+                    重新下载
+                  </v-btn>
+                  <v-btn
+                    size="small"
+                    variant="tonal"
+                    color="error"
+                    :disabled="row.busy"
+                    @click="
+                      requestUninstallComponent(
+                        row.status.id,
+                        row.status.display_name,
+                      )
+                    "
+                  >
+                    卸载
+                  </v-btn>
+                </template>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div v-if="hasUvComponent" class="version-card__footer">
+          <v-btn
+            size="small"
+            variant="text"
+            prepend-icon="mdi-broom"
+            :loading="isBusy(CLEAR_UV_CACHE_KEY)"
+            @click="handleClearUvCache"
+          >
+            清理 uv 缓存
+          </v-btn>
+        </div>
+      </div>
+    </section>
+
+    <section class="page-section">
+      <div class="page-section-head">
+        <h2 class="page-section-title version-section-title">已安装</h2>
+      </div>
+      <div class="page-card version-card">
+        <div
+          v-if="snapshotLoading && installedRows.length === 0"
+          class="version-loading"
+        >
+          <v-progress-linear indeterminate color="primary" height="5" rounded />
+          <div class="page-muted">加载中…</div>
+        </div>
+        <EmptyState
+          v-else-if="installedRows.length === 0"
+          text="暂无已安装版本"
+          icon="mdi-archive-outline"
+        />
+        <div v-else class="version-rows">
+          <div
+            v-for="row in installedRows"
+            :key="row.version.version"
+            class="version-row"
+          >
+            <div class="version-row__main">
+              <div class="version-row__title">
+                <span>{{ row.version.version }}</span>
+              </div>
+              <div class="version-row__instances">
+                <template v-if="row.instances.length > 0">
+                  <v-chip
+                    v-for="instance in row.instances"
+                    :key="instance.id"
+                    size="x-small"
+                    variant="tonal"
+                    label
+                  >
+                    {{ instance.name }}
+                  </v-chip>
+                </template>
+                <span v-else class="page-muted">未被实例使用</span>
+              </div>
+            </div>
+            <div class="version-row__actions">
+              <v-btn
+                size="small"
+                variant="text"
+                prepend-icon="mdi-folder-open-outline"
+                @click="handleOpenVersionFolder(row.version)"
+              >
+                打开所在文件夹
+              </v-btn>
+              <v-btn
+                size="small"
+                variant="tonal"
+                color="error"
+                :disabled="row.busy"
+                @click="requestUninstallVersion(row.version.version)"
+              >
+                卸载
+              </v-btn>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page-section">
+      <div class="page-section-head">
+        <h2 class="page-section-title version-section-title">可下载</h2>
+      </div>
+      <div class="page-card version-card">
+        <v-alert
+          v-if="releasesError"
+          class="version-alert"
+          type="error"
+          variant="tonal"
+          density="comfortable"
+        >
+          {{ releasesError }}
+          <template #append>
+            <v-btn
+              size="small"
+              variant="text"
+              :loading="releasesLoading"
+              @click="retryReleases"
+            >
+              重试
+            </v-btn>
+          </template>
+        </v-alert>
+
+        <div
+          v-if="releasesLoading && releaseRows.length === 0"
+          class="version-loading"
+        >
+          <v-progress-linear indeterminate color="primary" height="5" rounded />
+          <div class="page-muted">正在获取版本列表…</div>
+        </div>
+        <EmptyState
+          v-else-if="!releasesError && releaseRows.length === 0"
+          text="暂无可下载版本"
+          icon="mdi-cloud-off-outline"
+        />
+        <EmptyState
+          v-else-if="allReleasesInstalled"
+          text="所有版本均已安装"
+          icon="mdi-check-circle-outline"
+        />
+        <div v-else-if="releaseRows.length > 0" class="version-rows">
+          <div
+            v-for="row in releaseRows"
+            :key="row.release.tag_name"
+            class="version-row"
+          >
+            <div class="version-row__main">
+              <div class="version-row__title">
+                <span>{{ row.release.tag_name }}</span>
+                <v-chip
+                  v-if="row.release.prerelease"
+                  size="x-small"
+                  color="warning"
+                  variant="tonal"
+                  label
+                >
+                  预发行
+                </v-chip>
+                <v-chip
+                  v-if="row.installed"
+                  size="x-small"
+                  color="success"
+                  variant="tonal"
+                  label
+                >
+                  已安装
+                </v-chip>
+              </div>
+              <div class="version-row__sub">
+                {{ row.release.name || row.release.tag_name }}
+              </div>
+              <div class="version-row__meta page-muted">
+                <span>{{ formatDateTime(row.release.published_at) }}</span>
+                <span>{{ formatFileSize(row.size) }}</span>
+              </div>
+              <DownloadProgressBar :progress="row.progress" />
+            </div>
+            <div class="version-row__actions">
+              <v-btn
+                size="small"
+                variant="text"
+                @click="openReleaseNotes(row.release)"
+              >
+                详情
+              </v-btn>
+              <v-btn
+                size="small"
+                variant="tonal"
+                color="primary"
+                :disabled="row.installed || row.busy"
+                :loading="row.busy"
+                @click="handleInstallRelease(row.release)"
+              >
+                安装
+              </v-btn>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <ConfirmDialog
+      v-model="confirmOpen"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      :confirm-label="confirmLabel"
+      :color="confirmColor"
+      :loading="confirmLoading"
+      @confirm="handleConfirm"
+    />
+
+    <ReleaseNotesDialog v-model="notesOpen" :release="notesRelease" />
+  </div>
 </template>
+
+<style scoped>
+.version-section-title {
+  margin: 0;
+}
+
+.version-card {
+  overflow: hidden;
+}
+
+.version-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 14px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.version-alert {
+  margin: 14px;
+}
+
+.version-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  flex-wrap: wrap;
+}
+
+.version-row + .version-row {
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.version-row__main {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.version-row__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.version-row__sub {
+  margin-top: 2px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.version-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.version-row__instances {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.version-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.version-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px 20px;
+}
+
+@media (max-width: 720px) {
+  .version-row {
+    align-items: flex-start;
+  }
+
+  .version-row__actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+}
+</style>
