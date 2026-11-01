@@ -158,11 +158,17 @@ pub fn is_macos() -> bool {
 
 #[tauri::command]
 pub async fn save_github_proxy(github_proxy: String, state: State<'_, AppState>) -> Result<()> {
-    // Test connectivity first
-    let url = github::build_api_url(&github_proxy);
-    let client = state.client();
-    check_url(&client, &url).await?;
-    // Test passed, save
+    let github_proxy = github_proxy.trim().to_string();
+
+    // An empty value means "use github.com directly". Testing the default
+    // source here would trap users behind an unreachable network or a broken
+    // mirror they are trying to remove, so only custom proxies are tested.
+    if !github_proxy.is_empty() {
+        let url = github::build_api_url(&github_proxy);
+        let client = state.client();
+        check_url(&client, &url).await?;
+    }
+
     with_config_mut(move |config| {
         config.github_proxy = github_proxy;
         Ok(())
@@ -221,19 +227,21 @@ pub async fn save_proxy(
 
 #[tauri::command]
 pub async fn save_pypi_mirror(pypi_mirror: String, state: State<'_, AppState>) -> Result<()> {
-    let normalized_default_index = normalize_default_index(&pypi_mirror);
-    let check_url_value = format!("{}/", normalized_default_index);
+    let trimmed = pypi_mirror.trim();
 
-    // Test connectivity first
-    let client = state.client();
-    check_url(&client, &check_url_value).await?;
-
-    // Test passed, save
-    let normalized_for_save = if pypi_mirror.trim().is_empty() {
+    // An empty value means "use pypi.org directly" (see
+    // `normalize_default_index`); testing the default source would block users
+    // from removing a mirror they can no longer reach.
+    let normalized_for_save = if trimmed.is_empty() {
         String::new()
     } else {
+        let normalized_default_index = normalize_default_index(trimmed);
+        let check_url_value = format!("{}/", normalized_default_index);
+        let client = state.client();
+        check_url(&client, &check_url_value).await?;
         normalized_default_index
     };
+
     with_config_mut(move |config| {
         config.pypi_mirror = normalized_for_save;
         Ok(())
