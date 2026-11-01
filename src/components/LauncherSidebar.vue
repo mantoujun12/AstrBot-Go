@@ -71,10 +71,12 @@ const toggleLabel = computed(() =>
 
 <style scoped>
 .launcher-sidebar {
+  position: absolute !important;
   top: var(--launcher-titlebar-height) !important;
+  left: 0 !important;
   height: calc(100% - var(--launcher-titlebar-height)) !important;
-  border-inline-end: 1px solid
-    rgba(var(--v-theme-on-surface), 0.08);
+  border-inline-end: 0;
+  background: rgb(var(--v-theme-surface)) !important;
   box-shadow: none !important;
   transition:
     width 180ms cubic-bezier(0.2, 0, 0, 1),

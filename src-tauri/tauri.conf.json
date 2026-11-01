@@ -19,7 +19,9 @@
         "minHeight": 480,
         "decorations": false,
         "titleBarStyle": "Overlay",
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "transparent": false,
+        "shadow": true
       }
     ],
     "withGlobalTauri": true,

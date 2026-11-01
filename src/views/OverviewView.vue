@@ -9,10 +9,7 @@
   display: grid;
   min-height: 100%;
   place-items: center;
-  padding: 32px;
-  border: 1px dashed rgba(var(--v-theme-on-surface), 0.14);
-  border-radius: 20px;
-  background: rgba(var(--v-theme-surface), 0.72);
+  padding: 24px;
 }
 
 .overview-placeholder p {

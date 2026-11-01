@@ -30,21 +30,25 @@ const emit = defineEmits<{
 
 <style scoped>
 .launcher-main {
-  height: calc(100vh - var(--launcher-titlebar-height));
-  height: calc(100dvh - var(--launcher-titlebar-height));
+  height: calc(100% - var(--launcher-titlebar-height));
   min-height: 0;
   margin-top: var(--launcher-titlebar-height);
-  overflow-x: hidden;
-  overflow-y: auto;
-  background: rgb(var(--v-theme-background));
+  overflow: hidden;
+  background: transparent;
 }
 
 .launcher-main__canvas {
   position: relative;
   box-sizing: border-box;
-  height: 100%;
+  height: calc(100% - 16px);
   min-height: 0;
-  padding: 24px;
+  margin: 8px;
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 12px;
+  background: rgb(var(--v-theme-background));
 }
 
 .launcher-mobile-menu {

@@ -137,7 +137,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-titlebar {
-  position: fixed;
+  position: absolute;
   inset: 0 0 auto;
   z-index: 3000;
   display: flex;
@@ -146,7 +146,7 @@ onBeforeUnmount(() => {
   height: var(--launcher-titlebar-height);
   color: rgba(var(--v-theme-on-surface), 0.78);
   background: rgb(var(--v-theme-surface));
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-bottom: 0;
   user-select: none;
 }
 
