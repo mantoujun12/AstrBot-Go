@@ -99,7 +99,7 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
 }
 
 // Dark mode global overrides
-.v-theme--PurpleThemeDark {
+.v-theme--dark {
   // Override code text color for dark mode
   --astrbot-code-color: rgb(var(--v-theme-on-surface-variant));
 
@@ -131,19 +131,19 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   }
 }
 
-.v-theme--PurpleThemeDark .provider-icon--monochrome {
+.v-theme--dark .provider-icon--monochrome {
   filter: brightness(0) invert(1);
 }
 
 // Preserve the two-tone cat details when adapting the logo to dark surfaces.
-.v-theme--PurpleThemeDark img[src*="/mirarouter"] {
+.v-theme--dark img[src*="/mirarouter"] {
   filter: invert(1);
 }
 
 // Invert the black Mattermost and Matrix logos on dark surfaces.
 // The leading slash keeps these selectors from matching inline SVG data URIs,
 // where words like "matrix" also appear in transform functions.
-.v-theme--PurpleThemeDark img[src*="/mattermost"],
-.v-theme--PurpleThemeDark img[src*="/matrix"] {
+.v-theme--dark img[src*="/mattermost"],
+.v-theme--dark img[src*="/matrix"] {
   filter: brightness(0) invert(1);
 }

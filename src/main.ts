@@ -19,10 +19,10 @@ const vuetify = createVuetify({
     },
   },
   theme: {
-    defaultTheme: "PurpleTheme",
+    defaultTheme: "system",
     themes: {
-      PurpleTheme,
-      PurpleThemeDark,
+      light: PurpleTheme,
+      dark: PurpleThemeDark,
     },
   },
 });
