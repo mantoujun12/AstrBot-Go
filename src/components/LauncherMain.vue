@@ -39,9 +39,12 @@ watch(
 
 <template>
   <v-main class="launcher-main">
-    <div class="launcher-main__canvas">
+    <div
+      class="launcher-main__canvas"
+      :class="{ 'launcher-main__canvas--full': !isHome }"
+    >
       <v-btn
-        v-if="mobile"
+        v-if="mobile && isHome"
         class="launcher-mobile-menu"
         icon
         aria-label="打开菜单"
@@ -96,6 +99,14 @@ watch(
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 12px;
   background: rgb(var(--v-theme-background));
+}
+
+/* Instance tabs fill the whole window: no outer gap, border, or rounding. */
+.launcher-main__canvas--full {
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
 }
 
 .launcher-home-pane {

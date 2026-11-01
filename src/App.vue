@@ -110,7 +110,10 @@ onBeforeUnmount(() => {
   <v-app class="launcher-app">
     <div class="launcher-shell">
       <AppTitleBar />
+      <!-- Instance tabs use the full window; the sidebar is only part of the
+           home shell so it must not reserve layout space in those tabs. -->
       <LauncherSidebar
+        v-if="isHomeActive"
         v-model="drawerOpen"
         :permanent="mdAndUp"
         :rail="sidebarIsCollapsed"
