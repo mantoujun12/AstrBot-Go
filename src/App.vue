@@ -7,6 +7,7 @@ import DefaultCredentialsDialog from "./components/common/DefaultCredentialsDial
 import AppTitleBar from "./components/AppTitleBar.vue";
 import LauncherMain from "./components/LauncherMain.vue";
 import LauncherSidebar from "./components/LauncherSidebar.vue";
+import { useTabShortcuts } from "./composables/useTabShortcuts";
 import { listenDefaultCredentials } from "./services/events";
 import { useLauncherStore } from "./stores/launcher";
 import { useLogStore } from "./stores/logs";
@@ -22,6 +23,8 @@ const { config, instances, init: initLauncher } = useLauncherStore();
 const { activeTab, isHomeActive, activateHome, pruneTabs } = useTabsStore();
 const { init: initLogs } = useLogStore();
 const { init: initProgress } = useProgressStore();
+
+useTabShortcuts();
 
 const isCollapsed = ref(false);
 const mobileDrawerOpen = ref(false);
