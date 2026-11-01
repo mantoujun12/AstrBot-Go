@@ -7,7 +7,7 @@
 
 import type { InvokeArgs } from "@tauri-apps/api/core";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { mockCommands, mockWindowCommands } from "./handlers";
+import { mockCommands, mockPluginCommands } from "./handlers";
 import type { MockCommandHandler } from "./handlers";
 
 const MOCK_LATENCY_MS = 120;
@@ -61,9 +61,9 @@ export function installMockBackend(): void {
     (cmd, payload) => {
       const args = toRecord(payload);
 
-      const windowHandler = mockWindowCommands[cmd];
-      if (windowHandler) {
-        return windowHandler(args);
+      const pluginHandler = mockPluginCommands[cmd];
+      if (pluginHandler) {
+        return pluginHandler(args);
       }
 
       const handler = mockCommands[cmd];

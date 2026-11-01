@@ -2,6 +2,7 @@ import { emit } from "@tauri-apps/api/event";
 import type {
   DownloadProgress,
   GitHubRelease,
+  LogEntry,
   ThemePreference,
   UpdateInstanceRequest,
 } from "../types/launcher";
@@ -32,6 +33,7 @@ const downloadSteps: ProgressStep[] = [
 export const store = new MockStore();
 
 let windowMaximized = false;
+let autostartEnabled = false;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -150,6 +152,42 @@ async function emitSnapshot(): Promise<void> {
   await emit("app-snapshot", store.snapshot);
 }
 
+async function emitLog(
+  source: string,
+  level: LogEntry["level"],
+  message: string,
+): Promise<void> {
+  await emit("log-entry", {
+    source,
+    level,
+    message,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+const componentSteps: ProgressStep[] = [
+  { progress: 0, step: "prepare", message: "准备下载" },
+  { progress: 45, step: "download", message: "下载中" },
+  { progress: 100, step: "done", message: "安装完成" },
+];
+
+async function simulateComponentDownload(id: string): Promise<void> {
+  for (const item of componentSteps) {
+    await emit("download-progress", {
+      id,
+      downloaded: 0,
+      total: null,
+      progress: item.progress,
+      step: item.step,
+      message: item.message,
+    });
+
+    if (item.progress < 100) {
+      await delay(160);
+    }
+  }
+}
+
 function requireStoppedInstance(id: string) {
   const instance = store.requireInstance(id);
   if (instance.state !== "stopped") {
@@ -214,10 +252,13 @@ async function startInstance(id: string): Promise<number> {
     return instance.port;
   }
 
+  await emitLog(instance.id, "info", `正在启动实例 ${instance.name}`);
   store.setInstanceState(id, "starting");
   await emitSnapshot();
   await delay(400);
   store.setInstanceState(id, "running");
+  await emitLog(instance.id, "info", "AstrBot started.");
+  await emitLog("system", "info", `实例 ${instance.name} 已启动`);
   await emitSnapshot();
   return instance.configured_port;
 }
@@ -228,10 +269,13 @@ async function stopInstance(id: string): Promise<void> {
     return;
   }
 
+  await emitLog(instance.id, "info", `正在停止实例 ${instance.name}`);
   store.setInstanceState(id, "stopping");
   await emitSnapshot();
   await delay(280);
   store.setInstanceState(id, "stopped");
+  await emitLog(instance.id, "info", "实例已停止");
+  await emitLog("system", "info", `实例 ${instance.name} 已停止`);
   await emitSnapshot();
 }
 
@@ -342,12 +386,16 @@ export const mockCommands: Record<string, MockCommandHandler> = {
 
   // Components
   install_component: async (args) => {
-    store.setComponentInstalled(readString(args, "componentId"), true);
+    const componentId = readString(args, "componentId");
+    await simulateComponentDownload(componentId);
+    store.setComponentInstalled(componentId, true);
     await emitSnapshot();
     return "组件安装完成";
   },
   reinstall_component: async (args) => {
-    store.setComponentInstalled(readString(args, "componentId"), true);
+    const componentId = readString(args, "componentId");
+    await simulateComponentDownload(componentId);
+    store.setComponentInstalled(componentId, true);
     await emitSnapshot();
     return "组件重装完成";
   },
@@ -364,8 +412,10 @@ export const mockCommands: Record<string, MockCommandHandler> = {
   // Version management
   install_version: async (args) => {
     const release = readRelease(args);
+    await emitLog("system", "info", `开始下载版本 ${release.tag_name}`);
     await simulateDownload(release.tag_name);
     store.addVersion(release.tag_name);
+    await emitLog("system", "info", `版本 ${release.tag_name} 安装完成`);
     await emitSnapshot();
   },
   uninstall_version: async (args) => {
@@ -484,6 +534,7 @@ export const mockCommands: Record<string, MockCommandHandler> = {
   create_backup: async (args) => {
     const instance = requireStoppedInstance(readString(args, "instanceId"));
     const backup = store.createBackup(instance.id);
+    await emitLog("system", "info", `已创建备份：${backup.filename}`);
     await emitSnapshot();
     return backup.path;
   },
@@ -510,7 +561,7 @@ export const mockCommands: Record<string, MockCommandHandler> = {
   },
 };
 
-export const mockWindowCommands: Record<string, MockCommandHandler> = {
+export const mockPluginCommands: Record<string, MockCommandHandler> = {
   "plugin:window|minimize": () => undefined,
   "plugin:window|toggle_maximize": () => {
     windowMaximized = !windowMaximized;
@@ -519,4 +570,16 @@ export const mockWindowCommands: Record<string, MockCommandHandler> = {
   "plugin:window|close": () => undefined,
   "plugin:window|start_dragging": () => undefined,
   "plugin:decorum|show_snap_overlay": () => undefined,
+  "plugin:opener|open_url": () => undefined,
+  "plugin:opener|open_path": () => undefined,
+  "plugin:opener|reveal_item_in_dir": () => undefined,
+  "plugin:dialog|open": () => "C:/Users/Mock/AstrBotLauncher/data-alt",
+  "plugin:app|version": () => "0.1.0",
+  "plugin:autostart|is_enabled": () => autostartEnabled,
+  "plugin:autostart|enable": () => {
+    autostartEnabled = true;
+  },
+  "plugin:autostart|disable": () => {
+    autostartEnabled = false;
+  },
 };

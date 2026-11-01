@@ -31,8 +31,11 @@
 `mockIPC` 已开启 `shouldMockEvents`，可以直接使用 `@tauri-apps/api/event` 的 `emit` 与 `listen`。当前模拟的事件有：
 
 - `app-snapshot`：实例状态、配置、备份变化后推送。
-- `download-progress`：安装版本时推送下载进度。
+- `log-entry`：启动、停止、安装版本、创建备份时推送模拟日志。
+- `download-progress`：安装版本或组件时推送下载进度。
 - `deploy-progress`：修复实例时推送部署进度。
+
+插件 IPC 也在 `mockPluginCommands` 中模拟，包括窗口控制、`plugin:opener`、`plugin:dialog`、`plugin:app|version` 与 `plugin:autostart`。
 
 ## 模拟慢请求与失败
 
