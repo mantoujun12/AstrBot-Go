@@ -7,7 +7,7 @@
 <style scoped>
 .settings-placeholder {
   display: grid;
-  min-height: calc(100vh - 48px);
+  min-height: 100%;
   place-items: center;
   padding: 32px;
   border: 1px dashed rgba(var(--v-theme-on-surface), 0.14);
@@ -24,7 +24,7 @@
 
 @media (max-width: 959px) {
   .settings-placeholder {
-    min-height: calc(100dvh - 88px);
+    min-height: 100%;
   }
 }
 </style>

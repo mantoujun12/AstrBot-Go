@@ -12,11 +12,17 @@
   "app": {
     "windows": [
       {
-        "title": "astrbot-launcher-vue",
-        "width": 800,
-        "height": 600
+        "title": "AstrBot Launcher",
+        "width": 1280,
+        "height": 720,
+        "minWidth": 640,
+        "minHeight": 480,
+        "decorations": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
+    "withGlobalTauri": true,
     "security": {
       "csp": null
     }
