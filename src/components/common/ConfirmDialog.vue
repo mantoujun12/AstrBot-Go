@@ -1,0 +1,85 @@
+<script setup lang="ts">
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean;
+    title: string;
+    message?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    color?: string;
+    loading?: boolean;
+    maxWidth?: number | string;
+  }>(),
+  {
+    message: "",
+    confirmLabel: "确认",
+    cancelLabel: "取消",
+    color: "primary",
+    loading: false,
+    maxWidth: 440,
+  },
+);
+
+const emit = defineEmits<{
+  (event: "update:modelValue", value: boolean): void;
+  (event: "confirm"): void;
+}>();
+
+function close(): void {
+  if (props.loading) {
+    return;
+  }
+  emit("update:modelValue", false);
+}
+</script>
+
+<template>
+  <v-dialog
+    :model-value="modelValue"
+    :max-width="maxWidth"
+    :persistent="loading"
+    @update:model-value="emit('update:modelValue', $event)"
+  >
+    <v-card>
+      <v-card-title class="confirm-dialog__title">{{ title }}</v-card-title>
+      <v-card-text v-if="message" class="confirm-dialog__message">
+        {{ message }}
+      </v-card-text>
+      <v-card-actions class="confirm-dialog__actions">
+        <v-spacer />
+        <v-btn variant="text" :disabled="loading" @click="close">
+          {{ cancelLabel }}
+        </v-btn>
+        <v-btn
+          :color="color"
+          variant="flat"
+          :loading="loading"
+          @click="emit('confirm')"
+        >
+          {{ confirmLabel }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
+<style scoped>
+.confirm-dialog__title {
+  padding: 20px 20px 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  white-space: normal;
+}
+
+.confirm-dialog__message {
+  padding: 10px 20px 0;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.confirm-dialog__actions {
+  padding: 14px 16px 16px;
+}
+</style>

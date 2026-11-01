@@ -10,6 +10,17 @@ export type ThemePreference = "system" | "light" | "dark";
 
 export type InstanceState = "stopped" | "starting" | "running" | "stopping";
 
+export type ComponentId = "python" | "nodejs" | "uv";
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export interface DefaultCredentials {
+  source: string;
+  display_name: string;
+  username: string;
+  password: string;
+}
+
 export type LockCheckTarget =
   | "instance_data"
   | "backup_create"
@@ -134,7 +145,7 @@ export interface DeployProgress {
 
 export interface LogEntry {
   source: string;
-  level: "debug" | "info" | "warn" | "error";
+  level: LogLevel;
   message: string;
   timestamp: string;
 }
