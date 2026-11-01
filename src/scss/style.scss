@@ -1,0 +1,31 @@
+@use './variables' as *;
+@use './override';
+@use './layout/container';
+@use './layout/sidebar';
+
+@use './components/VButtons';
+@use './components/VCard';
+@use './components/VField';
+@use './components/VInput';
+@use './components/VNavigationDrawer';
+@use './components/VShadow';
+@use './components/VTextField';
+@use './components/VTabs';
+@use './components/VScrollbar';
+@use './components/CodeBlockDark';
+
+@use './pages/dashboards';
+
+html, body {
+  overscroll-behavior-y: none;
+}
+
+:root {
+  --v-font-body: #{$body-font-family};
+  --v-font-heading: #{$body-font-family};
+}
+
+body,
+.v-application {
+  font-family: $body-font-family;
+}
