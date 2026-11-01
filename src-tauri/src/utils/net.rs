@@ -13,14 +13,11 @@ pub(crate) const USER_AGENT: &str = concat!(
     " (+https://github.com/AstrBotDevs/astrbot-launcher)"
 );
 
-pub(crate) fn build_http_client_with_proxy(proxy: Option<ProxySettings>) -> Result<Client> {
-    let mut builder = Client::builder().timeout(Duration::from_secs(30));
+fn build_client_builder(proxy: Option<ProxySettings>) -> Result<reqwest::ClientBuilder> {
+    let mut builder = Client::builder();
 
     let Some(proxy) = proxy else {
-        return builder
-            .no_proxy()
-            .build()
-            .map_err(|e| AppError::network(format!("创建网络客户端失败: {}", e)));
+        return Ok(builder.no_proxy());
     };
 
     let mut has_proxy = false;
@@ -46,13 +43,29 @@ pub(crate) fn build_http_client_with_proxy(proxy: Option<ProxySettings>) -> Resu
         }
     }
 
-    (if has_proxy {
+    Ok(if has_proxy {
         builder
     } else {
         builder.no_proxy()
     })
-    .build()
-    .map_err(|e| AppError::network(format!("创建网络客户端失败: {}", e)))
+}
+
+pub(crate) fn build_http_client_with_proxy(proxy: Option<ProxySettings>) -> Result<Client> {
+    build_client_builder(proxy)?
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| AppError::network(format!("创建网络客户端失败: {}", e)))
+}
+
+/// Client for large downloads: limits connection setup only.
+///
+/// A total request timeout would abort long transfers and would also fire
+/// while a download is paused (the response body is not being polled).
+pub(crate) fn build_download_client_with_proxy(proxy: Option<ProxySettings>) -> Result<Client> {
+    build_client_builder(proxy)?
+        .connect_timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| AppError::network(format!("创建网络客户端失败: {}", e)))
 }
 
 fn build_reqwest_proxy(

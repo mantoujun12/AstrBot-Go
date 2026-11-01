@@ -1,6 +1,5 @@
 import { emit } from "@tauri-apps/api/event";
 import type {
-  DownloadProgress,
   GitHubRelease,
   LogEntry,
   ThemePreference,
@@ -178,6 +177,7 @@ async function simulateComponentDownload(id: string): Promise<void> {
       downloaded: 0,
       total: null,
       progress: item.progress,
+      speed: null,
       step: item.step,
       message: item.message,
     });
@@ -196,24 +196,81 @@ function requireStoppedInstance(id: string) {
   return instance;
 }
 
-async function simulateDownload(tag: string): Promise<void> {
+interface MockDownloadState {
+  paused: boolean;
+  cancelled: boolean;
+}
+
+const mockDownloads = new Map<string, MockDownloadState>();
+
+const MOCK_DOWNLOAD_SPEED = 12_400_000;
+
+async function waitWhileMockPaused(
+  tag: string,
+  state: MockDownloadState,
+  downloaded: number,
+): Promise<void> {
+  let announced = false;
+  while (state.paused && !state.cancelled) {
+    if (!announced) {
+      await emit("download-progress", {
+        id: tag,
+        downloaded,
+        total: DOWNLOAD_TOTAL_BYTES,
+        progress: Math.round((downloaded / DOWNLOAD_TOTAL_BYTES) * 100),
+        speed: 0,
+        step: "paused",
+        message: "已暂停",
+      });
+      announced = true;
+    }
+    await delay(200);
+  }
+}
+
+async function simulateDownload(
+  tag: string,
+  state: MockDownloadState,
+): Promise<void> {
+  let downloaded = 0;
+
   for (const item of downloadSteps) {
-    const payload: DownloadProgress = {
+    await waitWhileMockPaused(tag, state, downloaded);
+
+    if (state.cancelled) {
+      break;
+    }
+
+    downloaded = Math.round((DOWNLOAD_TOTAL_BYTES * item.progress) / 100);
+
+    await emit("download-progress", {
       id: tag,
-      downloaded: Math.round(
-        (DOWNLOAD_TOTAL_BYTES * item.progress) / 100,
-      ),
+      downloaded,
       total: DOWNLOAD_TOTAL_BYTES,
       progress: item.progress,
+      speed: item.progress > 0 && item.progress < 100
+        ? MOCK_DOWNLOAD_SPEED
+        : null,
       step: item.step,
       message: item.message,
-    };
-
-    await emit("download-progress", payload);
+    });
 
     if (item.progress < 100) {
       await delay(140);
     }
+  }
+
+  if (state.cancelled) {
+    await emit("download-progress", {
+      id: tag,
+      downloaded,
+      total: DOWNLOAD_TOTAL_BYTES,
+      progress: Math.round((downloaded / DOWNLOAD_TOTAL_BYTES) * 100),
+      speed: 0,
+      step: "cancelled",
+      message: "下载已取消",
+    });
+    throw { code: 1006, payload: {} };
   }
 }
 
@@ -412,11 +469,42 @@ export const mockCommands: Record<string, MockCommandHandler> = {
   // Version management
   install_version: async (args) => {
     const release = readRelease(args);
-    await emitLog("system", "info", `开始下载版本 ${release.tag_name}`);
-    await simulateDownload(release.tag_name);
-    store.addVersion(release.tag_name);
-    await emitLog("system", "info", `版本 ${release.tag_name} 安装完成`);
-    await emitSnapshot();
+    if (mockDownloads.has(release.tag_name)) {
+      throw new Error("该下载已在进行中");
+    }
+
+    const state: MockDownloadState = { paused: false, cancelled: false };
+    mockDownloads.set(release.tag_name, state);
+    try {
+      await emitLog("system", "info", `开始下载版本 ${release.tag_name}`);
+      await simulateDownload(release.tag_name, state);
+      store.addVersion(release.tag_name);
+      await emitLog("system", "info", `版本 ${release.tag_name} 安装完成`);
+      await emitSnapshot();
+    } finally {
+      mockDownloads.delete(release.tag_name);
+    }
+  },
+  pause_download: (args) => {
+    const state = mockDownloads.get(readString(args, "id"));
+    if (!state) {
+      throw new Error("没有正在进行的下载");
+    }
+    state.paused = true;
+  },
+  resume_download: (args) => {
+    const state = mockDownloads.get(readString(args, "id"));
+    if (!state) {
+      throw new Error("没有正在进行的下载");
+    }
+    state.paused = false;
+  },
+  cancel_download: (args) => {
+    const state = mockDownloads.get(readString(args, "id"));
+    if (state) {
+      state.cancelled = true;
+      state.paused = false;
+    }
   },
   uninstall_version: async (args) => {
     const version = readString(args, "version");

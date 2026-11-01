@@ -9,6 +9,18 @@ export function installVersion(release: GitHubRelease): Promise<void> {
   return invoke("install_version", { release });
 }
 
+export function pauseVersionDownload(version: string): Promise<void> {
+  return invoke("pause_download", { id: version });
+}
+
+export function resumeVersionDownload(version: string): Promise<void> {
+  return invoke("resume_download", { id: version });
+}
+
+export function cancelVersionDownload(version: string): Promise<void> {
+  return invoke("cancel_download", { id: version });
+}
+
 export function uninstallVersion(version: string): Promise<void> {
   return invoke("uninstall_version", { version });
 }

@@ -4,6 +4,7 @@ mod commands;
 mod component;
 mod config;
 mod download;
+mod download_control;
 mod error;
 mod github;
 mod instance;
@@ -226,6 +227,9 @@ pub fn run() {
             commands::fetch_launcher_release_notes,
             // Version Management
             commands::install_version,
+            commands::pause_download,
+            commands::resume_download,
+            commands::cancel_download,
             commands::uninstall_version,
             // Troubleshooting
             commands::check_lock,

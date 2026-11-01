@@ -1,13 +1,15 @@
 use std::fs;
 use std::io::Write as _;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 use futures_util::StreamExt as _;
 use reqwest::Client;
 use tauri::{AppHandle, Emitter as _};
 
 use crate::config::{with_manifest_mut, InstalledVersion};
-use crate::error::{AppError, Result};
+use crate::download_control::{self, ControlState, DownloadControl};
+use crate::error::{AppError, ErrorKind, Result};
 use crate::github::{get_source_archive_urls, GitHubRelease};
 use crate::utils::net::{ensure_success_status, send_get};
 use crate::utils::paths::get_versions_dir;
@@ -20,6 +22,8 @@ pub struct DownloadProgress {
     pub total: Option<u64>,
     /// Backend-computed progress percentage (0-100). `None` means unknown.
     pub progress: Option<u8>,
+    /// Smoothed transfer rate in bytes per second. `None` when unknown.
+    pub speed: Option<u64>,
     pub step: String,
     pub message: String,
 }
@@ -27,6 +31,8 @@ pub struct DownloadProgress {
 pub struct DownloadOptions<'a> {
     pub app_handle: &'a AppHandle,
     pub id: &'a str,
+    /// Present for downloads the user may pause or cancel.
+    pub control: Option<&'a DownloadControl>,
 }
 
 pub fn emit_download_progress(
@@ -34,6 +40,7 @@ pub fn emit_download_progress(
     downloaded: u64,
     total: Option<u64>,
     progress: Option<u8>,
+    speed: Option<u64>,
     step: &str,
     message: &str,
 ) {
@@ -44,10 +51,108 @@ pub fn emit_download_progress(
             downloaded,
             total,
             progress,
+            speed,
             step: step.to_string(),
             message: message.to_string(),
         },
     );
+}
+
+/// Smoothed transfer rate derived from byte deltas between progress events.
+struct SpeedMeter {
+    last_bytes: u64,
+    last_at: Instant,
+    smoothed: f64,
+}
+
+impl SpeedMeter {
+    fn new() -> Self {
+        Self {
+            last_bytes: 0,
+            last_at: Instant::now(),
+            smoothed: 0.0,
+        }
+    }
+
+    /// Update the meter; returns the smoothed bytes-per-second rate.
+    ///
+    /// Windows shorter than 100 ms are ignored, otherwise a burst of
+    /// percentage-triggered events would produce noisy spikes.
+    fn update(&mut self, bytes: u64, now: Instant) -> Option<u64> {
+        let elapsed = now.saturating_duration_since(self.last_at).as_secs_f64();
+        if elapsed < 0.1 {
+            return if self.smoothed > 0.0 {
+                Some(self.smoothed.round() as u64)
+            } else {
+                None
+            };
+        }
+
+        let instant = bytes.saturating_sub(self.last_bytes) as f64 / elapsed;
+        self.smoothed = if self.smoothed > 0.0 {
+            self.smoothed * 0.6 + instant * 0.4
+        } else {
+            instant
+        };
+        self.last_bytes = bytes;
+        self.last_at = now;
+        Some(self.smoothed.round() as u64)
+    }
+}
+
+/// Emit paused/resumed state changes and block while the user has paused.
+async fn checkpoint(
+    control: &DownloadControl,
+    opts: &DownloadOptions<'_>,
+    downloaded: u64,
+    total: Option<u64>,
+) -> Result<()> {
+    let mut paused = false;
+    loop {
+        match control.state() {
+            ControlState::Running => {
+                if paused {
+                    emit_download_progress(
+                        opts,
+                        downloaded,
+                        total,
+                        compute_percent_0_99(downloaded, total),
+                        None,
+                        "downloading",
+                        "继续下载",
+                    );
+                }
+                return Ok(());
+            }
+            ControlState::Cancelled => {
+                emit_download_progress(
+                    opts,
+                    downloaded,
+                    total,
+                    compute_percent_0_99(downloaded, total),
+                    Some(0),
+                    "cancelled",
+                    "下载已取消",
+                );
+                return Err(AppError::download_cancelled());
+            }
+            ControlState::Paused => {
+                if !paused {
+                    emit_download_progress(
+                        opts,
+                        downloaded,
+                        total,
+                        compute_percent_0_99(downloaded, total),
+                        Some(0),
+                        "paused",
+                        "已暂停",
+                    );
+                    paused = true;
+                }
+                control.wait_for_change().await;
+            }
+        }
+    }
 }
 
 fn compute_percent_0_99(downloaded: u64, total: Option<u64>) -> Option<u8> {
@@ -100,6 +205,7 @@ pub async fn download_file_with_fallbacks(
                     0,
                     None,
                     None,
+                    None,
                     "downloading",
                     "加速下载失败，正在回退直连",
                 );
@@ -108,6 +214,7 @@ pub async fn download_file_with_fallbacks(
 
         match download_file(client, url, dest, opts).await {
             Ok(()) => return Ok(()),
+            Err(error) if error.kind() == ErrorKind::DownloadCancelled => return Err(error),
             Err(error) => {
                 log::warn!("Download failed for {}: {}", url, error);
                 last_error = Some(error);
@@ -131,8 +238,9 @@ async fn download_file_inner(
 
     let total = resp.content_length();
     let mut downloaded: u64 = 0;
-    let mut last_emit = std::time::Instant::now();
+    let mut last_emit = Instant::now();
     let mut last_percent: u8 = 0;
+    let mut meter = SpeedMeter::new();
 
     if let Some(o) = opts {
         emit_download_progress(
@@ -140,6 +248,7 @@ async fn download_file_inner(
             0,
             total,
             compute_percent_0_99(0, total),
+            None,
             "downloading",
             "开始下载",
         );
@@ -149,7 +258,24 @@ async fn download_file_inner(
 
     let mut stream = resp.bytes_stream();
 
-    while let Some(chunk) = stream.next().await {
+    loop {
+        if let Some(o) = opts {
+            if let Some(control) = o.control {
+                checkpoint(control, o, downloaded, total).await?;
+            }
+        }
+
+        let next = match opts.and_then(|o| o.control) {
+            Some(control) => tokio::select! {
+                item = stream.next() => item,
+                _ = control.wait_for_change() => continue,
+            },
+            None => stream.next().await,
+        };
+
+        let Some(chunk) = next else {
+            break;
+        };
         let chunk = chunk.map_err(|e| AppError::network(e.to_string()))?;
         file.write_all(&chunk)
             .map_err(|e| AppError::io(e.to_string()))?;
@@ -157,14 +283,17 @@ async fn download_file_inner(
         downloaded += chunk.len() as u64;
 
         if let Some(o) = opts {
-            let now = std::time::Instant::now();
+            let now = Instant::now();
             let current_percent = compute_percent_0_99(downloaded, total).unwrap_or(0);
-            if now.duration_since(last_emit).as_millis() >= 100 || current_percent > last_percent {
+            if now.duration_since(last_emit) >= Duration::from_millis(100)
+                || current_percent > last_percent
+            {
                 emit_download_progress(
                     o,
                     downloaded,
                     total,
                     compute_percent_0_99(downloaded, total),
+                    meter.update(downloaded, now),
                     "downloading",
                     "下载中",
                 );
@@ -181,6 +310,7 @@ async fn download_file_inner(
             downloaded,
             total,
             compute_percent_0_99(downloaded, total).or(Some(99)),
+            meter.update(downloaded, Instant::now()),
             "downloading",
             "下载完成",
         );
@@ -197,6 +327,9 @@ pub async fn download_version(
 ) -> Result<()> {
     let version = &release.tag_name;
     log::info!("Downloading version {}", version);
+    // Register before touching the target file so a duplicate install cannot
+    // delete the archive that the active download is writing.
+    let guard = download_control::acquire(version)?;
     let versions_dir = get_versions_dir();
     let zip_path = resolve_version_zip_path(version)?;
 
@@ -212,6 +345,7 @@ pub async fn download_version(
     let opts = app_handle.map(|ah| DownloadOptions {
         app_handle: ah,
         id: version,
+        control: Some(guard.control()),
     });
 
     let core_archive_urls = get_source_archive_urls(version);
@@ -219,7 +353,15 @@ pub async fn download_version(
 
     if let Some(o) = &opts {
         let size = std::fs::metadata(&zip_path).map(|m| m.len()).ok();
-        emit_download_progress(o, size.unwrap_or(0), size, Some(100), "done", "下载完成");
+        emit_download_progress(
+            o,
+            size.unwrap_or(0),
+            size,
+            Some(100),
+            None,
+            "done",
+            "下载完成",
+        );
     }
 
     let zip_path_str = zip_path
@@ -275,4 +417,52 @@ pub fn remove_version(version: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn meter_at(base: Instant) -> SpeedMeter {
+        SpeedMeter {
+            last_bytes: 0,
+            last_at: base,
+            smoothed: 0.0,
+        }
+    }
+
+    #[test]
+    fn speed_meter_smooths_samples() {
+        let base = Instant::now();
+        let mut meter = meter_at(base);
+
+        assert_eq!(
+            meter.update(1_000_000, base + Duration::from_secs(1)),
+            Some(1_000_000)
+        );
+        assert_eq!(
+            meter.update(3_000_000, base + Duration::from_secs(2)),
+            Some(1_400_000)
+        );
+    }
+
+    #[test]
+    fn speed_meter_ignores_short_windows() {
+        let base = Instant::now();
+        let mut meter = meter_at(base);
+
+        assert_eq!(meter.update(100, base + Duration::from_millis(10)), None);
+        assert_eq!(
+            meter.update(1_000_000, base + Duration::from_secs(1)),
+            Some(1_000_000)
+        );
+    }
+
+    #[test]
+    fn percent_reserves_hundred_for_terminal_event() {
+        assert_eq!(compute_percent_0_99(0, None), None);
+        assert_eq!(compute_percent_0_99(0, Some(100)), Some(0));
+        assert_eq!(compute_percent_0_99(50, Some(100)), Some(49));
+        assert_eq!(compute_percent_0_99(100, Some(100)), Some(99));
+    }
 }

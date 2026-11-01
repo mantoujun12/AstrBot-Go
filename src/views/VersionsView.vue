@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import ConfirmDialog from "../components/common/ConfirmDialog.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import PageHeader from "../components/common/PageHeader.vue";
@@ -13,10 +13,13 @@ import {
   reinstallComponent,
   uninstallComponent,
 } from "../services/components";
-import { toUserMessage } from "../services/errors";
+import { isDownloadCancelled, toUserMessage } from "../services/errors";
 import {
+  cancelVersionDownload,
   fetchReleases,
   installVersion,
+  pauseVersionDownload,
+  resumeVersionDownload,
   uninstallVersion,
 } from "../services/versions";
 import { useLauncherStore } from "../stores/launcher";
@@ -77,6 +80,8 @@ interface ReleaseRow {
   release: GitHubRelease;
   installed: boolean;
   busy: boolean;
+  downloading: boolean;
+  paused: boolean;
   progress: DownloadProgress | null;
   size: number;
 }
@@ -122,14 +127,23 @@ const installedVersionSet = computed(
   () => new Set(versions.value.map((version) => version.version)),
 );
 
+// Downloads started from this page. Kept separately from the shared busy
+// registry so uninstall operations on the same version do not show pause/stop.
+const activeDownloads = reactive(new Set<string>());
+
 const releaseRows = computed<ReleaseRow[]>(() =>
-  releases.value.map((release) => ({
-    release,
-    installed: installedVersionSet.value.has(release.tag_name),
-    busy: isBusy(`version:${release.tag_name}`),
-    progress: downloads.value[release.tag_name] ?? null,
-    size: releaseSize(release),
-  })),
+  releases.value.map((release) => {
+    const progress = downloads.value[release.tag_name] ?? null;
+    return {
+      release,
+      installed: installedVersionSet.value.has(release.tag_name),
+      busy: isBusy(`version:${release.tag_name}`),
+      downloading: activeDownloads.has(release.tag_name),
+      paused: progress?.step === "paused",
+      progress,
+      size: releaseSize(release),
+    };
+  }),
 );
 
 const allReleasesInstalled = computed(
@@ -333,12 +347,43 @@ async function handleOpenVersionFolder(
 }
 
 function handleInstallRelease(release: GitHubRelease): void {
-  if (installedVersionSet.value.has(release.tag_name)) {
+  const tag = release.tag_name;
+  if (installedVersionSet.value.has(tag) || activeDownloads.has(tag)) {
     return;
   }
-  void run(`version:${release.tag_name}`, () => installVersion(release), {
-    success: `已安装 ${release.tag_name}`,
+
+  activeDownloads.add(tag);
+  void run(`version:${tag}`, () => installVersion(release), {
+    success: `已安装 ${tag}`,
+    onError: (error) => {
+      if (!isDownloadCancelled(error)) {
+        return false;
+      }
+      showToast(`已停止下载 ${tag}`, "info");
+      return true;
+    },
+  }).finally(() => {
+    activeDownloads.delete(tag);
   });
+}
+
+async function handleTogglePause(row: ReleaseRow): Promise<void> {
+  const tag = row.release.tag_name;
+  try {
+    await (row.paused
+      ? resumeVersionDownload(tag)
+      : pauseVersionDownload(tag));
+  } catch (cause) {
+    showErrorToast(cause);
+  }
+}
+
+async function handleStopDownload(row: ReleaseRow): Promise<void> {
+  try {
+    await cancelVersionDownload(row.release.tag_name);
+  } catch (cause) {
+    showErrorToast(cause);
+  }
 }
 
 function openReleaseNotes(release: GitHubRelease): void {
@@ -634,7 +679,28 @@ function openReleaseNotes(release: GitHubRelease): void {
               >
                 详情
               </v-btn>
+              <template v-if="row.downloading">
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  :prepend-icon="row.paused ? 'mdi-play' : 'mdi-pause'"
+                  @click="handleTogglePause(row)"
+                >
+                  {{ row.paused ? "继续" : "暂停" }}
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="error"
+                  prepend-icon="mdi-stop"
+                  @click="handleStopDownload(row)"
+                >
+                  停止
+                </v-btn>
+              </template>
               <v-btn
+                v-else
                 size="small"
                 variant="tonal"
                 color="primary"

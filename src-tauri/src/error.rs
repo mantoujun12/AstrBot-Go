@@ -25,6 +25,8 @@ pub enum ErrorKind {
     VersionNotFound,
     /// Version is in use by an instance
     VersionInUse,
+    /// Download was cancelled by the user
+    DownloadCancelled,
     /// Configuration error
     Config,
     /// File system error
@@ -61,6 +63,7 @@ impl ErrorKind {
             Self::InstanceNotRunning => 1003,
             Self::VersionNotFound => 1004,
             Self::VersionInUse => 1005,
+            Self::DownloadCancelled => 1006,
             Self::Config => 2001,
             Self::Io => 2002,
             Self::Network => 2003,
@@ -125,6 +128,10 @@ impl AppError {
                 ("instance".to_string(), instance_name.to_string()),
             ]),
         )
+    }
+
+    pub fn download_cancelled() -> Self {
+        Self::new(ErrorKind::DownloadCancelled, HashMap::new())
     }
 
     pub fn config(message: impl Into<String>) -> Self {

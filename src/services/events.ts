@@ -70,11 +70,13 @@ function toDownloadProgress(value: unknown): DownloadProgress | null {
   const downloaded = typeof value.downloaded === "number" ? value.downloaded : 0;
   const total = typeof value.total === "number" ? value.total : null;
   const progress = typeof value.progress === "number" ? value.progress : null;
+  const speed = typeof value.speed === "number" ? value.speed : null;
   return {
     id: value.id,
     downloaded,
     total,
     progress,
+    speed,
     step: typeof value.step === "string" ? value.step : "",
     message: typeof value.message === "string" ? value.message : "",
   };

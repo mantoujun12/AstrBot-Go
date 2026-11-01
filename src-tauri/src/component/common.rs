@@ -34,12 +34,13 @@ pub(super) async fn install_from_archive_with_progress(
     let opts = app_handle.map(|ah| DownloadOptions {
         app_handle: ah,
         id: progress_id,
+        control: None,
     });
 
     download_file(client, download_url, archive_path, opts.as_ref()).await?;
 
     if let Some(o) = &opts {
-        emit_download_progress(o, 0, None, Some(99), "extracting", "正在解压");
+        emit_download_progress(o, 0, None, Some(99), None, "extracting", "正在解压");
     }
 
     match archive_format {
@@ -52,7 +53,7 @@ pub(super) async fn install_from_archive_with_progress(
     }
 
     if let Some(o) = &opts {
-        emit_download_progress(o, 0, None, Some(100), "done", "安装完成");
+        emit_download_progress(o, 0, None, Some(100), None, "done", "安装完成");
     }
 
     Ok(())

@@ -91,6 +91,8 @@ function messageForCode(code: number, payload: Record<string, string>): string {
       return payload.instance
         ? `版本正被实例“${payload.instance}”使用`
         : "版本正被实例使用";
+    case 1006:
+      return "下载已取消";
     case 2001:
       return payload.detail ?? "配置保存失败";
     case 2002:
@@ -148,4 +150,8 @@ export function toUserMessage(error: unknown): string {
 
 export function isLockError(error: unknown): boolean {
   return parseBackendError(error).lock !== null;
+}
+
+export function isDownloadCancelled(error: unknown): boolean {
+  return toBackendError(error)?.code === 1006;
 }

@@ -12,11 +12,16 @@ const activeDeployId = ref<string | null>(null);
 const clearTimers = new Map<string, number>();
 let initPromise: Promise<void> | null = null;
 
-function scheduleClear(key: string, kind: "deploy" | "download"): void {
+function cancelClear(key: string): void {
   const existing = clearTimers.get(key);
   if (existing !== undefined) {
     clearTimeout(existing);
+    clearTimers.delete(key);
   }
+}
+
+function scheduleClear(key: string, kind: "deploy" | "download"): void {
+  cancelClear(key);
 
   const timer = window.setTimeout(() => {
     clearTimers.delete(key);
@@ -43,8 +48,16 @@ function handleDeploy(progress: DeployProgress): void {
 
 function handleDownload(progress: DownloadProgress): void {
   downloads.value = { ...downloads.value, [progress.id]: progress };
-  if (progress.step === "done" || progress.step === "error") {
+  if (
+    progress.step === "done" ||
+    progress.step === "error" ||
+    progress.step === "cancelled"
+  ) {
     scheduleClear(progress.id, "download");
+  } else {
+    // A new download may reuse an id whose previous entry is still waiting to
+    // be cleared; keep the timer from deleting the fresh progress.
+    cancelClear(progress.id);
   }
 }
 

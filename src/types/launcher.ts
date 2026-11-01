@@ -132,6 +132,8 @@ export interface DownloadProgress {
   downloaded: number;
   total: number | null;
   progress: number | null;
+  /** Smoothed transfer rate in bytes per second, `null` when unknown. */
+  speed: number | null;
   step: string;
   message: string;
 }

@@ -1,9 +1,32 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { DownloadProgress } from "../../types/launcher";
+import { formatFileSize } from "../../utils/format";
 
 const props = defineProps<{
   progress: DownloadProgress | null;
 }>();
+
+const percent = computed(() => {
+  const value = props.progress?.progress;
+  return value === null || value === undefined ? null : Math.round(value);
+});
+
+const sizeText = computed(() => {
+  const progress = props.progress;
+  if (!progress || progress.downloaded <= 0) {
+    return "";
+  }
+  const downloaded = formatFileSize(progress.downloaded);
+  return progress.total
+    ? `${downloaded} / ${formatFileSize(progress.total)}`
+    : downloaded;
+});
+
+const speedText = computed(() => {
+  const speed = props.progress?.speed ?? 0;
+  return speed > 0 ? `${formatFileSize(speed)}/s` : "";
+});
 </script>
 
 <template>
@@ -17,8 +40,10 @@ const props = defineProps<{
     />
     <div class="download-progress__meta">
       <span>{{ props.progress.message || props.progress.step }}</span>
-      <span v-if="props.progress.progress !== null">
-        {{ Math.round(props.progress.progress) }}%
+      <span class="download-progress__stats">
+        <span v-if="sizeText">{{ sizeText }}</span>
+        <span v-if="speedText" class="download-progress__speed">{{ speedText }}</span>
+        <span v-if="percent !== null">{{ percent }}%</span>
       </span>
     </div>
   </div>
@@ -39,5 +64,18 @@ const props = defineProps<{
   color: rgba(var(--v-theme-on-surface), 0.56);
   font-size: 0.75rem;
   line-height: 1.4;
+}
+
+.download-progress__stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.download-progress__speed {
+  color: rgb(var(--v-theme-primary));
 }
 </style>

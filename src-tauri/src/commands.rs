@@ -13,6 +13,7 @@ use crate::config::{
     AppManifest, BackupInfo, InstalledVersion, ThemePreference,
 };
 use crate::download;
+use crate::download_control;
 use crate::error::{AppError, Result};
 use crate::github::{self, GitHubRelease};
 use crate::instance::{self, InstanceStatus};
@@ -58,6 +59,15 @@ impl AppState {
 
     fn replace_client(&self, client: Client) {
         *write_lock_recover(&self.client, "AppState.client") = client;
+    }
+
+    /// Client for large downloads, built from the current proxy settings.
+    ///
+    /// Downloads must not keep the 30 s total timeout used by API requests,
+    /// otherwise long transfers (and paused ones) would be aborted.
+    fn download_client(&self) -> Result<Client> {
+        let config = load_config()?;
+        network_config::build_download_client_from_config(config.as_ref())
     }
 }
 
@@ -474,8 +484,23 @@ pub async fn install_version(
     state: State<'_, AppState>,
     release: GitHubRelease,
 ) -> Result<()> {
-    let client = state.client();
+    let client = state.download_client()?;
     download::download_version(&client, &release, Some(&app_handle)).await
+}
+
+#[tauri::command]
+pub fn pause_download(id: String) -> Result<()> {
+    download_control::pause(&id)
+}
+
+#[tauri::command]
+pub fn resume_download(id: String) -> Result<()> {
+    download_control::resume(&id)
+}
+
+#[tauri::command]
+pub fn cancel_download(id: String) {
+    download_control::cancel(&id);
 }
 
 #[tauri::command]
