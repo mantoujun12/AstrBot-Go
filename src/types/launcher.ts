@@ -86,6 +86,7 @@ export interface BackupMetadata {
   includes_data: boolean;
   arch_target: string;
   auto_generated: boolean;
+  note: string;
 }
 
 export interface BackupInfo {

@@ -46,7 +46,7 @@ const headers = computed<DataTableHeader[]>(() => [
   },
   {
     title: t("backups.headers.note"),
-    key: "parse_error",
+    key: "note",
     sortable: false,
     minWidth: 160,
   },
@@ -93,7 +93,9 @@ const filteredBackups = computed(() => {
     ) {
       return false;
     }
-    return keyword === "" || backup.filename.toLowerCase().includes(keyword);
+    return keyword === "" ||
+      backup.filename.toLowerCase().includes(keyword) ||
+      backup.metadata.note.toLowerCase().includes(keyword);
   });
 });
 
@@ -142,7 +144,7 @@ function openCreateDialog(): void {
   createOpen.value = true;
 }
 
-async function handleCreate(instanceId: string): Promise<void> {
+async function handleCreate(instanceId: string, note: string): Promise<void> {
   if (createBusy.value) {
     return;
   }
@@ -150,7 +152,7 @@ async function handleCreate(instanceId: string): Promise<void> {
   try {
     const created = await run(
       `backup:create:${instanceId}`,
-      () => createBackup(instanceId),
+      () => createBackup(instanceId, note),
       { success: t("backups.created") },
     );
     if (created) {
@@ -451,8 +453,10 @@ async function handleOpenFolder(path: string): Promise<void> {
             {{ formatDateTime(item.metadata.created_at) }}
           </template>
 
-          <template #item.parse_error="{ item }">
-            <span class="backup-note">{{ item.parse_error || "—" }}</span>
+          <template #item.note="{ item }">
+            <span class="backup-note">
+              {{ item.corrupted ? item.parse_error : item.metadata.note || "—" }}
+            </span>
           </template>
 
           <template #item.actions="{ item }">

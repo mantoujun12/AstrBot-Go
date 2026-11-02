@@ -394,6 +394,8 @@ pub struct BackupMetadata {
     pub arch_target: String,
     #[serde(default)]
     pub auto_generated: bool,
+    #[serde(default)]
+    pub note: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -452,6 +454,7 @@ version = "v4.0.0"
         assert!(metadata.includes_data);
         assert!(metadata.arch_target.is_empty());
         assert!(!metadata.auto_generated);
+        assert!(metadata.note.is_empty());
         Ok(())
     }
 
@@ -509,6 +512,7 @@ version = "v4.0.0"
             includes_data: false,
             arch_target: "x86_64-pc-windows-msvc".to_string(),
             auto_generated: true,
+            note: "升级前备份".to_string(),
         };
 
         let decoded: BackupMetadata = toml::from_str(&toml::to_string(&metadata)?)?;
@@ -521,6 +525,7 @@ version = "v4.0.0"
         assert_eq!(decoded.includes_data, metadata.includes_data);
         assert_eq!(decoded.arch_target, metadata.arch_target);
         assert_eq!(decoded.auto_generated, metadata.auto_generated);
+        assert_eq!(decoded.note, metadata.note);
         Ok(())
     }
 

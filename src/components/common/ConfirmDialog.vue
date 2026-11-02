@@ -11,12 +11,14 @@ const props = withDefaults(
     cancelLabel?: string;
     color?: string;
     loading?: boolean;
+    confirmDisabled?: boolean;
     maxWidth?: number | string;
   }>(),
   {
     message: "",
     color: "primary",
     loading: false,
+    confirmDisabled: false,
     maxWidth: 440,
   },
 );
@@ -55,6 +57,9 @@ function close(): void {
       <v-card-text v-if="message" class="confirm-dialog__message">
         {{ message }}
       </v-card-text>
+      <v-card-text v-if="$slots.default" class="confirm-dialog__body">
+        <slot />
+      </v-card-text>
       <v-card-actions class="confirm-dialog__actions">
         <v-spacer />
         <v-btn variant="text" :disabled="loading" @click="close">
@@ -64,6 +69,7 @@ function close(): void {
           :color="color"
           variant="flat"
           :loading="loading"
+          :disabled="confirmDisabled"
           @click="emit('confirm')"
         >
           {{ confirmText }}
@@ -87,6 +93,10 @@ function close(): void {
   font-size: 0.875rem;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.confirm-dialog__body {
+  padding: 12px 20px 0;
 }
 
 .confirm-dialog__actions {
