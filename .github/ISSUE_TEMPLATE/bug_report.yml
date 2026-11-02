@@ -1,0 +1,70 @@
+name: 🐞 Bug Report / 问题报告
+description: Report a bug. / 报告一个 bug 。
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AstrBot Launcher (Vue Version)
+        Before submitting, please go to issue page to check whether this issue has already been reported. 
+
+        感谢你帮助改进 AstrBot Launcher (Vue Version)
+        提交前请先前往 issue 页面确认是否已有相同的问题。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description / Bug 描述
+      description: Clearly and concisely describe the issue. / 清晰简洁地描述遇到的问题现象。
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce / 复现步骤
+      description: Describe in detail the steps to reproduce this issue. / 详细描述复现此问题的操作步骤。
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Logs / 日志
+      description: Debug-level logs related to the issue. / 与问题相关的 Debug 级别的日志。
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: AstrBot Launcher (Vue Version) Version / 版本
+      description: The version in which the issue occurred. / 发生问题的版本。
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: Operating System / 操作系统
+      description: The operating system on which AstrBot Launcher (Vue Version) is running. / AstrBot Launcher (Vue Version) 运行所在的操作系统。
+      options:
+        - "Windows"
+        - "MacOS"
+        - "Linux"
+        - "Other"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Confirmation / 确认
+      description: Please confirm the following before submitting. / 请确认以下条件满足后再提交。
+      options:
+        - label: I have searched existing issues and found no similar reports. / 我已搜索现有 Issues ，未找到相似问题。
+          required: true
+        - label: This is a bug report, not a feature request or usage question. / 这是 Bug 反馈，而非功能请求或使用提问。
+          required: true
+        - label: I am willing to submit a PR to help resolve this issue. (Optional) / 我愿意提交 PR 以帮助解决此问题。（可选）
+          required: false

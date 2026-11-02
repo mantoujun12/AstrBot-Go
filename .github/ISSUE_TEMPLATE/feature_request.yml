@@ -1,0 +1,42 @@
+name: ✨ Feature Request / 功能建议
+description: submit your idea. / 提出你的想法。
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AstrBot Launcher (Vue Version)
+        Before submitting, please go to issue page to check whether this issue has already been reported. 
+
+        感谢你帮助改进 AstrBot Launcher (Vue Version)
+        提交前请先前往 issue 页面确认是否已有相同的问题。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description / 功能描述
+      description: Clearly and concisely describe the feature you need. / 清晰简洁地描述需要的功能。
+    validations:
+      required: true
+
+  - type: textarea
+    id: use   
+    attributes:
+      label: Use Case / 使用场景
+      description: Describe the use case in detail. / 详细描述使用的场景。
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Confirmation / 确认
+      description: Please confirm all of the following before submitting. / 请确认以下条件全部满足后再提交。
+      options:
+        - label: I searched existing issues and found no similar requests. / 我已搜索现有 Issues ，未找到相似问题。
+          required: true
+        - label: This is a feature request, not a bug report. / 这是功能请求，而非 Bug 反馈。
+          required: true
+        - label: I am willing to submit a PR to help address this request. (Optional) / 我愿意提交 PR 以帮助解决此问题。（可选）
+          required: false

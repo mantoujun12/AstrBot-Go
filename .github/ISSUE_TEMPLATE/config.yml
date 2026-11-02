@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: AstrBot Core / Dashboard 问题
+    url: https://github.com/AstrBotDevs/AstrBot/issues/new/choose
+    about: 请前往上游仓库提交 issue 。
+  - name: AstrBot Core / Dashboard Question
+    url: https://github.com/AstrBotDevs/AstrBot/issues/new/choose
+    about: Please submit an issue to the upstream repository.
