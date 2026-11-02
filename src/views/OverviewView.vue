@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { ApexOptions } from "apexcharts";
+import type { ChartConfiguration } from "chart.js";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import VueApexCharts from "vue3-apexcharts";
+import CanvasChart from "../components/common/CanvasChart.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import { useLauncherStore } from "../stores/launcher";
 import type {
@@ -36,11 +36,6 @@ interface CompositionItem {
   label: string;
   count: number;
   color: string;
-}
-
-interface BarSeries {
-  name: string;
-  data: number[];
 }
 
 const CHART_FONT_FAMILY = '"Outfit", "Noto Sans", sans-serif';
@@ -203,12 +198,9 @@ const backupTotalInRange = computed(() =>
   backupMonths.value.reduce((total, bucket) => total + bucket.count, 0),
 );
 
-const backupSeries = computed<BarSeries[]>(() => [
-  {
-    name: "备份数量",
-    data: backupMonths.value.map((bucket) => bucket.count),
-  },
-]);
+const backupCounts = computed(() =>
+  backupMonths.value.map((bucket) => bucket.count),
+);
 
 const latestBackup = computed<BackupInfo | null>(() => {
   let latest: BackupInfo | null = null;
@@ -305,107 +297,151 @@ function withAlpha(color: string, alpha: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-const donutOptions = computed<ApexOptions>(() => {
+function chartTooltipStyle() {
   const palette = themePalette.value;
-  const mutedText = withAlpha(palette.text, 0.62);
 
   return {
-    chart: {
-      background: "transparent",
-      toolbar: { show: false },
-      fontFamily: CHART_FONT_FAMILY,
-      animations: { enabled: !prefersReducedMotion },
-    },
-    theme: { mode: isDark.value ? "dark" : "light" },
-    labels: stateLabels.value,
-    colors: [
-      palette.success,
-      palette.info,
-      palette.warning,
-      palette.secondary,
-    ],
-    stroke: { width: 0 },
-    dataLabels: { enabled: false },
-    legend: {
-      position: "bottom",
-      horizontalAlign: "center",
-      labels: { colors: mutedText },
-      itemMargin: { horizontal: 8, vertical: 4 },
-      markers: { size: 7 },
-    },
-    plotOptions: {
-      pie: {
-        donut: { size: "72%" },
-      },
-    },
-    tooltip: {
-      theme: isDark.value ? "dark" : "light",
-    },
+    backgroundColor: isDark.value ? "#242424" : "#ffffff",
+    titleColor: palette.text,
+    bodyColor: palette.text,
+    borderColor: withAlpha(palette.border, isDark.value ? 0.55 : 0.5),
+    borderWidth: 1,
+    padding: 10,
+    cornerRadius: 8,
+    displayColors: true,
+    boxWidth: 7,
+    boxHeight: 7,
+    boxPadding: 4,
+    titleFont: { family: CHART_FONT_FAMILY, size: 12, weight: 600 },
+    bodyFont: { family: CHART_FONT_FAMILY, size: 12 },
   };
-});
+}
 
-const backupOptions = computed<ApexOptions>(() => {
-  const palette = themePalette.value;
-  const mutedText = withAlpha(palette.text, 0.62);
+const donutConfig = computed<ChartConfiguration<"doughnut", number[], string>>(
+  () => {
+    const palette = themePalette.value;
+    const mutedText = withAlpha(palette.text, 0.62);
 
-  return {
-    chart: {
-      background: "transparent",
-      toolbar: { show: false },
-      fontFamily: CHART_FONT_FAMILY,
-      animations: { enabled: !prefersReducedMotion },
-    },
-    theme: { mode: isDark.value ? "dark" : "light" },
-    colors: [palette.primary],
-    plotOptions: {
-      bar: {
-        borderRadius: 6,
-        borderRadiusApplication: "end",
-        columnWidth: "46%",
+    return {
+      type: "doughnut",
+      data: {
+        labels: stateLabels.value,
+        datasets: [
+          {
+            data: donutSeries.value,
+            backgroundColor: [
+              palette.success,
+              palette.info,
+              palette.warning,
+              palette.secondary,
+            ],
+            borderWidth: 0,
+            hoverBorderWidth: 0,
+            spacing: 0,
+          },
+        ],
       },
-    },
-    stroke: { show: false },
-    dataLabels: { enabled: false },
-    grid: {
-      borderColor: withAlpha(palette.border, isDark.value ? 0.4 : 0.26),
-      strokeDashArray: 0,
-      xaxis: { lines: { show: false } },
-      yaxis: { lines: { show: true } },
-    },
-    xaxis: {
-      categories: backupMonthLabels.value,
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: {
-        style: {
-          colors: mutedText,
-          fontSize: "12px",
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "72%",
+        animation: prefersReducedMotion ? false : { duration: 350 },
+        font: { family: CHART_FONT_FAMILY, size: 12 },
+        color: mutedText,
+        plugins: {
+          legend: {
+            display: true,
+            position: "bottom",
+            labels: {
+              color: mutedText,
+              usePointStyle: true,
+              pointStyle: "circle",
+              boxWidth: 7,
+              boxHeight: 7,
+              padding: 12,
+              font: { family: CHART_FONT_FAMILY, size: 12 },
+            },
+          },
+          tooltip: chartTooltipStyle(),
         },
       },
-    },
-    yaxis: {
-      min: 0,
-      forceNiceScale: true,
-      labels: {
-        style: {
-          colors: mutedText,
-          fontSize: "12px",
+    };
+  },
+);
+
+const backupConfig = computed<ChartConfiguration<"bar", number[], string>>(
+  () => {
+    const palette = themePalette.value;
+    const mutedText = withAlpha(palette.text, 0.62);
+
+    return {
+      type: "bar",
+      data: {
+        labels: backupMonthLabels.value,
+        datasets: [
+          {
+            label: "备份数量",
+            data: backupCounts.value,
+            backgroundColor: palette.primary,
+            hoverBackgroundColor: palette.primary,
+            borderRadius: 6,
+            borderSkipped: "start",
+            categoryPercentage: 0.46,
+            barPercentage: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: prefersReducedMotion ? false : { duration: 350 },
+        font: { family: CHART_FONT_FAMILY, size: 12 },
+        color: mutedText,
+        layout: { padding: { top: 8 } },
+        scales: {
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: {
+              color: mutedText,
+              maxRotation: 0,
+              font: { family: CHART_FONT_FAMILY, size: 12 },
+            },
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: withAlpha(
+                palette.border,
+                isDark.value ? 0.4 : 0.26,
+              ),
+              drawTicks: false,
+            },
+            border: { display: false },
+            ticks: {
+              color: mutedText,
+              precision: 0,
+              padding: 8,
+              font: { family: CHART_FONT_FAMILY, size: 12 },
+            },
+          },
         },
-        formatter: (value: number) => String(Math.round(value)),
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...chartTooltipStyle(),
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return `${context.dataset.label ?? "备份数量"}：${value} 个`;
+              },
+            },
+          },
+        },
       },
-    },
-    tooltip: {
-      theme: isDark.value ? "dark" : "light",
-      y: {
-        formatter: (value: number) => `${value} 个`,
-      },
-    },
-    legend: {
-      show: false,
-      labels: { colors: mutedText },
-    },
-  };
-});
+    };
+  },
+);
 
 function stateDotColor(state: InstanceState): string {
   return `rgb(var(--v-theme-${instanceStateColor(state)}))`;
@@ -506,12 +542,7 @@ function retry(): void {
               role="img"
               :aria-label="donutAriaLabel"
             >
-              <VueApexCharts
-                type="donut"
-                :height="donutHeight"
-                :options="donutOptions"
-                :series="donutSeries"
-              />
+              <CanvasChart :config="donutConfig" :height="donutHeight" />
             </div>
           </div>
 
@@ -585,12 +616,7 @@ function retry(): void {
               role="img"
               :aria-label="backupChartAriaLabel"
             >
-              <VueApexCharts
-                type="bar"
-                :height="barHeight"
-                :options="backupOptions"
-                :series="backupSeries"
-              />
+              <CanvasChart :config="backupConfig" :height="barHeight" />
             </div>
           </div>
 
