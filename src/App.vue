@@ -135,8 +135,11 @@ onBeforeUnmount(() => {
 
 <template>
   <v-app class="launcher-app">
+    <!-- The title bar must stay outside `.launcher-shell`: its `isolation`
+         creates a stacking context that would trap the window controls below
+         Vuetify overlays, which are teleported to `body` with z-index 2400. -->
+    <AppTitleBar />
     <div class="launcher-shell">
-      <AppTitleBar />
       <!-- Instance tabs use the full window; the sidebar is only part of the
            home shell so it must not reserve layout space in those tabs. -->
       <LauncherSidebar
@@ -171,6 +174,7 @@ onBeforeUnmount(() => {
 
 .launcher-app {
   --launcher-titlebar-height: 40px;
+  --launcher-titlebar-z-index: 3000;
   width: 100%;
   height: 100vh;
   height: 100dvh;
