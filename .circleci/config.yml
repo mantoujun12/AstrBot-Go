@@ -5,6 +5,7 @@
 # - pnpm lockfile version: 9.0, frontend node version: 24.22, rustc version: 1.99.1
 # - `dist` is gitignored, so the frontend job persists it to the workspace for tauri-build's frontendDist check.
 # - clippy runs without `-D warnings`: Cargo.toml already denies critical lints, while unwrap_used / expect_used stay at warn.
+# - cimg/node ships pnpm under root-owned /usr/local/lib/node_modules, so the global install needs sudo to avoid EACCES.
 
 version: 2.1
 
@@ -17,7 +18,7 @@ jobs:
       - run:
           name: Install pnpm
           command: |
-            npm install --global pnpm@12
+            sudo env "PATH=$PATH" npm install --global pnpm@12
             pnpm --version
       - run:
           name: Install dependencies
