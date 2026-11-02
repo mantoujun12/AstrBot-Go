@@ -254,6 +254,10 @@ jobs:
           tag="v${VERSION}"
           repo="${GITHUB_REPOSITORY}"
 
+          # This job has no checkout, so gh cannot infer the repository from git.
+          # Every gh release command must pass --repo explicitly.
+          # 本任务没有 checkout，gh 无法从 git 推断仓库，所有 gh release 命令必须显式指定 --repo。
+
           resolve_tag_sha() {
             local sha type
             sha=$(gh api "repos/${repo}/git/ref/tags/${tag}" --jq '.object.sha' 2>/dev/null) || return 1
@@ -285,12 +289,12 @@ jobs:
 
           created=false
           for attempt in 1 2 3; do
-            if gh release create "${tag}" --verify-tag --draft \
+            if gh release create "${tag}" --repo "${repo}" --verify-tag --draft \
               --title "${tag}" --notes-file release-notes.md; then
               created=true
               break
             fi
-            if gh release view "${tag}" >/dev/null 2>&1; then
+            if gh release view "${tag}" --repo "${repo}" >/dev/null 2>&1; then
               created=true
               break
             fi
@@ -310,7 +314,7 @@ jobs:
 
           uploaded=false
           for attempt in 1 2 3; do
-            if gh release upload "${tag}" "${assets[@]}" --clobber; then
+            if gh release upload "${tag}" "${assets[@]}" --repo "${repo}" --clobber; then
               uploaded=true
               break
             fi
@@ -322,4 +326,4 @@ jobs:
             exit 1
           fi
 
-          gh release edit "${tag}" --draft=false
+          gh release edit "${tag}" --repo "${repo}" --draft=false
