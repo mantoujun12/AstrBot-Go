@@ -1,16 +1,19 @@
 use std::fs;
 use std::io::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt as _;
 use reqwest::Client;
 use tauri::{AppHandle, Emitter as _};
 
+use crate::archive::{validate_tar_gz_archive, validate_zip_archive};
 use crate::config::{with_manifest_mut, InstalledVersion};
 use crate::download_control::{self, ControlState, DownloadControl};
 use crate::error::{AppError, ErrorKind, Result};
 use crate::github::{get_source_archive_urls, GitHubRelease};
+use crate::utils::fs_ops;
+use crate::utils::log_redact;
 use crate::utils::net::{ensure_success_status, send_get};
 use crate::utils::paths::get_versions_dir;
 use crate::validation::resolve_version_zip_path;
@@ -164,28 +167,130 @@ fn compute_percent_0_99(downloaded: u64, total: Option<u64>) -> Option<u8> {
     Some(p.min(99) as u8)
 }
 
-/// Download a file from `url` and stream it to `dest`.
+/// Format of a downloaded artifact, derived from the final destination name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DownloadedFormat {
+    Zip,
+    TarGz,
+    Other,
+}
+
+fn downloaded_format(dest: &Path) -> DownloadedFormat {
+    let name = dest
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    if name.ends_with(".zip") {
+        DownloadedFormat::Zip
+    } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+        DownloadedFormat::TarGz
+    } else {
+        DownloadedFormat::Other
+    }
+}
+
+/// Validate a completed download before it is allowed to replace the old file.
+fn validate_downloaded_artifact(
+    temp_path: &Path,
+    dest: &Path,
+    expected_total: Option<u64>,
+    written: u64,
+) -> Result<()> {
+    fs_ops::validate_file_length(temp_path, expected_total, written)?;
+
+    match downloaded_format(dest) {
+        DownloadedFormat::Zip => validate_zip_archive(temp_path)
+            .map_err(|e| AppError::network(format!("下载的 Zip 压缩包无效或已损坏：{}", e)))?,
+        DownloadedFormat::TarGz => validate_tar_gz_archive(temp_path)
+            .map_err(|e| AppError::network(format!("下载的 Tar.gz 压缩包无效或已损坏：{}", e)))?,
+        DownloadedFormat::Other => {}
+    }
+
+    Ok(())
+}
+
+/// Validate the temporary download and atomically move it into place.
 ///
-/// On failure the partially-written file is removed so callers never see a
-/// truncated / corrupt artifact.
+/// Only the temporary file is removed when validation or replacement fails, so
+/// a previous artifact at `dest` survives a failed download.
+fn finalize_downloaded_file(
+    temp_path: &Path,
+    dest: &Path,
+    expected_total: Option<u64>,
+    written: u64,
+) -> Result<()> {
+    let result = validate_downloaded_artifact(temp_path, dest, expected_total, written)
+        .and_then(|()| fs_ops::replace_file_atomically(temp_path, dest));
+
+    if result.is_err() {
+        let _ = fs::remove_file(temp_path);
+    }
+
+    result
+}
+
+struct DownloadOutcome {
+    downloaded: u64,
+    total: Option<u64>,
+}
+
+async fn finalize_download_async(
+    temp_path: PathBuf,
+    dest: PathBuf,
+    outcome: DownloadOutcome,
+) -> Result<()> {
+    let cleanup_path = temp_path.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        finalize_downloaded_file(&temp_path, &dest, outcome.total, outcome.downloaded)
+    })
+    .await;
+
+    match result {
+        Ok(inner) => inner,
+        Err(error) => {
+            let _ = fs::remove_file(&cleanup_path);
+            Err(AppError::network(format!(
+                "下载文件校验任务失败：{}",
+                error
+            )))
+        }
+    }
+}
+
+/// Download a file from `url` and atomically replace `dest`.
+///
+/// The stream is written to a unique temporary sibling first. Only after the
+/// byte count and (when recognized) the archive structure are verified is the
+/// temporary file moved over `dest`. On failure the temporary file is removed
+/// and the previous file is left untouched.
 pub async fn download_file(
     client: &Client,
     url: &str,
     dest: &Path,
     opts: Option<&DownloadOptions<'_>>,
 ) -> Result<()> {
-    log::debug!("Downloading {} -> {:?}", url, dest);
+    log::debug!(
+        "Downloading {} -> {}",
+        log_redact::url_for_log(url),
+        log_redact::path_name(dest)
+    );
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent).map_err(|e| AppError::io(e.to_string()))?;
     }
 
-    let result = download_file_inner(client, url, dest, opts).await;
+    let (temp_path, file) = fs_ops::create_unique_sibling_file(dest, "part")?;
 
-    if result.is_err() {
-        let _ = fs::remove_file(dest);
-    }
+    let outcome = match download_file_inner(client, url, file, opts).await {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            let _ = fs::remove_file(&temp_path);
+            return Err(error);
+        }
+    };
 
-    result
+    finalize_download_async(temp_path, dest.to_path_buf(), outcome).await
 }
 
 pub async fn download_file_with_fallbacks(
@@ -198,7 +303,10 @@ pub async fn download_file_with_fallbacks(
 
     for (index, url) in urls.iter().enumerate() {
         if index > 0 {
-            log::warn!("Retrying download with fallback URL: {}", url);
+            log::warn!(
+                "Retrying download with fallback URL: {}",
+                log_redact::url_for_log(url)
+            );
             if let Some(o) = opts {
                 emit_download_progress(
                     o,
@@ -216,7 +324,11 @@ pub async fn download_file_with_fallbacks(
             Ok(()) => return Ok(()),
             Err(error) if error.kind() == ErrorKind::DownloadCancelled => return Err(error),
             Err(error) => {
-                log::warn!("Download failed for {}: {}", url, error);
+                log::warn!(
+                    "Download failed for {}: {}",
+                    log_redact::url_for_log(url),
+                    log_redact::redact_text(&error.to_string())
+                );
                 last_error = Some(error);
             }
         }
@@ -228,9 +340,9 @@ pub async fn download_file_with_fallbacks(
 async fn download_file_inner(
     client: &Client,
     url: &str,
-    dest: &Path,
+    mut file: fs::File,
     opts: Option<&DownloadOptions<'_>>,
-) -> Result<()> {
+) -> Result<DownloadOutcome> {
     let resp = send_get(client, url, false)
         .await
         .map_err(|e| AppError::network(e.to_string()))?;
@@ -253,8 +365,6 @@ async fn download_file_inner(
             "开始下载",
         );
     }
-
-    let mut file = fs::File::create(dest).map_err(|e| AppError::io(e.to_string()))?;
 
     let mut stream = resp.bytes_stream();
 
@@ -303,6 +413,8 @@ async fn download_file_inner(
         }
     }
 
+    file.flush().map_err(|e| AppError::io(e.to_string()))?;
+
     if let Some(o) = opts {
         // Keep 100 reserved for the terminal "done" event.
         emit_download_progress(
@@ -316,7 +428,7 @@ async fn download_file_inner(
         );
     }
 
-    Ok(())
+    Ok(DownloadOutcome { downloaded, total })
 }
 
 /// Download and register an AstrBot version archive.
@@ -336,12 +448,8 @@ pub async fn download_version(
     std::fs::create_dir_all(&versions_dir)
         .map_err(|e| AppError::io(format!("Failed to create versions dir: {}", e)))?;
 
-    if zip_path.exists() {
-        if let Err(e) = std::fs::remove_file(&zip_path) {
-            log::warn!("Failed to remove old zip {:?}: {}", zip_path, e);
-        }
-    }
-
+    // The existing archive is deliberately kept until a verified download
+    // atomically replaces it, so a failed download cannot remove a usable zip.
     let opts = app_handle.map(|ah| DownloadOptions {
         app_handle: ah,
         id: version,
@@ -412,7 +520,11 @@ pub fn remove_version(version: &str) -> Result<()> {
 
     if zip_path.exists() {
         if let Err(e) = std::fs::remove_file(&zip_path) {
-            log::warn!("Failed to remove zip {:?}: {}", zip_path, e);
+            log::warn!(
+                "Failed to remove version zip {}: {}",
+                log_redact::path_name(&zip_path),
+                e
+            );
         }
     }
 
@@ -464,5 +576,118 @@ mod tests {
         assert_eq!(compute_percent_0_99(0, Some(100)), Some(0));
         assert_eq!(compute_percent_0_99(50, Some(100)), Some(49));
         assert_eq!(compute_percent_0_99(100, Some(100)), Some(99));
+    }
+
+    struct TestDir(PathBuf);
+
+    impl TestDir {
+        fn new(label: &str) -> Result<Self> {
+            let path = std::env::temp_dir().join(format!(
+                "astrbot-launcher-download-{}-{}",
+                label,
+                uuid::Uuid::new_v4()
+            ));
+            fs::create_dir_all(&path)?;
+            Ok(Self(path))
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn write_file(path: &Path, content: &[u8]) -> Result<()> {
+        let mut file = fs::File::create(path)?;
+        file.write_all(content)?;
+        Ok(())
+    }
+
+    fn write_zip(path: &Path) -> Result<()> {
+        let file = fs::File::create(path)?;
+        let mut writer = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default();
+        writer.start_file("data/config.json", options)?;
+        writer.write_all(b"{}")?;
+        let file = writer.finish()?;
+        file.sync_all()?;
+        Ok(())
+    }
+
+    #[test]
+    fn artifact_format_is_detected_from_destination() {
+        assert_eq!(
+            downloaded_format(Path::new("artifact.zip")),
+            DownloadedFormat::Zip
+        );
+        assert_eq!(
+            downloaded_format(Path::new("artifact.ZIP")),
+            DownloadedFormat::Zip
+        );
+        assert_eq!(
+            downloaded_format(Path::new("artifact.tar.gz")),
+            DownloadedFormat::TarGz
+        );
+        assert_eq!(
+            downloaded_format(Path::new("artifact.tgz")),
+            DownloadedFormat::TarGz
+        );
+        assert_eq!(
+            downloaded_format(Path::new("artifact.exe")),
+            DownloadedFormat::Other
+        );
+    }
+
+    #[test]
+    fn length_mismatch_keeps_existing_destination() -> Result<()> {
+        let dir = TestDir::new("length")?;
+        let dest = dir.path().join("artifact.bin");
+        let temp = dir.path().join(".artifact.bin.part-test");
+        write_file(&dest, b"old")?;
+        write_file(&temp, b"abc")?;
+
+        assert!(finalize_downloaded_file(&temp, &dest, Some(5), 3).is_err());
+
+        assert_eq!(fs::read(&dest)?, b"old");
+        assert!(!temp.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_zip_keeps_existing_destination() -> Result<()> {
+        let dir = TestDir::new("invalid-zip")?;
+        let dest = dir.path().join("artifact.zip");
+        let temp = dir.path().join(".artifact.zip.part-test");
+        let payload = b"not a zip";
+        write_file(&dest, b"old")?;
+        write_file(&temp, payload)?;
+        let len = payload.len() as u64;
+
+        assert!(finalize_downloaded_file(&temp, &dest, Some(len), len).is_err());
+
+        assert_eq!(fs::read(&dest)?, b"old");
+        assert!(!temp.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn valid_zip_replaces_existing_destination() -> Result<()> {
+        let dir = TestDir::new("valid-zip")?;
+        let dest = dir.path().join("artifact.zip");
+        let temp = dir.path().join(".artifact.zip.part-test");
+        write_file(&dest, b"old")?;
+        write_zip(&temp)?;
+        let len = fs::metadata(&temp)?.len();
+
+        finalize_downloaded_file(&temp, &dest, Some(len), len)?;
+
+        validate_zip_archive(&dest)?;
+        assert!(!temp.exists());
+        Ok(())
     }
 }

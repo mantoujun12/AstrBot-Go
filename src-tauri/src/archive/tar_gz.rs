@@ -140,6 +140,34 @@ where
     Ok(())
 }
 
+/// Verify that a tar.gz archive can be decompressed and parsed to the end.
+///
+/// Reading every entry and then draining the decoder also verifies the gzip
+/// trailer (CRC and original size), so truncated downloads are rejected.
+pub(crate) fn validate_tar_gz_archive(archive_path: &Path) -> Result<()> {
+    let file = fs::File::open(archive_path)
+        .map_err(|e| AppError::io(format!("Failed to open tar.gz: {e}")))?;
+    let decoder = flate2::read::GzDecoder::new(file);
+    let mut archive = tar::Archive::new(decoder);
+    let mut sink = std::io::sink();
+
+    for entry in archive
+        .entries()
+        .map_err(|e| AppError::io(format!("Tar.gz archive is unreadable: {e}")))?
+    {
+        let mut entry =
+            entry.map_err(|e| AppError::io(format!("Tar.gz entry is unreadable: {e}")))?;
+        std::io::copy(&mut entry, &mut sink)
+            .map_err(|e| AppError::io(format!("Tar.gz entry is truncated: {e}")))?;
+    }
+
+    let mut decoder = archive.into_inner();
+    std::io::copy(&mut decoder, &mut sink)
+        .map_err(|e| AppError::io(format!("Tar.gz archive is truncated: {e}")))?;
+
+    Ok(())
+}
+
 /// Extract tar.gz archive to dest_dir, stripping the top-level directory from the archive.
 pub(crate) fn extract_tar_gz_flat(archive_path: &Path, dest_dir: &Path) -> Result<()> {
     // First pass: find the common top-level directory.
@@ -179,4 +207,75 @@ pub(crate) fn extract_tar_gz_flat(archive_path: &Path, dest_dir: &Path) -> Resul
         let stripped = strip_common_top_dir(&relative, top_dir.as_deref())?;
         Some(dest_dir.join(stripped))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, OpenOptions};
+
+    struct TestDir(PathBuf);
+
+    impl TestDir {
+        fn new(label: &str) -> Result<Self> {
+            let path = std::env::temp_dir().join(format!(
+                "astrbot-launcher-tar-{}-{}",
+                label,
+                uuid::Uuid::new_v4()
+            ));
+            fs::create_dir_all(&path)?;
+            Ok(Self(path))
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn write_tar_gz(path: &Path) -> Result<()> {
+        let file = fs::File::create(path)?;
+        let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+        let mut builder = tar::Builder::new(encoder);
+        let data = b"hello";
+        let mut header = tar::Header::new_gnu();
+        header.set_size(data.len() as u64);
+        header.set_mode(0o644);
+        header.set_cksum();
+        builder.append_data(&mut header, "data/hello.txt", &data[..])?;
+        let encoder = builder.into_inner()?;
+        encoder.finish()?;
+        Ok(())
+    }
+
+    #[test]
+    fn tar_gz_validation_accepts_readable_archive() -> Result<()> {
+        let dir = TestDir::new("valid")?;
+        let archive = dir.path().join("valid.tar.gz");
+        write_tar_gz(&archive)?;
+
+        validate_tar_gz_archive(&archive)?;
+        Ok(())
+    }
+
+    #[test]
+    fn tar_gz_validation_rejects_truncated_archive() -> Result<()> {
+        let dir = TestDir::new("truncated")?;
+        let archive = dir.path().join("truncated.tar.gz");
+        write_tar_gz(&archive)?;
+
+        let len = fs::metadata(&archive)?.len();
+        OpenOptions::new()
+            .write(true)
+            .open(&archive)?
+            .set_len(len - 8)?;
+
+        assert!(validate_tar_gz_archive(&archive).is_err());
+        Ok(())
+    }
 }

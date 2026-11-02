@@ -1,4 +1,5 @@
 pub(crate) mod archive_path;
+pub(crate) mod fs_ops;
 pub(crate) mod index_url;
 pub(crate) mod lock_check;
 pub(crate) mod log_bus;
