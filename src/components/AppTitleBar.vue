@@ -145,10 +145,14 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* Stays above the Vuetify overlay stack (dialogs start at z-index 2400 and
+   increment by 10 per nested overlay) so the window controls are never
+   swallowed by a scrim. Requires AppTitleBar to be mounted outside the
+   isolated `.launcher-shell` stacking context. */
 .app-titlebar {
   position: absolute;
   inset: 0 0 auto;
-  z-index: 3000;
+  z-index: var(--launcher-titlebar-z-index, 3000);
   display: flex;
   align-items: stretch;
   width: 100%;
