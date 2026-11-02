@@ -32,12 +32,13 @@ body:
     id: log
     attributes:
       label: Logs / 日志
-      description: Debug-level logs related to the issue. / 与问题相关的 Debug 级别的日志。
+      description: Please remove passwords, tokens, and other secrets before sharing logs. Do not include raw logs containing sensitive information. / 分享日志前请删除密码、令牌及其他机密信息；请勿在公开问题中提供包含敏感信息的原始日志。
       render: text
     validations:
-      required: true
+      required: false
 
   - type: input
+    id: version
     attributes:
       label: AstrBot Launcher (Vue Version) Version / 版本
       description: The version in which the issue occurred. / 发生问题的版本。
@@ -45,6 +46,7 @@ body:
       required: true
 
   - type: dropdown
+    id: os
     attributes:
       label: Operating System / 操作系统
       description: The operating system on which AstrBot Launcher (Vue Version) is running. / AstrBot Launcher (Vue Version) 运行所在的操作系统。
