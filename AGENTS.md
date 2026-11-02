@@ -27,6 +27,7 @@ Reference links:
 - Vite
 - pnpm
 - Vuetify 4
+- Chart.js (MIT)
 - Rust
 
 ## Directory Responsibilities
@@ -36,7 +37,6 @@ Reference links:
 - `src-tauri/capabilities/`: Tauri capability and permission configuration.
 - `src-tauri/tauri.conf.json`: Window, build, bundle, and security configuration.
 - `public/`: Static assets that do not need to pass through the module graph.
-- `pages/dashboard/`: Generated frontend fallback artifacts. Update them with fallback copy changes according to project convention.
 
 When extending functionality, separate pages, components, services, and state logic by responsibility. Do not put downloads, process management, backup and restore logic, or complex `invoke` calls into `App.vue`.
 
@@ -100,7 +100,6 @@ cargo clippy --all-targets -- -D warnings
 - Only adjust punctuation in comments, docstrings, and string literals. Punctuation that is part of code syntax must not be changed.
 - Keep locale keys synchronized across Chinese and English when adding, removing, or modifying entries. Do not leave visible copy that exists in only one language.
 - Do not mechanically replace punctuation in URLs, regular expressions, version numbers, format placeholders, or code snippets.
-- After changing frontend fallback copy, rerun `pnpm build` and commit the `pages/dashboard/` artifacts according to project convention.
 
 ## Verification Requirements
 
