@@ -1,0 +1,325 @@
+# Auto Release / 自动发行
+#
+# Triggers / 触发条件
+# - Push to main when paths match: src/**, public/**, src-tauri/**, package.json, pnpm-lock.yaml,
+#   vite.config.ts, index.html, tsconfig*.json, changelog/**.
+#   推送到 main，且改动命中上述路径时触发。
+# - Manual workflow_dispatch from main.
+#   在 main 上手动执行 workflow_dispatch。
+#
+# Release gate / 发布闸门
+# - package.json and src-tauri/tauri.conf.json versions must match.
+#   package.json 与 src-tauri/tauri.conf.json 的版本号必须一致。
+# - changelog/v<version>.md must exist with at least one real list entry.
+#   changelog/v<版本号>.md 必须存在且至少包含一条实际列表条目。
+# - Tag v<version> must not already have a GitHub Release.
+#   v<版本号> tag 不能已有 GitHub Release。
+# - An existing tag without a release also skips the build and requires manual handling.
+#   tag 已存在但没有 Release 时也会跳过构建，需要人工处理。
+# A version mismatch fails the job; a missing changelog or an existing tag skips the build.
+# 版本不一致会直接失败；缺少 changelog 或 tag 已存在时跳过构建。
+#
+# Security / 安全
+# - Third-party actions are pinned to full commit SHAs; update pins deliberately.
+#   第三方 action 固定到完整 commit SHA，升级时需人工审核。
+# - The build job has read-only contents permission and does not persist checkout credentials.
+#   The publish job has contents: write and never runs repository build code.
+#   构建任务只有 contents 只读权限且不保留 checkout 凭据；发布任务拥有 contents: write 权限，但不执行仓库构建代码。
+# - Immediately before publishing, the tag is re-checked and created atomically so a concurrent
+#   tag cannot make the release describe a different commit.
+#   发布前会再次校验 tag，并以原子方式创建，避免并发改动导致 Release 与源码不一致。
+#
+# How to trigger a release / 如何触发一次发布
+# 1. During development, add user-facing changes to changelog/unreleased.md under the Added, Changed,
+#    Deprecated, Removed, Fixed, and Security sections.
+#    开发过程中，面向用户的改动写入 changelog/unreleased.md 的“新增”“变更”“弃用”“移除”“修复”“安全”分节。
+# 2. When ready to release, create a version update pull request that:
+#    - bumps package.json, src-tauri/Cargo.toml, and src-tauri/tauri.conf.json to the release version;
+#    - updates src-tauri/Cargo.lock by running cargo check in src-tauri/;
+#    - renames changelog/unreleased.md to changelog/v<version>.md;
+#    - recreates an empty changelog/unreleased.md for the next cycle.
+#    准备发版时创建版本更新 PR：将 package.json、src-tauri/Cargo.toml、src-tauri/tauri.conf.json 改到发布版本；
+#    在 src-tauri/ 下运行 cargo check 更新 src-tauri/Cargo.lock；把 changelog/unreleased.md 改名为 changelog/v<版本号>.md；
+#    并新建空的 changelog/unreleased.md 供下一轮使用。
+# 3. Merge the version update pull request into main. The workflow builds Windows NSIS/MSI installers
+#    in a read-only job, then creates a GitHub Release in a separate job with write access.
+#    Build failures are retried 2 times (3 attempts total); release creation and asset upload are
+#    retried up to 3 times.
+#    合入 main 后，工作流先在只读任务中构建 Windows NSIS/MSI 安装包，再在拥有写权限的独立任务中创建 GitHub Release；
+#    构建失败自动重试 2 次（共 3 次尝试），Release 创建与安装包上传最多重试 3 次。
+# 4. After a release, continue development; the new changelog/unreleased.md is ready for the next cycle.
+#    发版后继续开发，新的 changelog/unreleased.md 已准备好记录下一轮改动。
+#
+# References / 参考
+# - tauri-action: https://github.com/tauri-apps/tauri-action
+# - pnpm/setup: https://github.com/pnpm/setup
+# - Semantic Versioning: https://semver.org/
+# - Keep a Changelog: https://keepachangelog.com/
+# - GitHub Actions workflow syntax: https://docs.github.com/actions/reference/workflows-and-actions/workflow-syntax
+
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "src-tauri/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "vite.config.ts"
+      - "index.html"
+      - "tsconfig*.json"
+      - "changelog/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    outputs:
+      should_release: ${{ steps.meta.outputs.should_release }}
+      version: ${{ steps.meta.outputs.version }}
+      changelog_body: ${{ steps.meta.outputs.changelog_body }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve release metadata
+        id: meta
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const fs = require("fs");
+
+            const tauri = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const version = tauri.version;
+
+            core.setOutput("version", version);
+
+            if (pkg.version !== version) {
+              core.setFailed(`package.json (${pkg.version}) 与 tauri.conf.json (${version}) 版本不一致`);
+              return;
+            }
+
+            const changelogPath = `changelog/v${version}.md`;
+
+            if (!fs.existsSync(changelogPath)) {
+              core.notice(`未找到 ${changelogPath}，跳过发布`);
+              core.setOutput("should_release", "false");
+              return;
+            }
+
+            const changelogBody = fs.readFileSync(changelogPath, "utf8").trim();
+
+            // Only real list entries count: ignore headings, rules such as "---", HTML comments,
+            // fenced code blocks, and placeholder bullets.
+            const entrySource = changelogBody
+              .replace(/<!--[\s\S]*?-->/g, "")
+              .replace(/```[\s\S]*?```/g, "");
+            const hasEntries = entrySource.split(/\r?\n/).some((line) => {
+              const text = line.trim();
+              return (
+                /^[-*+]\s+.*[\p{L}\p{N}]/u.test(text) &&
+                !/^[-*+]\s+(?:todo|tbd|tba|待补充|待填写|待定)\s*$/iu.test(text)
+              );
+            });
+
+            if (!hasEntries) {
+              core.notice(`${changelogPath} 还没有实际条目，跳过发布`);
+              core.setOutput("should_release", "false");
+              return;
+            }
+
+            let releaseExists = false;
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: `v${version}`,
+              });
+              releaseExists = true;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+
+            if (releaseExists) {
+              core.notice(`v${version} 已有 GitHub Release，跳过发布`);
+              core.setOutput("should_release", "false");
+              return;
+            }
+
+            let tagExists = false;
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/v${version}`,
+              });
+              tagExists = true;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+
+            if (tagExists) {
+              core.notice(`标签 v${version} 已存在但没有 Release，请手动处理后再重试`);
+              core.setOutput("should_release", "false");
+              return;
+            }
+
+            core.setOutput("changelog_body", changelogBody);
+            core.setOutput("should_release", "true");
+
+      - name: Setup pnpm and Node
+        if: steps.meta.outputs.should_release == 'true'
+        uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          version: 12
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+
+      - name: Setup Rust
+        if: steps.meta.outputs.should_release == 'true'
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust
+        if: steps.meta.outputs.should_release == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Build installers
+        if: steps.meta.outputs.should_release == 'true'
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        with:
+          retryAttempts: 2
+          args: --bundles nsis,msi
+
+      - name: Upload installers
+        if: steps.meta.outputs.should_release == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: installers
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: build
+    if: needs.build.outputs.should_release == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: installers
+          path: dist
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          TARGET_SHA: ${{ github.sha }}
+          CHANGELOG_BODY: ${{ needs.build.outputs.changelog_body }}
+        run: |
+          set -euo pipefail
+
+          tag="v${VERSION}"
+          repo="${GITHUB_REPOSITORY}"
+
+          resolve_tag_sha() {
+            local sha type
+            sha=$(gh api "repos/${repo}/git/ref/tags/${tag}" --jq '.object.sha' 2>/dev/null) || return 1
+            type=$(gh api "repos/${repo}/git/ref/tags/${tag}" --jq '.object.type')
+            if [ "${type}" = "tag" ]; then
+              sha=$(gh api "repos/${repo}/git/tags/${sha}" --jq '.object.sha')
+            fi
+            printf '%s' "${sha}"
+          }
+
+          # Re-check the tag right before writing: it must be absent or point at the built commit.
+          if existing_sha=$(resolve_tag_sha); then
+            if [ "${existing_sha}" != "${TARGET_SHA}" ]; then
+              echo "::error::标签 ${tag} 指向 ${existing_sha}，与构建提交 ${TARGET_SHA} 不一致，停止发布"
+              exit 1
+            fi
+          else
+            # Create the tag atomically so a concurrent creation cannot be silently reused.
+            if ! gh api --method POST "repos/${repo}/git/refs" \
+              -f "ref=refs/tags/${tag}" -f "sha=${TARGET_SHA}" >/dev/null; then
+              if ! existing_sha=$(resolve_tag_sha) || [ "${existing_sha}" != "${TARGET_SHA}" ]; then
+                echo "::error::无法将标签 ${tag} 创建到 ${TARGET_SHA}，停止发布"
+                exit 1
+              fi
+            fi
+          fi
+
+          printf '%s\n' "${CHANGELOG_BODY}" > release-notes.md
+
+          created=false
+          for attempt in 1 2 3; do
+            if gh release create "${tag}" --verify-tag --draft \
+              --title "${tag}" --notes-file release-notes.md; then
+              created=true
+              break
+            fi
+            if gh release view "${tag}" >/dev/null 2>&1; then
+              created=true
+              break
+            fi
+            echo "创建 Release 失败（第 ${attempt} 次），准备重试"
+            sleep $((attempt * 10))
+          done
+          if [ "${created}" != "true" ]; then
+            echo "::error::创建 GitHub Release ${tag} 失败"
+            exit 1
+          fi
+
+          mapfile -t assets < <(find dist -type f \( -name '*.exe' -o -name '*.msi' \) -print)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::下载的构建产物中没有安装包文件"
+            exit 1
+          fi
+
+          uploaded=false
+          for attempt in 1 2 3; do
+            if gh release upload "${tag}" "${assets[@]}" --clobber; then
+              uploaded=true
+              break
+            fi
+            echo "上传安装包失败（第 ${attempt} 次），准备重试"
+            sleep $((attempt * 10))
+          done
+          if [ "${uploaded}" != "true" ]; then
+            echo "::error::上传 ${tag} 的安装包失败"
+            exit 1
+          fi
+
+          gh release edit "${tag}" --draft=false
