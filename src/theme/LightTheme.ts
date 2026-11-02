@@ -43,7 +43,7 @@ const PurpleTheme: ThemeDefinition = {
     gray100: "#fafafacc",
     primary200: "#90caf9",
     secondary200: "#8cc4e1",
-    background: "#f7f9fb",
+    background: "#ffffff",
     overlay: "#ffffffaa",
     codeBg: "#ececec",
     preBg: "rgb(249, 249, 249)",
