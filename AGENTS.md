@@ -118,6 +118,7 @@ References:
 - [Semantic Versioning](https://semver.org/)
 - [Keep a Changelog](https://keepachangelog.com/)
 
+- Follow the rules described in `changelog/README.md`.
 - During development, add user-facing changes to `changelog/unreleased.md` in the same pull request, under `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security` as applicable. Internal refactors, CI changes, and documentation-only changes may skip it.
 - `changelog/unreleased.md` is a working draft. It is not used as release notes until it is renamed.
 - Versions follow [Semantic Versioning](https://semver.org/); changelog entries follow [Keep a Changelog](https://keepachangelog.com/).

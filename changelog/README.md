@@ -4,9 +4,13 @@
 
 版本号遵循 [Semantic Versioning](https://semver.org/)，变更日志格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
+日志需使用中英双语，优先展示英语；中文和英语需分隔开来，不要混合在一起。
+
 ## 待发布
 
 每个面向用户的 PR 尽量在 `unreleased.md` 的“新增”“变更”“弃用”“移除”“修复”“安全”分节中追加一条。纯内部重构、CI 和文档改动可以省略。
+
+没有的分节（空分节）就不要添加。
 
 `unreleased.md` 只是工作草稿，不会直接作为 Release 说明。
 
