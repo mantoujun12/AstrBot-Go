@@ -37,3 +37,11 @@ pnpm tauri build
 
 - [AstrBot](https://github.com/AstrBotDevs/AstrBot)
 - [Vuetify 文档](https://vuetifyjs.com)
+
+## 许可证与来源
+
+本项目采用 [MIT License](./LICENSE)。
+
+前端由本项目独立实现。
+
+后端 `src-tauri/` 基于 [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher) 的 MIT 许可代码修改，原始版权归 Raven95676 所有。相关声明和许可证全文见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
