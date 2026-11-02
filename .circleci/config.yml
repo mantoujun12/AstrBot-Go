@@ -1,94 +1,40 @@
-# References:
-# - cimg/rust image and tagging scheme: https://circleci.com/developer/images/image/cimg/rust
-# - cimg/node image: https://circleci.com/developer/images/image/cimg/node
-# - Configuration reference (docker, caches, workflows): https://circleci.com/docs/configuration-reference/
-# - Cache retention and job level `retention`: https://circleci.com/docs/guides/optimize/persist-data/
-# - pnpm lockfile version: 9.0, frontend node version: 24.22, rustc version: 1.99.1
-# - clippy runs without `-D warnings`: Cargo.toml already denies critical lints, while unwrap_used / expect_used stay at warn.
-# - cimg/node ships pnpm under root-owned /usr/local/lib/node_modules, so the global install needs sudo to avoid EACCES.
-# - caches are billed as size x retention at save time, so every cache using job keeps retention at 3 days.
-# - CircleCI cache keys are immutable, so the prefix is bumped whenever the cached paths change.
+# CircleCI setup configuration.
+#
+# This file only detects which parts of the repository changed and continues the pipeline
+# with .circleci/continue_config.yml. The actual jobs live in the continuation config.
+#
+# Path mapping:
+# - Frontend changes run the frontend check.
+# - Backend changes under src-tauri/ run the backend check.
+# - CircleCI configuration changes run both checks.
+#
+# Documentation:
+# - path-filtering orb: https://circleci.com/developer/orbs/orb/circleci/path-filtering
+# - Dynamic configuration: https://circleci.com/docs/guides/configuration-reference/#dynamic-configuration
 
 version: 2.1
 
-commands:
-  install-pnpm:
-    steps:
-      - run:
-          name: Install pnpm
-          command: |
-            sudo env "PATH=$PATH" npm install --global pnpm@12
-            pnpm --version
+setup: true
 
-  install-tauri-system-deps:
-    steps:
-      - run:
-          name: Install Tauri Linux system dependencies
-          command: |
-            sudo apt-get update
-            sudo apt-get install --no-install-recommends -y \
-              curl \
-              wget \
-              file \
-              pkg-config \
-              libssl-dev \
-              libwebkit2gtk-4.1-dev \
-              libayatana-appindicator3-dev \
-              librsvg2-dev \
-              libxdo-dev
-
-jobs:
-  frontend:
-    docker:
-      - image: cimg/node:24.22
-    retention:
-      caches: 3d
-    steps:
-      - checkout
-      - install-pnpm
-      - run:
-          name: Install dependencies
-          command: pnpm install --frozen-lockfile
-      - run:
-          name: Type check and build frontend
-          command: pnpm build
-
-  backend:
-    docker:
-      - image: cimg/rust:1.99
-    retention:
-      caches: 3d
-    steps:
-      - checkout
-      - install-tauri-system-deps
-      - run:
-          name: Prepare rustfmt and clippy
-          command: |
-            rustup component add rustfmt clippy
-            cargo fmt --version
-            cargo clippy --version
-      - restore_cache:
-          keys:
-            - cargo-v4-{{ checksum "src-tauri/Cargo.lock" }}
-            - cargo-v4-
-      - run:
-          name: Check formatting
-          command: cargo fmt --all --check
-          working_directory: src-tauri
-      - run:
-          name: Run clippy
-          command: cargo clippy --workspace --all-targets --locked
-          working_directory: src-tauri
-      - save_cache:
-          key: cargo-v4-{{ checksum "src-tauri/Cargo.lock" }}
-          paths:
-            - ~/.cargo/registry
-            - ~/.cargo/git
+orbs:
+  path-filtering: circleci/path-filtering@3.0.0
 
 workflows:
-  build:
+  setup:
     jobs:
-      - frontend
-      - backend:
-          requires:
-            - frontend
+      - path-filtering/filter:
+          name: filter-paths
+          base-revision: main
+          config-path: .circleci/continue_config.yml
+          mapping: |
+            src/.* frontend true
+            public/.* frontend true
+            index\.html frontend true
+            package\.json frontend true
+            pnpm-lock\.yaml frontend true
+            pnpm-workspace\.yaml frontend true
+            vite\.config\.ts frontend true
+            tsconfig.*\.json frontend true
+            src-tauri/.* backend true
+            \.circleci/.* frontend true
+            \.circleci/.* backend true
