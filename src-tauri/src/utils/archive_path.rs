@@ -32,3 +32,45 @@ pub(crate) fn parse_entry_rel_path(raw: &str) -> Option<PathBuf> {
 
     Some(relative)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_parent_and_absolute_paths() {
+        assert!(parse_entry_rel_path("../escape").is_none());
+        assert!(parse_entry_rel_path("data/../../escape").is_none());
+        assert!(parse_entry_rel_path("data/../escape").is_none());
+        assert!(parse_entry_rel_path("/absolute/path").is_none());
+        assert!(parse_entry_rel_path("C:/Windows/System32").is_none());
+        assert!(parse_entry_rel_path("data\\..\\escape").is_none());
+        assert!(parse_entry_rel_path("data/\u{0}bad").is_none());
+    }
+
+    #[test]
+    fn accepts_normal_relative_paths() {
+        assert_eq!(
+            parse_entry_rel_path("data/config.json"),
+            Some(PathBuf::from("data").join("config.json"))
+        );
+        assert_eq!(
+            parse_entry_rel_path("./data//config.json"),
+            Some(PathBuf::from("data").join("config.json"))
+        );
+        assert_eq!(
+            parse_entry_rel_path("data/配置.json"),
+            Some(PathBuf::from("data").join("配置.json"))
+        );
+    }
+
+    #[test]
+    fn rejects_empty_unc_and_control_character_paths() {
+        assert!(parse_entry_rel_path("").is_none());
+        assert!(parse_entry_rel_path("//server/share/file.txt").is_none());
+        assert!(parse_entry_rel_path("C:relative").is_none());
+        assert!(parse_entry_rel_path("data/\u{7f}bad").is_none());
+        assert!(parse_entry_rel_path("data/foo/..").is_none());
+        assert!(parse_entry_rel_path("./").is_none());
+    }
+}

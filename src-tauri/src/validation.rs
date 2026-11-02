@@ -99,3 +99,59 @@ fn is_backup_filename(path: &Path) -> bool {
         })
         .unwrap_or(false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn version_tags_accept_safe_release_names() {
+        for tag in [
+            "v4.14.8",
+            "4.14.8",
+            "v4.14.8-beta.1",
+            "v4.14.8+build_1",
+            "4.14.8_rc-1",
+        ] {
+            assert!(
+                validate_version_tag(tag).is_ok(),
+                "expected {tag:?} to be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn version_tags_reject_traversal_and_separators() {
+        for tag in [
+            "",
+            "../4.0.0",
+            "4.0.0/extra",
+            "4.0.0\\extra",
+            "4.0.0\0",
+            "4.0.0 beta",
+            "中文版本",
+        ] {
+            assert!(
+                validate_version_tag(tag).is_err(),
+                "expected {tag:?} to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn backup_filenames_require_supported_archives() {
+        for name in ["backup.zip", "backup.tar.gz", "BACKUP.TAR.GZ", "a.b.zip"] {
+            assert!(
+                is_backup_filename(Path::new(name)),
+                "expected {name:?} to be accepted"
+            );
+        }
+
+        for name in ["backup.7z", "backup.zip.part", "backup", ""] {
+            assert!(
+                !is_backup_filename(Path::new(name)),
+                "expected {name:?} to be rejected"
+            );
+        }
+    }
+}

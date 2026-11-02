@@ -198,3 +198,73 @@ pub(super) fn strip_common_top_dir(relative: &Path, top_dir: Option<&str>) -> Op
         Some(stripped.to_path_buf())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestDir(PathBuf);
+
+    impl TestDir {
+        fn new() -> Result<Self> {
+            let path = std::env::temp_dir().join(format!(
+                "astrbot-launcher-archive-path-{}",
+                uuid::Uuid::new_v4()
+            ));
+            std::fs::create_dir_all(&path)?;
+            Ok(Self(path))
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn resolve_within_dir_rejects_escape_and_accepts_children() -> Result<()> {
+        let dir = TestDir::new()?;
+        let base = dir.path();
+
+        let escaped = base.join("..").join("escape.txt");
+        assert!(resolve_within_dir(base, &escaped).is_err());
+
+        let inside = base.join("data").join("config.json");
+        let resolved = resolve_within_dir(base, &inside)?;
+        assert!(resolved.starts_with(base.canonicalize()?));
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_within_dir_rejects_absolute_sibling_paths() -> Result<()> {
+        let dir = TestDir::new()?;
+        let base = dir.path().join("base");
+        let sibling = dir.path().join("sibling");
+        std::fs::create_dir_all(&base)?;
+        std::fs::create_dir_all(&sibling)?;
+
+        let sibling_file = sibling.join("escape.txt");
+        std::fs::write(&sibling_file, b"escaped")?;
+
+        assert!(resolve_within_dir(&base, &sibling_file).is_err());
+
+        let inside = base.join("data").join("config.json");
+        let resolved = resolve_within_dir(&base, &inside)?;
+        assert!(resolved.starts_with(base.canonicalize()?));
+        Ok(())
+    }
+
+    #[test]
+    fn link_targets_reject_absolute_and_windows_prefixed_paths() {
+        assert!(validate_rel_link_target(Path::new(""), "symlink").is_err());
+        assert!(validate_rel_link_target(Path::new("C:\\Windows\\System32"), "symlink").is_err());
+        assert!(
+            validate_rel_link_target(Path::new("data").join("file").as_path(), "symlink").is_ok()
+        );
+    }
+}

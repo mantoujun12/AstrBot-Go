@@ -288,3 +288,73 @@ impl From<serde_json::Error> for AppError {
 
 /// Convenient Result type alias.
 pub type Result<T> = std::result::Result<T, AppError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn serialized(error: AppError) -> std::result::Result<Value, serde_json::Error> {
+        serde_json::to_value(error)
+    }
+
+    #[test]
+    fn error_codes_match_the_frontend_contract() {
+        let cases = [
+            (ErrorKind::InstanceNotFound, 1001),
+            (ErrorKind::InstanceRunning, 1002),
+            (ErrorKind::InstanceNotRunning, 1003),
+            (ErrorKind::VersionNotFound, 1004),
+            (ErrorKind::VersionInUse, 1005),
+            (ErrorKind::DownloadCancelled, 1006),
+            (ErrorKind::Config, 2001),
+            (ErrorKind::Io, 2002),
+            (ErrorKind::Network, 2003),
+            (ErrorKind::Python, 3001),
+            (ErrorKind::PythonNotInstalled, 3002),
+            (ErrorKind::Process, 3003),
+            (ErrorKind::PortOccupied, 3004),
+            (ErrorKind::StartupTimeout, 3005),
+            (ErrorKind::ProcessLocking, 3006),
+            (ErrorKind::InvalidHost, 3007),
+            (ErrorKind::Backup, 4001),
+            (ErrorKind::GitHub, 4002),
+            (ErrorKind::Other, 9999),
+        ];
+
+        for (kind, code) in cases {
+            assert_eq!(kind.code(), code);
+        }
+    }
+
+    #[test]
+    fn serialization_keeps_code_and_payload_shape() -> std::result::Result<(), serde_json::Error> {
+        let value = serialized(AppError::version_in_use("v4.0.0", "Demo"))?;
+
+        assert_eq!(value.get("code").and_then(Value::as_u64), Some(1005));
+        let payload = value.get("payload").and_then(Value::as_object);
+        assert_eq!(
+            payload
+                .and_then(|map| map.get("version"))
+                .and_then(Value::as_str),
+            Some("v4.0.0")
+        );
+        assert_eq!(
+            payload
+                .and_then(|map| map.get("instance"))
+                .and_then(Value::as_str),
+            Some("Demo")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn empty_detail_produces_an_empty_payload() -> std::result::Result<(), serde_json::Error> {
+        let value = serialized(AppError::io(""))?;
+        let payload = value.get("payload").and_then(Value::as_object);
+
+        assert_eq!(value.get("code").and_then(Value::as_u64), Some(2002));
+        assert_eq!(payload.map(|map| map.len()), Some(0));
+        Ok(())
+    }
+}
