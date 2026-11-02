@@ -687,6 +687,8 @@ async function handleClearUvCache(): Promise<void> {
 
 const appVersion = ref("—");
 const launcherRepoUrl = "https://github.com/AstrBotDevs/astrbot-launcher";
+const currentRepoUrl =
+  "https://github.com/mantoujun12/astrbot-launcher-vue";
 const astrbotRepoUrl = "https://github.com/AstrBotDevs/AstrBot";
 
 async function loadAppVersion(): Promise<void> {
@@ -1236,7 +1238,11 @@ onMounted(() => {
             <SettingsItem :title="t('settings.about.version')">
               <span class="settings-value">{{ appVersion }}</span>
             </SettingsItem>
-            <SettingsItem title="GitHub">
+            <SettingsItem
+              title="astrbot-launcher"
+              :subtitle="t('settings.about.launcherRepoDescription')"
+              wide
+            >
               <v-btn
                 variant="text"
                 color="primary"
@@ -1245,10 +1251,30 @@ onMounted(() => {
                 :aria-label="t('settings.about.openLauncherRepo')"
                 @click="openLink(launcherRepoUrl)"
               >
-                astrbot-launcher
+                {{ t("settings.about.openRepository") }}
               </v-btn>
             </SettingsItem>
-            <SettingsItem title="AstrBot">
+            <SettingsItem
+              title="astrbot-launcher-vue"
+              :subtitle="t('settings.about.currentRepoDescription')"
+              wide
+            >
+              <v-btn
+                variant="text"
+                color="primary"
+                size="small"
+                append-icon="mdi-open-in-new"
+                :aria-label="t('settings.about.openCurrentRepo')"
+                @click="openLink(currentRepoUrl)"
+              >
+                {{ t("settings.about.openRepository") }}
+              </v-btn>
+            </SettingsItem>
+            <SettingsItem
+              title="AstrBot"
+              :subtitle="t('settings.about.astrbotRepoDescription')"
+              wide
+            >
               <v-btn
                 variant="text"
                 color="primary"
@@ -1257,7 +1283,7 @@ onMounted(() => {
                 :aria-label="t('settings.about.openAstrbotRepo')"
                 @click="openLink(astrbotRepoUrl)"
               >
-                AstrBot
+                {{ t("settings.about.openRepository") }}
               </v-btn>
             </SettingsItem>
           </div>

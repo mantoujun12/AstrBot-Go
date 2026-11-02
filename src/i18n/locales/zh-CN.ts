@@ -105,8 +105,13 @@ const zhCN = {
     "about": {
       "appName": "应用名称",
       "version": "版本",
-      "openLauncherRepo": "打开 astrbot-launcher 仓库",
+      "launcherRepoDescription": "主仓库，AstrBot 桌面管理器。",
+      "currentRepoDescription": "当前仓库，Tauri 2 + Vue 3 桌面实现。",
+      "astrbotRepoDescription": "上游项目，AstrBot 核心仓库。",
+      "openLauncherRepo": "打开 astrbot-launcher 主仓库",
+      "openCurrentRepo": "打开 astrbot-launcher-vue 当前仓库",
       "openAstrbotRepo": "打开 AstrBot 仓库",
+      "openRepository": "打开仓库",
       "openLinkFailed": "无法打开链接：{detail}"
     }
   },
