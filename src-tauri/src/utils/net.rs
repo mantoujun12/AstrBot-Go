@@ -4,6 +4,7 @@ use reqwest::{Client, NoProxy, Proxy};
 use serde::de::DeserializeOwned;
 
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 use crate::utils::proxy::{ProxySettings, ProxySource};
 
 pub(crate) const USER_AGENT: &str = concat!(
@@ -54,7 +55,7 @@ pub(crate) fn build_http_client_with_proxy(proxy: Option<ProxySettings>) -> Resu
     build_client_builder(proxy)?
         .timeout(Duration::from_secs(30))
         .build()
-        .map_err(|e| AppError::network(format!("创建网络客户端失败: {}", e)))
+        .map_err(|e| AppError::network(format!("创建网络客户端失败：{}", e)))
 }
 
 /// Client for large downloads: limits connection setup only.
@@ -65,7 +66,7 @@ pub(crate) fn build_download_client_with_proxy(proxy: Option<ProxySettings>) -> 
     build_client_builder(proxy)?
         .connect_timeout(Duration::from_secs(30))
         .build()
-        .map_err(|e| AppError::network(format!("创建网络客户端失败: {}", e)))
+        .map_err(|e| AppError::network(format!("创建网络客户端失败：{}", e)))
 }
 
 fn build_reqwest_proxy(
@@ -85,12 +86,15 @@ fn build_reqwest_proxy(
                 "Invalid {} {} proxy address, ignored: {}",
                 source,
                 label,
-                error
+                log_redact::redact_text(&error.to_string())
             );
             return Ok(None);
         }
         Err(error) => {
-            return Err(AppError::config(format!("代理地址无效: {}", error)));
+            return Err(AppError::config(format!(
+                "代理地址无效：{}",
+                log_redact::redact_text(&error.to_string())
+            )));
         }
     };
 

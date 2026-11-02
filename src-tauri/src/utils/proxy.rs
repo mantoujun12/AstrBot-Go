@@ -119,12 +119,12 @@ pub(crate) fn build_proxy_url(
     }
 
     let mut parsed =
-        Url::parse(trimmed_url).map_err(|e| AppError::config(format!("代理地址无效: {}", e)))?;
+        Url::parse(trimmed_url).map_err(|e| AppError::config(format!("代理地址无效：{}", e)))?;
     let trimmed_port = port.trim();
     if !trimmed_port.is_empty() {
         let parsed_port = trimmed_port
             .parse::<u16>()
-            .map_err(|e| AppError::config(format!("代理地址无效: {}", e)))?;
+            .map_err(|e| AppError::config(format!("代理地址无效：{}", e)))?;
         parsed
             .set_port(Some(parsed_port))
             .map_err(|_| AppError::config("代理地址无效"))?;
@@ -333,7 +333,7 @@ fn proxy_scheme_kind(url: &str) -> Option<ProxySchemeKind> {
 }
 
 fn ensure_supported_proxy_scheme(url: &str) -> Result<()> {
-    let parsed = Url::parse(url).map_err(|e| AppError::config(format!("代理地址无效: {}", e)))?;
+    let parsed = Url::parse(url).map_err(|e| AppError::config(format!("代理地址无效：{}", e)))?;
     if proxy_scheme_kind(parsed.as_ref()).is_some() {
         return Ok(());
     }

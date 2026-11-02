@@ -9,6 +9,7 @@ use crate::config::load_config;
 use crate::error::Result;
 use crate::network_config;
 use crate::utils::index_url::wrap_with_proxy;
+use crate::utils::log_redact;
 use crate::utils::net::fetch_json;
 use crate::utils::paths::{ensure_data_dirs, version_list_cache_path};
 use crate::utils::sync::{read_lock_recover, write_lock_recover};
@@ -69,7 +70,11 @@ fn load_releases_cache_from_disk() -> Option<ReleasesCache> {
     let content = match fs::read_to_string(&path) {
         Ok(content) => content,
         Err(e) => {
-            log::warn!("Failed to read releases cache from {:?}: {}", path, e);
+            log::warn!(
+                "Failed to read releases cache from {}: {}",
+                log_redact::path_name(&path),
+                e
+            );
             return None;
         }
     };
@@ -77,7 +82,11 @@ fn load_releases_cache_from_disk() -> Option<ReleasesCache> {
     match serde_json::from_str::<ReleasesCache>(&content) {
         Ok(cache) => Some(cache),
         Err(e) => {
-            log::warn!("Failed to parse releases cache from {:?}: {}", path, e);
+            log::warn!(
+                "Failed to parse releases cache from {}: {}",
+                log_redact::path_name(&path),
+                e
+            );
             None
         }
     }
@@ -102,7 +111,11 @@ fn save_releases_cache_to_disk(cache: &ReleasesCache) {
     };
 
     if let Err(e) = fs::write(&path, content) {
-        log::warn!("Failed to write releases cache to {:?}: {}", path, e);
+        log::warn!(
+            "Failed to write releases cache to {}: {}",
+            log_redact::path_name(&path),
+            e
+        );
     }
 }
 
@@ -162,7 +175,7 @@ pub async fn fetch_releases(client: &Client, force_refresh: bool) -> Result<Vec<
             if let Some(cache) = cached {
                 log::warn!(
                     "Failed to refresh releases, fallback to stale cache: {}",
-                    err
+                    log_redact::redact_text(&err.to_string())
                 );
                 return Ok(cache.releases);
             }

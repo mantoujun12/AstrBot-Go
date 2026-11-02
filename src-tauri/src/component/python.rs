@@ -12,6 +12,7 @@ use crate::github::fetch_python_releases;
 use crate::network_config;
 use crate::platform::{find_python_asset_for_version, get_python310_asset};
 use crate::utils::index_url::wrap_with_proxy;
+use crate::utils::log_redact;
 use crate::utils::net::{ensure_success_status, send_get};
 use crate::utils::paths::{get_python_exe_path, get_python_runtime_dir, get_venv_python};
 
@@ -67,7 +68,7 @@ pub(super) async fn install_component(
     if installed.is_empty() {
         Ok("Python 已安装".to_string())
     } else {
-        Ok(format!("已安装 Python: {}", installed.join(", ")))
+        Ok(format!("已安装 Python：{}", installed.join(", ")))
     }
 }
 
@@ -93,7 +94,7 @@ pub(super) fn uninstall_component() -> Result<String> {
     if removed.is_empty() {
         Ok("Python 组件未安装".to_string())
     } else {
-        Ok(format!("已卸载 Python: {}", removed.join(", ")))
+        Ok(format!("已卸载 Python：{}", removed.join(", ")))
     }
 }
 
@@ -115,7 +116,7 @@ pub(super) async fn reinstall_component(
     }
 
     let installed = install_missing_runtimes(client, app_handle).await?;
-    Ok(format!("已重新安装 Python: {}", installed.join(", ")))
+    Ok(format!("已重新安装 Python：{}", installed.join(", ")))
 }
 
 pub async fn pip_install_requirements(
@@ -137,7 +138,10 @@ pub async fn pip_install_requirements(
     let proxy_env_vars = match network_config::proxy_env_vars(config) {
         Ok(vars) => vars,
         Err(e) => {
-            log::warn!("Failed to prepare proxy env for pip install: {}", e);
+            log::warn!(
+                "Failed to prepare proxy env for pip install: {}",
+                log_redact::redact_text(&e.to_string())
+            );
             Vec::new()
         }
     };
@@ -219,7 +223,7 @@ pub async fn create_venv(venv_dir: &Path, version: &str) -> Result<()> {
         )));
     }
 
-    log::debug!("Venv created at {:?}", venv_dir);
+    log::debug!("Venv created: {}", log_redact::path_name(venv_dir));
 
     Ok(())
 }

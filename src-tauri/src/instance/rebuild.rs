@@ -6,6 +6,7 @@ use std::path::Path;
 
 use crate::config::{with_manifest_mut, InstalledVersion, InstanceConfig, DEFAULT_INSTANCE_HOST};
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 use crate::utils::paths::{get_data_dir, get_versions_dir};
 use crate::utils::validation::validate_instance_id;
 
@@ -55,8 +56,8 @@ fn scan_installed_versions() -> Result<Vec<InstalledVersion>> {
 
         let Some(filename) = path.file_name().and_then(|name| name.to_str()) else {
             log::warn!(
-                "Skipping version archive with non-UTF-8 filename: {:?}",
-                path
+                "Skipping version archive with non-UTF-8 filename: {}",
+                log_redact::path_name(&path)
             );
             continue;
         };
@@ -64,7 +65,10 @@ fn scan_installed_versions() -> Result<Vec<InstalledVersion>> {
             continue;
         };
         let Some(zip_path) = path.to_str() else {
-            log::warn!("Skipping version archive with non-UTF-8 path: {:?}", path);
+            log::warn!(
+                "Skipping version archive with non-UTF-8 path: {}",
+                log_redact::path_name(&path)
+            );
             continue;
         };
 
@@ -99,8 +103,8 @@ fn scan_instances() -> Result<HashMap<String, InstanceConfig>> {
 
         let Some(instance_id) = entry.file_name().to_str().map(str::to_string) else {
             log::warn!(
-                "Skipping instance directory with non-UTF-8 name: {:?}",
-                entry.path()
+                "Skipping instance directory with non-UTF-8 name: {}",
+                log_redact::path_name(&entry.path())
             );
             continue;
         };
@@ -116,8 +120,8 @@ fn scan_instances() -> Result<HashMap<String, InstanceConfig>> {
         let instance_dir = entry.path();
         if !looks_like_instance_dir(&instance_dir) {
             log::warn!(
-                "Skipping instance directory without recognizable content: {:?}",
-                instance_dir
+                "Skipping instance directory without recognizable content: {}",
+                log_redact::path_name(&instance_dir)
             );
             continue;
         }
@@ -160,7 +164,11 @@ fn read_pyproject_version(instance_dir: &Path) -> Option<String> {
     let value = match toml::from_str::<toml::Value>(&content) {
         Ok(value) => value,
         Err(error) => {
-            log::warn!("Failed to parse {:?}: {}", pyproject_path, error);
+            log::warn!(
+                "Failed to parse {}: {}",
+                log_redact::path_name(&pyproject_path),
+                error
+            );
             return None;
         }
     };

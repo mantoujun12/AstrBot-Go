@@ -10,6 +10,7 @@ use crate::config::{load_config, AppConfig};
 use crate::error::{AppError, Result};
 use crate::network_config;
 use crate::platform::get_uv_archive_name;
+use crate::utils::log_redact;
 use crate::utils::paths::{get_component_dir, get_uv_cache_dir, get_uv_exe_path, get_uvx_exe_path};
 
 pub fn is_uv_installed() -> bool {
@@ -49,10 +50,10 @@ pub async fn clear_uv_cache() -> Result<()> {
     let output = cmd
         .output()
         .await
-        .map_err(|e| AppError::io(format!("无法运行 uv 缓存清理: {}", e)))?;
+        .map_err(|e| AppError::io(format!("无法运行 uv 缓存清理：{}", e)))?;
     if !output.status.success() {
         return Err(AppError::io(format!(
-            "uv 缓存清理失败 ({}): {}",
+            "uv 缓存清理失败（{}）：{}",
             output.status,
             String::from_utf8_lossy(&output.stderr).trim()
         )));
@@ -81,7 +82,7 @@ pub async fn uv_sync(
         Err(e) => {
             log::warn!(
                 "Failed to prepare proxy env for uv sync, fallback to no proxy: {}",
-                e
+                log_redact::redact_text(&e.to_string())
             );
             Vec::new()
         }
@@ -129,7 +130,7 @@ pub async fn install_uv(client: &Client, app_handle: Option<&AppHandle>) -> Resu
         return Ok("uv 已安装".to_string());
     }
     let version = do_install_uv(client, app_handle).await?;
-    Ok(format!("已安装 uv: {}", version))
+    Ok(format!("已安装 uv：{}", version))
 }
 
 /// Uninstall uv.
@@ -146,7 +147,7 @@ pub fn uninstall_uv() -> Result<String> {
 
 pub async fn reinstall_uv(client: &Client, app_handle: Option<&AppHandle>) -> Result<String> {
     let version = do_install_uv(client, app_handle).await?;
-    Ok(format!("已重新安装 uv: {}", version))
+    Ok(format!("已重新安装 uv：{}", version))
 }
 
 async fn detect_installed_uv_version(uv_exe: &std::path::Path) -> String {

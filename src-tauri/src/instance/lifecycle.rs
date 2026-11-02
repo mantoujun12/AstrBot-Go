@@ -23,6 +23,7 @@ use crate::process::{
     graceful_shutdown, is_expected_process_alive, resolve_process_executable_path,
 };
 use crate::utils::log_bus as log_channel;
+use crate::utils::log_redact;
 use crate::utils::paths::{
     get_instance_core_dir, get_instance_venv_dir, get_uv_cache_dir, get_venv_python,
 };
@@ -229,7 +230,7 @@ pub async fn launch_instance(
     // Check if dashboard is enabled
     let dashboard_enabled = is_dashboard_enabled(instance_id);
 
-    emit_progress(app_handle, instance_id, "start", "正在启动实例...", 95);
+    emit_progress(app_handle, instance_id, "start", "正在启动实例…", 95);
 
     let core_dir = get_instance_core_dir(instance_id);
     let venv_dir = get_instance_venv_dir(instance_id);
@@ -248,7 +249,7 @@ pub async fn launch_instance(
         Err(e) => {
             log::warn!(
                 "Failed to prepare proxy env for instance startup, fallback to no proxy: {}",
-                e
+                log_redact::redact_text(&e.to_string())
             );
             Vec::new()
         }

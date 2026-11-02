@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::utils::log_redact;
 use crate::utils::paths::{get_component_dir, get_data_dir};
 
 /// Migrate legacy `python/` and `compat_python/` directories to the unified
@@ -65,16 +66,16 @@ pub fn migrate_windows_arm_python_component_if_needed() {
 
     if let Err(e) = fs::remove_dir_all(&python_component_dir) {
         log::warn!(
-            "Migration: failed to remove python component at {:?}: {}",
-            python_component_dir,
+            "Migration: failed to remove python component at {}: {}",
+            log_redact::path_name(&python_component_dir),
             e
         );
         return;
     }
 
     log::info!(
-        "Migration: removed python component at {:?}",
-        python_component_dir
+        "Migration: removed python component at {}",
+        log_redact::path_name(&python_component_dir)
     );
 
     if let Err(e) = clear_instance_venvs_for_python_migration(&get_data_dir()) {
@@ -97,8 +98,8 @@ fn runtime_needs_migration(runtime_dir: &Path) -> bool {
     let python_exe = crate::utils::paths::get_python_exe_path(runtime_dir);
     if !python_exe.exists() {
         log::warn!(
-            "Migration: python executable missing in runtime {:?}, skip migration because architecture cannot be determined",
-            runtime_dir
+            "Migration: python executable missing in runtime {}, skip migration because architecture cannot be determined",
+            log_redact::path_name(runtime_dir)
         );
         return false;
     }
@@ -108,16 +109,16 @@ fn runtime_needs_migration(runtime_dir: &Path) -> bool {
         Ok(IMAGE_FILE_MACHINE_ARM64) => true,
         Ok(other) => {
             log::warn!(
-                "Migration: unexpected PE machine type 0x{:04X} for {:?}, skip migration",
+                "Migration: unexpected PE machine type 0x{:04X} for {}, skip migration",
                 other,
-                python_exe
+                log_redact::path_name(&python_exe)
             );
             false
         }
         Err(e) => {
             log::warn!(
-                "Migration: failed to read PE machine for {:?}: {}, skip migration",
-                python_exe,
+                "Migration: failed to read PE machine for {}: {}, skip migration",
+                log_redact::path_name(&python_exe),
                 e
             );
             false
@@ -129,8 +130,13 @@ fn runtime_needs_migration(runtime_dir: &Path) -> bool {
 fn read_pe_machine(exe_path: &Path) -> Result<u16, String> {
     use std::io::{ErrorKind, Read, Seek, SeekFrom};
 
-    let mut file = fs::File::open(exe_path)
-        .map_err(|e| format!("Failed to open executable {:?}: {}", exe_path, e))?;
+    let mut file = fs::File::open(exe_path).map_err(|e| {
+        format!(
+            "Failed to open executable {}: {}",
+            log_redact::path_name(exe_path),
+            e
+        )
+    })?;
 
     let mut dos_header = [0u8; 0x40];
     if let Err(e) = file.read_exact(&mut dos_header) {
@@ -138,8 +144,9 @@ fn read_pe_machine(exe_path: &Path) -> Result<u16, String> {
             return Err("File too small for DOS header".to_string());
         }
         return Err(format!(
-            "Failed to read DOS header from {:?}: {}",
-            exe_path, e
+            "Failed to read DOS header from {}: {}",
+            log_redact::path_name(exe_path),
+            e
         ));
     }
 
@@ -154,8 +161,13 @@ fn read_pe_machine(exe_path: &Path) -> Result<u16, String> {
         dos_header[0x3F],
     ]));
 
-    file.seek(SeekFrom::Start(nt_offset))
-        .map_err(|e| format!("Failed to seek to NT header at {:?}: {}", exe_path, e))?;
+    file.seek(SeekFrom::Start(nt_offset)).map_err(|e| {
+        format!(
+            "Failed to seek to NT header at {}: {}",
+            log_redact::path_name(exe_path),
+            e
+        )
+    })?;
 
     let mut nt_and_coff_prefix = [0u8; 6];
     if let Err(e) = file.read_exact(&mut nt_and_coff_prefix) {
@@ -163,8 +175,9 @@ fn read_pe_machine(exe_path: &Path) -> Result<u16, String> {
             return Err("NT/COFF header out of bounds".to_string());
         }
         return Err(format!(
-            "Failed to read NT/COFF header from {:?}: {}",
-            exe_path, e
+            "Failed to read NT/COFF header from {}: {}",
+            log_redact::path_name(exe_path),
+            e
         ));
     }
 
@@ -212,10 +225,13 @@ fn clear_instance_venvs_for_python_migration(data_dir: &Path) -> Result<(), Stri
         }
 
         match fs::remove_dir_all(&venv_dir) {
-            Ok(_) => log::info!("Migration: removed instance venv {:?}", venv_dir),
+            Ok(_) => log::info!(
+                "Migration: removed instance venv {}",
+                log_redact::path_name(&venv_dir)
+            ),
             Err(e) => log::warn!(
-                "Migration: failed to remove instance venv {:?}: {}",
-                venv_dir,
+                "Migration: failed to remove instance venv {}: {}",
+                log_redact::path_name(&venv_dir),
                 e
             ),
         }
@@ -315,7 +331,7 @@ fn migrate_instance_pyvenv_cfgs(data_dir: &Path) -> Result<(), String> {
 
         if new_content != content {
             fs::write(&pyvenv, new_content).map_err(|e| e.to_string())?;
-            log::info!("Migration: updated {:?}", pyvenv);
+            log::info!("Migration: updated {}", log_redact::path_name(&pyvenv));
         }
     }
     Ok(())

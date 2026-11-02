@@ -77,7 +77,7 @@ pub(crate) fn collect_files_for_lock_check(_dir: &Path) -> Result<Vec<PathBuf>> 
 fn format_locking_process(process: &LockingProcessInfo) -> String {
     let mut labels = Vec::new();
     if let Some(path) = &process.executable_path {
-        labels.push(path.display().to_string());
+        labels.push(crate::utils::log_redact::path_name(path));
     } else if !process.app_name.is_empty() {
         labels.push(process.app_name.clone());
     }

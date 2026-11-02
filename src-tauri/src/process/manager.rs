@@ -265,7 +265,7 @@ impl ProcessManager {
         let pending_auto_backup = find_pending_auto_backup(id)?;
         if let Some(pending_auto_backup) = pending_auto_backup {
             return Err(AppError::backup(format!(
-                "检测到未处理的自动备份 {}（{}）。这通常表示上次升降级的数据还原失败。请先在\"备份管理\"中手动恢复该备份并确认数据，再启动实例。",
+                "检测到未处理的自动备份 {}（{}）。这通常表示上次升降级的数据还原失败。请先在“备份管理”中手动恢复该备份并确认数据，再启动实例。",
                 pending_auto_backup.filename, pending_auto_backup.path
             )));
         }
@@ -314,7 +314,7 @@ impl ProcessManager {
         let pending_auto_backup = find_pending_auto_backup(id)?;
         if let Some(pending_auto_backup) = pending_auto_backup {
             return Err(AppError::backup(format!(
-                "检测到未处理的自动备份 {}（{}）。这通常表示上次升降级的数据还原失败。请先在\"备份管理\"中手动恢复该备份并确认数据，再启动实例。",
+                "检测到未处理的自动备份 {}（{}）。这通常表示上次升降级的数据还原失败。请先在“备份管理”中手动恢复该备份并确认数据，再启动实例。",
                 pending_auto_backup.filename, pending_auto_backup.path
             )));
         }

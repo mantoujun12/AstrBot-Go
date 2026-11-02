@@ -6,6 +6,7 @@ use tauri::AppHandle;
 use crate::archive::{extract_tar_gz_flat, extract_zip_flat, ArchiveFormat};
 use crate::download::{download_file, emit_download_progress, DownloadOptions};
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 
 pub(super) async fn install_from_archive_with_progress(
     client: &Client,
@@ -49,7 +50,11 @@ pub(super) async fn install_from_archive_with_progress(
     }
 
     if let Err(e) = std::fs::remove_file(archive_path) {
-        log::warn!("Failed to remove archive {:?}: {}", archive_path, e);
+        log::warn!(
+            "Failed to remove archive {}: {}",
+            log_redact::path_name(archive_path),
+            e
+        );
     }
 
     if let Some(o) = &opts {

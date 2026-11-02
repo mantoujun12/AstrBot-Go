@@ -7,6 +7,7 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 use crate::utils::sync::{read_lock_recover, write_lock_recover};
 
 /// Directory (under the OS config directory) used for launcher-internal files
@@ -78,7 +79,7 @@ fn load_data_dir_override() -> Option<PathBuf> {
     if validate_data_dir(&dir).is_err() {
         log::warn!(
             "Stored data dir override is invalid, ignoring it: {}",
-            dir.display()
+            log_redact::path_name(&dir)
         );
         return None;
     }

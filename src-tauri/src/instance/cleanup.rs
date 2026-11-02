@@ -5,6 +5,7 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 use crate::utils::paths::{get_instance_core_dir, get_instance_venv_dir};
 use crate::utils::validation::validate_instance_id;
 
@@ -65,14 +66,22 @@ pub(super) fn clear_pycache_recursive(dir: &Path) -> Result<()> {
         if entry.file_type().is_dir() && entry.file_name() == "__pycache__" {
             iter.skip_current_dir();
             if let Err(e) = std::fs::remove_dir_all(path) {
-                log::warn!("Failed to remove __pycache__ {:?}: {}", path, e);
+                log::warn!(
+                    "Failed to remove __pycache__ {}: {}",
+                    log_redact::path_name(path),
+                    e
+                );
             }
             continue;
         }
 
         if entry.file_type().is_file() && path.extension().map(|e| e == "pyc").unwrap_or(false) {
             if let Err(e) = std::fs::remove_file(path) {
-                log::warn!("Failed to remove .pyc file {:?}: {}", path, e);
+                log::warn!(
+                    "Failed to remove .pyc file {}: {}",
+                    log_redact::path_name(path),
+                    e
+                );
             }
         }
     }

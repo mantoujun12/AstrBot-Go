@@ -122,7 +122,7 @@ pub async fn install_nodejs(client: &Client, app_handle: Option<&AppHandle>) -> 
         return Ok("Node.js (LTS) 已安装".to_string());
     }
     let version = do_install_nodejs(client, app_handle).await?;
-    Ok(format!("已安装 Node.js (LTS): {}", version))
+    Ok(format!("已安装 Node.js (LTS)：{}", version))
 }
 
 /// Uninstall Node.js LTS.
@@ -140,7 +140,7 @@ pub fn uninstall_nodejs() -> Result<String> {
 /// Reinstall Node.js LTS (always removes existing and re-downloads).
 pub async fn reinstall_nodejs(client: &Client, app_handle: Option<&AppHandle>) -> Result<String> {
     let version = do_install_nodejs(client, app_handle).await?;
-    Ok(format!("已重新安装 Node.js (LTS): {}", version))
+    Ok(format!("已重新安装 Node.js (LTS)：{}", version))
 }
 
 async fn do_install_nodejs(client: &Client, app_handle: Option<&AppHandle>) -> Result<String> {

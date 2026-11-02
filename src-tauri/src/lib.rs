@@ -30,6 +30,7 @@ use config::{load_config, with_manifest_mut};
 pub use error::{AppError, ErrorKind, Result};
 use process::ProcessManager;
 use utils::log_bus::LogEntry;
+use utils::log_redact;
 
 pub(crate) const MIN_WINDOW_WIDTH: u32 = 640;
 pub(crate) const MIN_WINDOW_HEIGHT: u32 = 480;
@@ -153,7 +154,11 @@ pub fn run() {
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::Dispatch(dispatch)),
                 ])
-                .level(log::LevelFilter::Debug)
+                .level(if cfg!(debug_assertions) {
+                    log::LevelFilter::Debug
+                } else {
+                    log::LevelFilter::Info
+                })
                 .with_colors(fern::colors::ColoredLevelConfig::default())
                 .build(),
         )
@@ -168,7 +173,7 @@ pub fn run() {
             .unwrap_or_else(|e| {
                 log::warn!(
                     "Failed to initialize HTTP client with proxy settings, falling back to default client: {}",
-                    e
+                    log_redact::redact_text(&e.to_string())
                 );
                 Client::builder()
                     .timeout(Duration::from_secs(30))

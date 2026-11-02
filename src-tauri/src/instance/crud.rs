@@ -12,6 +12,7 @@ use crate::config::{
 };
 use crate::error::{AppError, Result};
 use crate::process::{InstanceRuntimeInfo, InstanceState, ProcessManager};
+use crate::utils::log_redact;
 use crate::utils::paths::{get_instance_core_dir, get_instance_dir, get_instance_venv_dir};
 use crate::utils::validation::{validate_instance_id, INSTANCE_ID_ALPHABET, INSTANCE_ID_LENGTH};
 
@@ -182,8 +183,8 @@ pub fn delete_instance(instance_id: &str) -> Result<()> {
     if instance_dir.exists() {
         if let Err(e) = std::fs::remove_dir_all(&instance_dir) {
             log::warn!(
-                "Failed to remove instance directory {:?}: {}",
-                instance_dir,
+                "Failed to remove instance directory {}: {}",
+                log_redact::path_name(&instance_dir),
                 e
             );
         }
@@ -249,7 +250,7 @@ pub async fn update_instance(
         let core_dir = get_instance_core_dir(instance_id);
 
         // Backup
-        emit_progress(app_handle, instance_id, "backup", "正在备份数据...", 5);
+        emit_progress(app_handle, instance_id, "backup", "正在备份数据…", 5);
         let backup_path = if core_dir.join("data").exists() {
             Some(create_backup(instance_id, true)?)
         } else {
@@ -281,10 +282,10 @@ pub async fn update_instance(
 
         // Restore data from backup
         if let Some(ref bp) = backup_path {
-            emit_progress(app_handle, instance_id, "restore", "正在还原数据...", 92);
+            emit_progress(app_handle, instance_id, "restore", "正在还原数据…", 92);
             restore_data_to_instance(bp, instance_id).map_err(|err| {
                 AppError::backup(format!(
-                    "自动备份还原失败，已保留备份 {}。请在“备份管理”中手动恢复该备份并确认数据。原始错误: {}",
+                    "自动备份还原失败，已保留备份 {}。请在“备份管理”中手动恢复该备份并确认数据。原始错误：{}",
                     bp, err
                 ))
             })?;

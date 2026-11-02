@@ -12,6 +12,7 @@ use crate::config::{load_config, load_manifest, with_config_mut};
 use crate::download::download_file;
 use crate::error::{AppError, Result};
 use crate::network_config;
+use crate::utils::log_redact;
 use crate::utils::paths::{get_instance_core_dir, get_instance_venv_dir, get_venv_python};
 use crate::utils::validation::validate_instance_id;
 
@@ -94,7 +95,10 @@ async fn deploy_instance_with_version_impl(
 
     let zip_path = std::path::PathBuf::from(&installed.zip_path);
     if !zip_path.exists() {
-        log::error!("Version zip not found: {:?}", zip_path);
+        log::error!(
+            "Version zip not found: {}",
+            log_redact::path_name(&zip_path)
+        );
         return Err(AppError::io(format!(
             "Version zip file not found: {:?}",
             zip_path
@@ -106,7 +110,7 @@ async fn deploy_instance_with_version_impl(
 
     let main_py = core_dir.join("main.py");
     if !main_py.exists() {
-        emit_progress(app_handle, instance_id, "extract", "正在解压代码...", 10);
+        emit_progress(app_handle, instance_id, "extract", "正在解压代码…", 10);
 
         fs::create_dir_all(&core_dir)
             .map_err(|e| AppError::io(format!("Failed to create core dir: {}", e)))?;
@@ -118,12 +122,12 @@ async fn deploy_instance_with_version_impl(
 
     let venv_python = get_venv_python(&venv_dir);
     if !venv_python.exists() {
-        emit_progress(app_handle, instance_id, "venv", "正在创建虚拟环境...", 40);
+        emit_progress(app_handle, instance_id, "venv", "正在创建虚拟环境…", 40);
         component::create_venv(&venv_dir, version).await?;
         emit_progress(app_handle, instance_id, "venv", "虚拟环境创建完成", 50);
     }
 
-    emit_progress(app_handle, instance_id, "deps", "正在安装依赖...", 60);
+    emit_progress(app_handle, instance_id, "deps", "正在安装依赖…", 60);
     sync_dependencies(instance_id, &venv_python, &core_dir).await?;
     emit_progress(app_handle, instance_id, "deps", "依赖安装完成", 90);
     if ensure_webui {
@@ -161,7 +165,7 @@ pub async fn repair_instance(
         )));
     }
 
-    emit_progress(app_handle, instance_id, "extract", "正在准备修复实例...", 5);
+    emit_progress(app_handle, instance_id, "extract", "正在准备修复实例…", 5);
 
     let core_dir = get_instance_core_dir(instance_id);
     let venv_dir = get_instance_venv_dir(instance_id);
@@ -198,13 +202,7 @@ pub async fn repair_instance(
     deploy_instance_core_with_version(instance_id, &version, app_handle).await?;
 
     if let Some(preserved) = preserved {
-        emit_progress(
-            app_handle,
-            instance_id,
-            "restore",
-            "正在恢复保留数据...",
-            92,
-        );
+        emit_progress(app_handle, instance_id, "restore", "正在恢复保留数据…", 92);
         restore_preserved_data(&core_dir, &preserved)?;
         remove_preserve_dir(&preserved.temp_dir);
         emit_progress(app_handle, instance_id, "restore", "保留数据恢复完成", 95);
@@ -390,8 +388,8 @@ fn restore_preserved_data(core_dir: &Path, preserved: &PreservedData) -> Result<
 fn remove_preserve_dir(temp_dir: &Path) {
     if let Err(e) = fs::remove_dir_all(temp_dir) {
         log::warn!(
-            "Failed to remove repair preserve directory {:?}: {}",
-            temp_dir,
+            "Failed to remove repair preserve directory {}: {}",
+            log_redact::path_name(temp_dir),
             e
         );
     }
@@ -404,8 +402,8 @@ fn clear_stale_preserve_dirs(instance_id: &str) {
         Err(e) => {
             if e.kind() != std::io::ErrorKind::NotFound {
                 log::warn!(
-                    "Failed to read instance directory {:?} before repair: {}",
-                    instance_dir,
+                    "Failed to read instance directory {} before repair: {}",
+                    log_redact::path_name(&instance_dir),
                     e
                 );
             }
@@ -433,8 +431,8 @@ fn remove_dashboard_temp_dir(temp_dir: &Path) {
     if let Err(e) = fs::remove_dir_all(temp_dir) {
         if e.kind() != std::io::ErrorKind::NotFound {
             log::warn!(
-                "Failed to remove stale dashboard temporary directory {:?}: {}",
-                temp_dir,
+                "Failed to remove stale dashboard temporary directory {}: {}",
+                log_redact::path_name(temp_dir),
                 e
             );
         }
@@ -447,8 +445,8 @@ fn clear_stale_dashboard_temp_dirs(data_dir: &Path) {
         Err(e) => {
             if e.kind() != std::io::ErrorKind::NotFound {
                 log::warn!(
-                    "Failed to read data directory {:?} before WebUI update: {}",
-                    data_dir,
+                    "Failed to read data directory {} before WebUI update: {}",
+                    log_redact::path_name(data_dir),
                     e
                 );
             }
@@ -558,7 +556,7 @@ async fn ensure_webui_for_version_with_progress(
         app_handle,
         instance_id,
         "webui",
-        "正在下载 WebUI...",
+        "正在下载 WebUI…",
         progress.0,
     );
 
@@ -574,14 +572,21 @@ async fn ensure_webui_for_version_with_progress(
 
     for (index, url) in urls.iter().enumerate() {
         if index > 0 {
-            log::warn!("Retrying WebUI download with fallback URL: {}", url);
+            log::warn!(
+                "Retrying WebUI download with fallback URL: {}",
+                log_redact::url_for_log(url)
+            );
         }
 
         let _ = fs::remove_file(&zip_path);
         clear_dir_if_exists(&temp_dist_dir)?;
 
         if let Err(error) = download_file(&client, url, &zip_path, None).await {
-            log::warn!("WebUI download failed for {}: {}", url, error);
+            log::warn!(
+                "WebUI download failed for {}: {}",
+                log_redact::url_for_log(url),
+                log_redact::redact_text(&error.to_string())
+            );
             last_error = Some(AppError::network(format!(
                 "Failed to download WebUI from {}: {}",
                 url, error
@@ -593,7 +598,7 @@ async fn ensure_webui_for_version_with_progress(
             app_handle,
             instance_id,
             "webui",
-            "正在解压 WebUI...",
+            "正在解压 WebUI…",
             progress.1,
         );
 
@@ -616,7 +621,11 @@ async fn ensure_webui_for_version_with_progress(
                 break;
             }
             Err(error) => {
-                log::warn!("WebUI archive from {} is not usable: {}", url, error);
+                log::warn!(
+                    "WebUI archive from {} is not usable: {}",
+                    log_redact::url_for_log(url),
+                    log_redact::redact_text(&error.to_string())
+                );
                 last_error = Some(error);
             }
         }
