@@ -414,3 +414,95 @@ pub(crate) fn has_config_record() -> Result<bool> {
 pub(crate) fn has_manifest_record() -> Result<bool> {
     has_manifest_record_value()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backup_metadata_applies_legacy_defaults() -> Result<()> {
+        let metadata: BackupMetadata = toml::from_str(
+            r#"
+created_at = "2026-01-01T00:00:00Z"
+instance_name = "Test"
+instance_id = "inst1"
+version = "v4.0.0"
+"#,
+        )?;
+
+        assert!(!metadata.includes_venv);
+        assert!(metadata.includes_data);
+        assert!(metadata.arch_target.is_empty());
+        assert!(!metadata.auto_generated);
+        Ok(())
+    }
+
+    #[test]
+    fn backup_info_defaults_and_corrupted_marker_are_preserved() -> Result<()> {
+        let info: BackupInfo = serde_json::from_str(
+            r#"{
+                "filename": "broken.zip",
+                "path": "backups/broken.zip",
+                "metadata": {
+                    "created_at": "",
+                    "instance_name": "（损坏备份）",
+                    "instance_id": "",
+                    "version": ""
+                }
+            }"#,
+        )?;
+
+        assert!(!info.corrupted);
+        assert!(info.parse_error.is_none());
+        assert_eq!(info.metadata.instance_name, "（损坏备份）");
+        assert!(info.metadata.includes_data);
+
+        let corrupted: BackupInfo = serde_json::from_str(
+            r#"{
+                "filename": "broken.zip",
+                "path": "backups/broken.zip",
+                "metadata": {
+                    "created_at": "",
+                    "instance_name": "（损坏备份）",
+                    "instance_id": "",
+                    "version": ""
+                },
+                "corrupted": true,
+                "parse_error": "invalid backup.toml"
+            }"#,
+        )?;
+
+        assert!(corrupted.corrupted);
+        assert_eq!(
+            corrupted.parse_error.as_deref(),
+            Some("invalid backup.toml")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn backup_metadata_round_trip_preserves_all_fields() -> Result<()> {
+        let metadata = BackupMetadata {
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            instance_name: "Test".to_string(),
+            instance_id: "inst1".to_string(),
+            version: "v4.0.0".to_string(),
+            includes_venv: true,
+            includes_data: false,
+            arch_target: "x86_64-pc-windows-msvc".to_string(),
+            auto_generated: true,
+        };
+
+        let decoded: BackupMetadata = toml::from_str(&toml::to_string(&metadata)?)?;
+
+        assert_eq!(decoded.created_at, metadata.created_at);
+        assert_eq!(decoded.instance_name, metadata.instance_name);
+        assert_eq!(decoded.instance_id, metadata.instance_id);
+        assert_eq!(decoded.version, metadata.version);
+        assert_eq!(decoded.includes_venv, metadata.includes_venv);
+        assert_eq!(decoded.includes_data, metadata.includes_data);
+        assert_eq!(decoded.arch_target, metadata.arch_target);
+        assert_eq!(decoded.auto_generated, metadata.auto_generated);
+        Ok(())
+    }
+}

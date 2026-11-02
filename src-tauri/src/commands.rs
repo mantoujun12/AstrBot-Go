@@ -713,18 +713,100 @@ pub async fn get_instance_port(instance_id: String, state: State<'_, AppState>) 
 
 #[tauri::command]
 pub async fn create_backup(instance_id: String, state: State<'_, AppState>) -> Result<String> {
-    let _guard = state.process_manager.acquire_guard(&instance_id)?;
-    backup::create_backup(&instance_id, false)
+    let guard = state.process_manager.acquire_guard(&instance_id)?;
+    tokio::task::spawn_blocking(move || {
+        let result = backup::create_backup(&instance_id, false);
+        drop(guard);
+        result
+    })
+    .await
+    .map_err(|e| AppError::process(format!("Create backup task panicked: {}", e)))?
 }
 
 #[tauri::command]
 pub async fn restore_backup(backup_path: String, state: State<'_, AppState>) -> Result<()> {
     let (resolved_path, metadata) = backup::resolve_restore_backup_input(&backup_path)?;
-    let _guard = state.process_manager.acquire_guard(&metadata.instance_id)?;
-    backup::restore_backup_with_input(resolved_path, metadata)
+    let guard = state.process_manager.acquire_guard(&metadata.instance_id)?;
+    tokio::task::spawn_blocking(move || {
+        let result = backup::restore_backup_with_input(resolved_path, metadata);
+        drop(guard);
+        result
+    })
+    .await
+    .map_err(|e| AppError::process(format!("Restore backup task panicked: {}", e)))?
 }
 
 #[tauri::command]
 pub async fn delete_backup(backup_path: String) -> Result<()> {
-    backup::delete_backup(&backup_path)
+    tokio::task::spawn_blocking(move || backup::delete_backup(&backup_path))
+        .await
+        .map_err(|e| AppError::process(format!("Delete backup task panicked: {}", e)))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn installed(version: &str) -> InstalledVersion {
+        InstalledVersion {
+            version: version.to_string(),
+            zip_path: format!("/versions/{version}.zip"),
+        }
+    }
+
+    #[test]
+    fn compare_versions_handles_prefixes_and_prereleases() {
+        assert_eq!(
+            compare_versions("v4.0.0".to_string(), "4.0.0".to_string()),
+            0
+        );
+        assert_eq!(
+            compare_versions("4.1.0".to_string(), "4.0.9".to_string()),
+            1
+        );
+        assert_eq!(
+            compare_versions("4.0.0".to_string(), "4.0.0-beta.1".to_string()),
+            1
+        );
+        assert_eq!(
+            compare_versions("4.0.0-beta.2".to_string(), "4.0.0-beta.1".to_string()),
+            1
+        );
+        assert_eq!(
+            compare_versions("4.0.0+build.1".to_string(), "4.0.0+build.1".to_string()),
+            0
+        );
+        assert_eq!(
+            compare_versions("4.0.0+build.2".to_string(), "4.0.0+build.1".to_string()),
+            1
+        );
+    }
+
+    #[test]
+    fn compare_versions_returns_zero_for_invalid_input() {
+        assert_eq!(
+            compare_versions("not-a-version".to_string(), "4.0.0".to_string()),
+            0
+        );
+        assert_eq!(compare_versions("4.0.0".to_string(), String::new()), 0);
+    }
+
+    #[test]
+    fn installed_versions_sort_newest_first_with_invalid_entries_last() {
+        let mut versions = vec![
+            installed("v4.0.0"),
+            installed("invalid"),
+            installed("4.2.0-beta.1"),
+            installed("4.10.0"),
+            installed("v4.2.0"),
+        ];
+
+        sort_installed_versions_semver(&mut versions);
+
+        let order: Vec<&str> = versions.iter().map(|v| v.version.as_str()).collect();
+        assert_eq!(
+            order,
+            vec!["4.10.0", "v4.2.0", "4.2.0-beta.1", "v4.0.0", "invalid"]
+        );
+    }
 }
