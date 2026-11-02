@@ -17,6 +17,7 @@ mod setup;
 mod tray;
 mod utils;
 mod validation;
+mod webview_shortcuts;
 
 use std::sync::RwLock;
 use std::time::Duration;
@@ -166,6 +167,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_decorum::init())
+        .plugin(webview_shortcuts::plugin())
         .manage({
             let startup_client = (|| {
                 let config = load_config()?;

@@ -2,6 +2,41 @@ import { onBeforeUnmount, onMounted } from "vue";
 import { HOME_TAB, useTabsStore } from "../stores/tabs";
 
 /**
+ * Message marker used by the all-frames bridge script defined in
+ * `src-tauri/src/webview_shortcuts.rs`. Keydown events inside the instance
+ * WebUI iframe never reach this window, so the bridge forwards them.
+ */
+const BRIDGE_SOURCE = "astrbot-launcher:tab-shortcut";
+
+interface ShortcutInput {
+  key: string;
+  shiftKey: boolean;
+  ctrlKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
+  defaultPrevented: boolean;
+  preventDefault?: () => void;
+}
+
+interface BridgeMessage {
+  source: typeof BRIDGE_SOURCE;
+  key: string;
+  shiftKey: boolean;
+}
+
+function isBridgeMessage(value: unknown): value is BridgeMessage {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const message = value as Record<string, unknown>;
+  return (
+    message.source === BRIDGE_SOURCE &&
+    typeof message.key === "string" &&
+    typeof message.shiftKey === "boolean"
+  );
+}
+
+/**
  * Browser-style tab shortcuts:
  * - Ctrl+Tab / Ctrl+PageDown: next tab
  * - Ctrl+Shift+Tab / Ctrl+PageUp: previous tab
@@ -46,7 +81,7 @@ export function useTabShortcuts(): void {
     }
   }
 
-  function onKeydown(event: KeyboardEvent): void {
+  function handleShortcut(event: ShortcutInput): void {
     if (
       event.defaultPrevented ||
       !event.ctrlKey ||
@@ -58,21 +93,21 @@ export function useTabShortcuts(): void {
 
     switch (event.key) {
       case "Tab":
-        event.preventDefault();
+        event.preventDefault?.();
         switchBy(event.shiftKey ? -1 : 1);
         return;
       case "PageDown":
-        event.preventDefault();
+        event.preventDefault?.();
         switchBy(1);
         return;
       case "PageUp":
-        event.preventDefault();
+        event.preventDefault?.();
         switchBy(-1);
         return;
       case "w":
       case "W":
       case "F4":
-        event.preventDefault();
+        event.preventDefault?.();
         if (activeTab.value !== HOME_TAB) {
           closeInstanceTab(activeTab.value);
         }
@@ -89,16 +124,37 @@ export function useTabShortcuts(): void {
     const ids = tabIds();
     const index = event.key === "9" ? ids.length - 1 : Number(event.key) - 1;
     if (index >= 0 && index < ids.length) {
-      event.preventDefault();
+      event.preventDefault?.();
       selectByIndex(index);
     }
   }
 
+  function onKeydown(event: KeyboardEvent): void {
+    handleShortcut(event);
+  }
+
+  function onMessage(event: MessageEvent<unknown>): void {
+    const data = event.data;
+    if (!isBridgeMessage(data)) {
+      return;
+    }
+    handleShortcut({
+      key: data.key,
+      shiftKey: data.shiftKey,
+      ctrlKey: true,
+      altKey: false,
+      metaKey: false,
+      defaultPrevented: false,
+    });
+  }
+
   onMounted(() => {
     window.addEventListener("keydown", onKeydown);
+    window.addEventListener("message", onMessage);
   });
 
   onBeforeUnmount(() => {
     window.removeEventListener("keydown", onKeydown);
+    window.removeEventListener("message", onMessage);
   });
 }
