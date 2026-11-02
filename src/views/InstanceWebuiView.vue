@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
           :key="frameKey"
           :src="webuiUrl"
           title="AstrBot WebUI"
-          allow="clipboard-write; microphone; autoplay"
+          allow="clipboard-write; microphone; autoplay; fullscreen"
           class="instance-webui__frame"
           @load="handleFrameLoad"
         />
