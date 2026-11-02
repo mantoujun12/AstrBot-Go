@@ -1,3 +1,4 @@
+#[cfg(target_os = "windows")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -69,6 +70,7 @@ pub(crate) fn collect_files_for_lock_check(dir: &Path) -> Result<Vec<PathBuf>> {
 }
 
 #[cfg(not(target_os = "windows"))]
+#[allow(clippy::unnecessary_wraps)]
 pub(crate) fn collect_files_for_lock_check(_dir: &Path) -> Result<Vec<PathBuf>> {
     Ok(Vec::new())
 }
@@ -150,6 +152,7 @@ pub(crate) fn ensure_target_not_locked(target_files: &[PathBuf]) -> Result<()> {
 }
 
 #[cfg(not(target_os = "windows"))]
+#[allow(clippy::unnecessary_wraps)]
 pub(crate) fn ensure_target_not_locked(_target_files: &[PathBuf]) -> Result<()> {
     Ok(())
 }
