@@ -726,10 +726,14 @@ pub async fn get_instance_port(instance_id: String, state: State<'_, AppState>) 
 // === Backup ===
 
 #[tauri::command]
-pub async fn create_backup(instance_id: String, state: State<'_, AppState>) -> Result<String> {
+pub async fn create_backup(
+    instance_id: String,
+    note: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<String> {
     let guard = state.process_manager.acquire_guard(&instance_id)?;
     tokio::task::spawn_blocking(move || {
-        let result = backup::create_backup(&instance_id, false);
+        let result = backup::create_backup(&instance_id, false, note.as_deref());
         drop(guard);
         result
     })

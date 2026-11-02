@@ -482,12 +482,14 @@ const zhCN = {
     "createDialog": {
       "title": "创建备份",
       "instanceLabel": "实例",
+      "noteLabel": "备注",
+      "notePlaceholder": "可选",
       "noInstances": "暂无实例",
       "noStoppedInstances": "没有已停止的实例"
     },
     "instanceFilter": "实例",
     "allInstances": "全部实例",
-    "searchPlaceholder": "搜索文件名",
+    "searchPlaceholder": "搜索文件名或备注",
     "loading": "加载中",
     "empty": "暂无备份",
     "noMatches": "没有符合条件的备份",

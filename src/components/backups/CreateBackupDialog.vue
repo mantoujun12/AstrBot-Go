@@ -14,11 +14,14 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (event: "update:modelValue", value: boolean): void;
-  (event: "submit", instanceId: string): void;
+  (event: "submit", instanceId: string, note: string): void;
 }>();
+
+const NOTE_MAX_LENGTH = 200;
 
 const { t } = useI18n();
 const selectedId = ref<string | null>(null);
+const note = ref("");
 
 const stoppedInstances = computed(() =>
   props.instances.filter((instance) => instance.state === "stopped"),
@@ -35,6 +38,7 @@ watch(
   (open) => {
     if (open) {
       selectedId.value = null;
+      note.value = "";
     }
   },
 );
@@ -69,7 +73,7 @@ function submit(): void {
   if (!instance) {
     return;
   }
-  emit("submit", instance.id);
+  emit("submit", instance.id, note.value.trim());
 }
 </script>
 
@@ -105,6 +109,19 @@ function submit(): void {
           hide-details
           :disabled="loading"
         />
+        <v-text-field
+          v-if="stoppedInstances.length > 0"
+          v-model="note"
+          :label="t('backups.createDialog.noteLabel')"
+          :placeholder="t('backups.createDialog.notePlaceholder')"
+          :maxlength="NOTE_MAX_LENGTH"
+          :counter="NOTE_MAX_LENGTH"
+          variant="outlined"
+          density="compact"
+          hide-details="auto"
+          :disabled="loading"
+          class="create-backup__note"
+        />
       </v-card-text>
       <v-card-actions class="create-backup__actions">
         <v-spacer />
@@ -134,6 +151,10 @@ function submit(): void {
 
 .create-backup__body {
   padding: 14px 20px 0;
+}
+
+.create-backup__note {
+  margin-top: 12px;
 }
 
 .create-backup__actions {

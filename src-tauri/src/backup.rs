@@ -24,6 +24,8 @@ use crate::validation::resolve_backup_path;
 
 const RESTORE_STAGING_PREFIX: &str = ".restore-staging-";
 const RESTORE_ROLLBACK_PREFIX: &str = ".restore-rollback-";
+/// Longest accepted backup note, counted in characters rather than bytes.
+const BACKUP_NOTE_MAX_CHARS: usize = 200;
 
 static BACKUP_ARCHIVE_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
@@ -33,6 +35,18 @@ fn is_tar_gz(path: &Path) -> bool {
         .and_then(|n| n.to_str())
         .map(|n| n.ends_with(".tar.gz"))
         .unwrap_or(false)
+}
+
+/// Trim a user-provided backup note and reject oversized input.
+fn normalize_backup_note(note: Option<&str>) -> Result<String> {
+    let trimmed = note.unwrap_or("").trim();
+    if trimmed.chars().count() > BACKUP_NOTE_MAX_CHARS {
+        return Err(AppError::backup(format!(
+            "Backup note must not exceed {} characters",
+            BACKUP_NOTE_MAX_CHARS
+        )));
+    }
+    Ok(trimmed.to_string())
 }
 
 fn path_contains_pycache(path: &Path) -> bool {
@@ -151,6 +165,7 @@ fn create_backup_archive_at(
     instance: &InstanceConfig,
     instance_id: &str,
     auto_generated: bool,
+    note: &str,
     backups_dir: &Path,
     data_dir: &Path,
 ) -> Result<PathBuf> {
@@ -173,6 +188,7 @@ fn create_backup_archive_at(
         includes_data: true,
         arch_target: String::new(),
         auto_generated,
+        note: note.to_string(),
     };
 
     let (temp_path, file) =
@@ -215,6 +231,7 @@ fn create_backup_archive(
     instance: &InstanceConfig,
     instance_id: &str,
     auto_generated: bool,
+    note: &str,
 ) -> Result<String> {
     let backups_dir = get_backups_dir();
     let data_dir = get_instance_core_dir(instance_id).join("data");
@@ -222,6 +239,7 @@ fn create_backup_archive(
         instance,
         instance_id,
         auto_generated,
+        note,
         &backups_dir,
         &data_dir,
     )?;
@@ -235,9 +253,15 @@ fn create_backup_archive(
 /// Create a backup of an instance.
 ///
 /// When `auto_generated` is `true`, the backup is tagged in metadata so UI can
-/// show it as an auto-generated backup.
-pub fn create_backup(instance_id: &str, auto_generated: bool) -> Result<String> {
+/// show it as an auto-generated backup. `note` is an optional user annotation
+/// stored in the archive metadata.
+pub fn create_backup(
+    instance_id: &str,
+    auto_generated: bool,
+    note: Option<&str>,
+) -> Result<String> {
     log::info!("Creating backup for instance {}", instance_id);
+    let note = normalize_backup_note(note)?;
     let manifest = load_manifest()?;
     let instance = manifest
         .instances
@@ -249,7 +273,7 @@ pub fn create_backup(instance_id: &str, auto_generated: bool) -> Result<String> 
         return Err(AppError::backup("No data directory to back up"));
     }
 
-    create_backup_archive(instance, instance_id, auto_generated)
+    create_backup_archive(instance, instance_id, auto_generated, &note)
 }
 
 /// List all backups
@@ -322,6 +346,7 @@ pub fn list_backups() -> Result<Vec<BackupInfo>> {
                         includes_data: false,
                         arch_target: String::new(),
                         auto_generated: false,
+                        note: String::new(),
                     },
                     corrupted: true,
                     parse_error: Some(err.to_string()),
@@ -784,7 +809,7 @@ pub fn restore_backup_with_input(backup_path: PathBuf, metadata: BackupMetadata)
     // touched. It is a normal backup so startup will not treat it as a pending
     // auto-generated upgrade backup.
     let safety_backup = if restore_safety_backup_needed(&data_dir) {
-        let path = create_backup_archive(&instance, &instance_id, false).map_err(|error| {
+        let path = create_backup_archive(&instance, &instance_id, false, "").map_err(|error| {
             AppError::backup(format!("恢复前安全备份失败，已中止恢复：{}", error))
         })?;
         log::info!(
@@ -951,8 +976,14 @@ mod tests {
         let data_dir = dir.path().join("core").join("data");
         write_file(&data_dir.join("config.json"), b"{}")?;
 
-        let path =
-            create_backup_archive_at(&test_instance(), "inst1", false, &backups_dir, &data_dir)?;
+        let path = create_backup_archive_at(
+            &test_instance(),
+            "inst1",
+            false,
+            "手动备份",
+            &backups_dir,
+            &data_dir,
+        )?;
 
         assert!(path.exists());
         validate_zip_archive(&path)?;
@@ -969,7 +1000,25 @@ mod tests {
         assert_eq!(metadata.version, "4.0.0");
         assert!(metadata.includes_data);
         assert!(!metadata.auto_generated);
+        assert_eq!(metadata.note, "手动备份");
         assert!(!metadata.created_at.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn backup_note_is_trimmed_and_length_limited() -> Result<()> {
+        assert_eq!(normalize_backup_note(None)?, "");
+        assert_eq!(normalize_backup_note(Some("  手动备份 \n"))?, "手动备份");
+
+        let at_limit = "备".repeat(BACKUP_NOTE_MAX_CHARS);
+        assert_eq!(
+            normalize_backup_note(Some(&at_limit))?,
+            at_limit,
+            "multi-byte notes should be counted by characters"
+        );
+
+        let too_long = "备".repeat(BACKUP_NOTE_MAX_CHARS + 1);
+        assert!(normalize_backup_note(Some(&too_long)).is_err());
         Ok(())
     }
 

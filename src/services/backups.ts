@@ -1,7 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export function createBackup(instanceId: string): Promise<string> {
-  return invoke<string>("create_backup", { instanceId });
+export function createBackup(
+  instanceId: string,
+  note?: string,
+): Promise<string> {
+  return invoke<string>("create_backup", {
+    instanceId,
+    note: note ?? null,
+  });
 }
 
 export function restoreBackup(backupPath: string): Promise<void> {
