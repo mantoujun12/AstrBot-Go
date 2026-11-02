@@ -99,9 +99,12 @@ jobs:
             - ~/.cargo/git
 
 workflows:
-  build:
+  frontend-checks:
+    when: << pipeline.parameters.frontend >>
     jobs:
-      - frontend:
-          when: << pipeline.parameters.frontend >>
-      - backend:
-          when: << pipeline.parameters.backend >>
+      - frontend
+
+  backend-checks:
+    when: << pipeline.parameters.backend >>
+    jobs:
+      - backend
