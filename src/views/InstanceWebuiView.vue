@@ -331,7 +331,6 @@ onBeforeUnmount(() => {
   flex: 0 0 48px;
   height: 48px;
   padding: 0 12px;
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   background: rgb(var(--v-theme-surface));
 }
 
