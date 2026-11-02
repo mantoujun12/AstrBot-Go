@@ -1,0 +1,17 @@
+ci:
+    autofix_commit_msg: "style: pre-commit autofix"
+    autoupdate_commit_msg: "chore: pre-commit autoupdate"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+      - id: check-json
+        # tsconfig files are JSONC and contain comments.
+        exclude: '(^|/)tsconfig(\..*)?\.json$'
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-illegal-windows-names
+      - id: detect-private-key
