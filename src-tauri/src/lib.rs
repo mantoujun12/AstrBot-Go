@@ -7,6 +7,7 @@ mod download;
 mod download_control;
 mod error;
 mod github;
+mod i18n;
 mod instance;
 mod migration;
 mod network_config;
@@ -218,6 +219,7 @@ pub fn run() {
             commands::save_use_short_instance_id,
             commands::save_lock_check_extension_whitelist,
             commands::save_theme_preference,
+            commands::save_language_preference,
             commands::save_mainland_acceleration,
             commands::is_macos,
             // Data Directory

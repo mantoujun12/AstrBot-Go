@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay, useLocale as useVuetifyLocale, useTheme } from "vuetify";
 import AppSnackbar from "./components/common/AppSnackbar.vue";
 import DefaultCredentialsDialog from "./components/common/DefaultCredentialsDialog.vue";
 import AppTitleBar from "./components/AppTitleBar.vue";
 import LauncherMain from "./components/LauncherMain.vue";
 import LauncherSidebar from "./components/LauncherSidebar.vue";
 import { useTabShortcuts } from "./composables/useTabShortcuts";
+import { applyLanguagePreference, i18n } from "./i18n";
+import { isSupportedLocale } from "./i18n/locale";
 import { listenDefaultCredentials } from "./services/events";
 import { useLauncherStore } from "./stores/launcher";
 import { useLogStore } from "./stores/logs";
@@ -18,6 +20,7 @@ import { cacheTheme } from "./utils/themeCache";
 
 const { mdAndUp } = useDisplay();
 const theme = useTheme();
+const { current: vuetifyLocale } = useVuetifyLocale();
 
 const { config, instances, init: initLauncher } = useLauncherStore();
 const { activeTab, isHomeActive, activateHome, pruneTabs } = useTabsStore();
@@ -82,6 +85,27 @@ watch(
     }
     void theme.change(preference);
     cacheTheme(preference);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => i18n.global.locale.value,
+  (locale) => {
+    if (isSupportedLocale(locale)) {
+      vuetifyLocale.value = locale;
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => config.value?.language_preference,
+  (preference) => {
+    if (!preference) {
+      return;
+    }
+    applyLanguagePreference(preference);
   },
   { immediate: true },
 );

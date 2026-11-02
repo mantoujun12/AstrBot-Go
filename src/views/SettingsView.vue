@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import {
   disable as disableAutostart,
@@ -23,6 +24,7 @@ import {
   saveCloseToTray,
   saveGithubProxy,
   saveIgnoreExternalPath,
+  saveLanguagePreference,
   saveLockCheckExtensionWhitelist,
   saveMainlandAcceleration,
   saveNodejsMirror,
@@ -47,7 +49,14 @@ import {
   restoreThemeColors,
   storeThemeColors,
 } from "../theme/customColors";
-import type { AppConfig, ThemePreference } from "../types/launcher";
+import { useLanguage } from "../composables/useLanguage";
+import { isLanguagePreference } from "../i18n/locale";
+import type {
+  AppConfig,
+  LanguagePreference,
+  ThemePreference,
+} from "../types/launcher";
+import { readCachedLanguage } from "../utils/languageCache";
 import { cacheTheme } from "../utils/themeCache";
 
 const { config, dataDir, loading, error, refresh } = useLauncherStore();
@@ -56,16 +65,36 @@ type SettingsSection = "general" | "appearance" | "network" | "data" | "about";
 
 interface SettingsNavItem {
   id: SettingsSection;
-  label: string;
+  labelKey: string;
   icon: string;
 }
 
 const sections: SettingsNavItem[] = [
-  { id: "general", label: "通用", icon: "mdi-tune-variant" },
-  { id: "appearance", label: "外观", icon: "mdi-palette-outline" },
-  { id: "network", label: "网络", icon: "mdi-lan-connect" },
-  { id: "data", label: "数据与维护", icon: "mdi-tools" },
-  { id: "about", label: "关于", icon: "mdi-information-outline" },
+  {
+    id: "general",
+    labelKey: "settings.nav.general",
+    icon: "mdi-tune-variant",
+  },
+  {
+    id: "appearance",
+    labelKey: "settings.nav.appearance",
+    icon: "mdi-palette-outline",
+  },
+  {
+    id: "network",
+    labelKey: "settings.nav.network",
+    icon: "mdi-lan-connect",
+  },
+  {
+    id: "data",
+    labelKey: "settings.nav.data",
+    icon: "mdi-tools",
+  },
+  {
+    id: "about",
+    labelKey: "settings.nav.about",
+    icon: "mdi-information-outline",
+  },
 ];
 
 const activeSection = ref<SettingsSection>("general");
@@ -106,6 +135,44 @@ async function changeTheme(value: unknown): Promise<void> {
     showErrorToast(cause);
   } finally {
     themeSaving.value = false;
+  }
+}
+
+/* Language */
+
+const { t } = useI18n();
+const { apply: applyLanguage } = useLanguage();
+const languagePreference = ref<LanguagePreference>(readCachedLanguage());
+const languageSaving = ref(false);
+const languageOptions = computed(() => [
+  { value: "system", title: t("settings.appearance.followSystem") },
+  { value: "zh-CN", title: "简体中文" },
+  { value: "en-US", title: "English" },
+  { value: "ru-RU", title: "Русский" },
+  { value: "ja-JP", title: "日本語" },
+]);
+
+async function changeLanguage(value: unknown): Promise<void> {
+  if (languageSaving.value || !isLanguagePreference(value)) {
+    return;
+  }
+  if (value === languagePreference.value) {
+    return;
+  }
+
+  const previous = languagePreference.value;
+  languagePreference.value = value;
+  languageSaving.value = true;
+  try {
+    await saveLanguagePreference(value);
+    applyLanguage(value);
+    await refresh();
+  } catch (cause) {
+    languagePreference.value = previous;
+    applyLanguage(previous);
+    showErrorToast(cause);
+  } finally {
+    languageSaving.value = false;
   }
 }
 
@@ -171,7 +238,12 @@ async function loadAutostartState(): Promise<void> {
     autostartUnavailable.value = false;
   } catch (cause) {
     autostartUnavailable.value = true;
-    showToast(`无法读取开机自启状态：${toUserMessage(cause)}`, "error");
+    showToast(
+      t("settings.general.autostartReadFailed", {
+        detail: toUserMessage(cause),
+      }),
+      "error",
+    );
   } finally {
     autostartLoading.value = false;
   }
@@ -217,51 +289,51 @@ type ToggleKey =
 
 interface ToggleDefinition {
   key: ToggleKey;
-  title: string;
-  subtitle?: string;
+  titleKey: string;
+  subtitleKey?: string;
   save: (value: boolean) => Promise<void>;
 }
 
 const toggleDefinitions: ToggleDefinition[] = [
   {
     key: "close_to_tray",
-    title: "关闭时最小化到托盘",
+    titleKey: "settings.general.toggles.closeToTray",
     save: saveCloseToTray,
   },
   {
     key: "autostart_minimize_to_tray",
-    title: "开机启动后最小化到托盘",
+    titleKey: "settings.general.toggles.autostartMinimizeToTray",
     save: saveAutostartMinimizeToTray,
   },
   {
     key: "check_instance_update",
-    title: "检查实例更新",
+    titleKey: "settings.general.toggles.checkInstanceUpdate",
     save: saveCheckInstanceUpdate,
   },
   {
     key: "persist_instance_state",
-    title: "记住实例运行状态",
+    titleKey: "settings.general.toggles.persistInstanceState",
     save: savePersistInstanceState,
   },
   {
     key: "ignore_external_path",
-    title: "允许外部路径",
+    titleKey: "settings.general.toggles.ignoreExternalPath",
     save: saveIgnoreExternalPath,
   },
   {
     key: "use_short_instance_id",
-    title: "使用短实例 ID",
+    titleKey: "settings.general.toggles.useShortInstanceId",
     save: saveUseShortInstanceId,
   },
   {
     key: "lock_check_extension_whitelist",
-    title: "文件锁扩展名白名单",
+    titleKey: "settings.general.toggles.lockCheckExtensionWhitelist",
     save: saveLockCheckExtensionWhitelist,
   },
   {
     key: "use_uv_for_deps",
-    title: "使用 uv 安装依赖",
-    subtitle: "需要已安装 uv",
+    titleKey: "settings.general.toggles.useUvForDeps",
+    subtitleKey: "settings.general.toggles.useUvForDepsHint",
     save: saveUseUvForDeps,
   },
 ];
@@ -411,7 +483,7 @@ async function saveGithubProxyForm(): Promise<void> {
     await saveGithubProxy(githubProxy.value);
     githubDirty.value = false;
     await refresh();
-    showToast("已保存");
+    showToast(t("settings.saved"));
   } catch (cause) {
     showErrorToast(cause);
   } finally {
@@ -434,7 +506,7 @@ async function saveProxyForm(): Promise<void> {
     });
     proxyDirty.value = false;
     await refresh();
-    showToast("已保存");
+    showToast(t("settings.saved"));
   } catch (cause) {
     showErrorToast(cause);
   } finally {
@@ -452,7 +524,7 @@ async function savePypiMirrorForm(): Promise<void> {
     await savePypiMirror(pypiMirror.value);
     pypiDirty.value = false;
     await refresh();
-    showToast("已保存");
+    showToast(t("settings.saved"));
   } catch (cause) {
     showErrorToast(cause);
   } finally {
@@ -470,7 +542,7 @@ async function saveNodejsMirrorForm(): Promise<void> {
     await saveNodejsMirror(nodejsMirror.value);
     nodejsDirty.value = false;
     await refresh();
-    showToast("已保存");
+    showToast(t("settings.saved"));
   } catch (cause) {
     showErrorToast(cause);
   } finally {
@@ -488,7 +560,7 @@ async function saveNpmRegistryForm(): Promise<void> {
     await saveNpmRegistry(npmRegistry.value);
     npmDirty.value = false;
     await refresh();
-    showToast("已保存");
+    showToast(t("settings.saved"));
   } catch (cause) {
     showErrorToast(cause);
   } finally {
@@ -582,7 +654,12 @@ async function confirmRebuildManifest(): Promise<void> {
     const result = await rebuildInstanceManifest();
     await refresh();
     rebuildDialogOpen.value = false;
-    showToast(`已重建 ${result.instances} 个实例，${result.versions} 个版本`);
+    showToast(
+      t("settings.data.rebuildComplete", {
+        instances: result.instances,
+        versions: result.versions,
+      }),
+    );
   } catch (cause) {
     showErrorToast(cause);
   } finally {
@@ -598,7 +675,7 @@ async function handleClearUvCache(): Promise<void> {
   clearingUvCache.value = true;
   try {
     await clearUvCache();
-    showToast("uv 缓存已清理");
+    showToast(t("settings.data.uvCacheCleared"));
   } catch (cause) {
     showErrorToast(cause);
   } finally {
@@ -625,7 +702,10 @@ async function openLink(url: string): Promise<void> {
   try {
     await openExternalUrl(url);
   } catch (cause) {
-    showToast(`无法打开链接：${toUserMessage(cause)}`, "error");
+    showToast(
+      t("settings.about.openLinkFailed", { detail: toUserMessage(cause) }),
+      "error",
+    );
   }
 }
 
@@ -648,6 +728,9 @@ watch(
     if (!themeSaving.value) {
       themePreference.value = value.theme_preference;
     }
+    if (!languageSaving.value) {
+      languagePreference.value = value.language_preference;
+    }
 
     syncNetworkForms(value);
   },
@@ -661,29 +744,29 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="settings-page" aria-label="设置">
-    <PageHeader title="设置" />
+  <section class="settings-page" :aria-label="t('settings.title')">
+    <PageHeader :title="t('settings.title')" />
 
     <div v-if="!config" class="settings-state">
       <v-progress-circular
         v-if="loading"
         indeterminate
         color="primary"
-        aria-label="加载设置"
+        :aria-label="t('settings.loading')"
       />
       <EmptyState
         v-else
         icon="mdi-alert-circle-outline"
-        :text="error ?? '设置加载失败'"
+        :text="error ?? t('settings.loadFailed')"
       >
         <v-btn variant="tonal" color="primary" size="small" @click="refresh">
-          重试
+          {{ t("common.actions.retry") }}
         </v-btn>
       </EmptyState>
     </div>
 
     <div v-else class="settings-layout">
-      <nav class="settings-nav" aria-label="设置分区">
+      <nav class="settings-nav" :aria-label="t('settings.nav.ariaLabel')">
         <button
           v-for="item in sections"
           :key="item.id"
@@ -694,7 +777,7 @@ onMounted(() => {
           @click="selectSection(item.id)"
         >
           <v-icon :icon="item.icon" size="16" aria-hidden="true" />
-          <span>{{ item.label }}</span>
+          <span>{{ t(item.labelKey) }}</span>
         </button>
       </nav>
 
@@ -706,12 +789,16 @@ onMounted(() => {
           aria-labelledby="settings-general-title"
         >
           <h2 id="settings-general-title" class="settings-section__title">
-            通用
+            {{ t("settings.nav.general") }}
           </h2>
           <div class="settings-list-card">
             <SettingsItem
-              title="开机自启"
-              :subtitle="autostartUnavailable ? '当前平台不可用' : ''"
+              :title="t('settings.general.autostart')"
+              :subtitle="
+                autostartUnavailable
+                  ? t('settings.general.autostartUnavailable')
+                  : ''
+              "
               label-for="setting-autostart"
             >
               <v-switch
@@ -731,8 +818,8 @@ onMounted(() => {
             <SettingsItem
               v-for="item in toggleDefinitions"
               :key="item.key"
-              :title="item.title"
-              :subtitle="item.subtitle ?? ''"
+              :title="t(item.titleKey)"
+              :subtitle="item.subtitleKey ? t(item.subtitleKey) : ''"
               :label-for="`setting-${item.key}`"
             >
               <v-switch
@@ -756,33 +843,33 @@ onMounted(() => {
           aria-labelledby="settings-appearance-title"
         >
           <h2 id="settings-appearance-title" class="settings-section__title">
-            外观
+            {{ t("settings.nav.appearance") }}
           </h2>
           <div class="settings-list-card">
-            <SettingsItem title="主题" wide>
+            <SettingsItem :title="t('settings.appearance.theme')" wide>
               <v-radio-group
                 :model-value="themePreference"
                 :disabled="themeSaving"
                 inline
                 hide-details
-                aria-label="主题"
+                :aria-label="t('settings.appearance.theme')"
                 class="settings-theme-group"
                 @update:model-value="changeTheme"
               >
                 <v-radio
-                  label="跟随系统"
+                  :label="t('settings.appearance.followSystem')"
                   value="system"
                   color="primary"
                   density="compact"
                 />
                 <v-radio
-                  label="浅色"
+                  :label="t('settings.appearance.light')"
                   value="light"
                   color="primary"
                   density="compact"
                 />
                 <v-radio
-                  label="深色"
+                  :label="t('settings.appearance.dark')"
                   value="dark"
                   color="primary"
                   density="compact"
@@ -790,30 +877,46 @@ onMounted(() => {
               </v-radio-group>
             </SettingsItem>
 
-            <SettingsItem title="主题色" stacked>
+            <SettingsItem :title="t('settings.appearance.language')" wide>
+              <v-select
+                :model-value="languagePreference"
+                :items="languageOptions"
+                item-title="title"
+                item-value="value"
+                :disabled="languageSaving"
+                :loading="languageSaving"
+                variant="outlined"
+                density="compact"
+                hide-details
+                :aria-label="t('settings.appearance.language')"
+                @update:model-value="changeLanguage"
+              />
+            </SettingsItem>
+
+            <SettingsItem :title="t('settings.appearance.themeColor')" stacked>
               <div class="theme-color-controls">
                 <v-color-input
                   :model-value="customPrimary"
                   color-pip
                   mode="hex"
-                  label="主色"
+                  :label="t('settings.appearance.primary')"
                   variant="outlined"
                   density="compact"
                   hide-details
                   class="theme-color-input"
-                  aria-label="主色"
+                  :aria-label="t('settings.appearance.primary')"
                   @update:model-value="setCustomPrimary"
                 />
                 <v-color-input
                   :model-value="customSecondary"
                   color-pip
                   mode="hex"
-                  label="次色"
+                  :label="t('settings.appearance.secondary')"
                   variant="outlined"
                   density="compact"
                   hide-details
                   class="theme-color-input"
-                  aria-label="次色"
+                  :aria-label="t('settings.appearance.secondary')"
                   @update:model-value="setCustomSecondary"
                 />
                 <v-btn
@@ -822,7 +925,7 @@ onMounted(() => {
                   :disabled="!customColorsActive"
                   @click="resetCustomColors"
                 >
-                  重置
+                  {{ t("settings.appearance.reset") }}
                 </v-btn>
               </div>
             </SettingsItem>
@@ -836,12 +939,12 @@ onMounted(() => {
           aria-labelledby="settings-network-title"
         >
           <h2 id="settings-network-title" class="settings-section__title">
-            网络
+            {{ t("settings.nav.network") }}
           </h2>
 
           <div class="settings-list-card">
             <SettingsItem
-              title="大陆加速"
+              :title="t('settings.network.mainlandAcceleration')"
               label-for="setting-mainland-acceleration"
             >
               <v-switch
@@ -859,7 +962,7 @@ onMounted(() => {
 
           <div class="settings-list-card">
             <SettingsItem
-              title="GitHub 代理"
+              :title="t('settings.network.githubProxy')"
               stacked
               label-for="setting-github-proxy"
             >
@@ -867,7 +970,7 @@ onMounted(() => {
                 <v-text-field
                   id="setting-github-proxy"
                   v-model="githubProxy"
-                  aria-label="GitHub 代理"
+                  :aria-label="t('settings.network.githubProxy')"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -879,12 +982,12 @@ onMounted(() => {
                 <v-btn
                   color="primary"
                   variant="tonal"
-                  aria-label="保存 GitHub 代理"
+                  :aria-label="t('settings.network.saveGithubProxy')"
                   :disabled="!githubChanged || githubSaving"
                   :loading="githubSaving"
                   @click="saveGithubProxyForm"
                 >
-                  保存
+                  {{ t("common.actions.save") }}
                 </v-btn>
               </div>
             </SettingsItem>
@@ -892,14 +995,16 @@ onMounted(() => {
 
           <div class="settings-list-card">
             <SettingsItem
-              title="HTTP 代理"
-              :subtitle="proxyDisabled ? '大陆加速开启时不可用' : ''"
+              :title="t('settings.network.httpProxy')"
+              :subtitle="
+                proxyDisabled ? t('settings.network.proxyDisabled') : ''
+              "
               stacked
             >
               <div class="settings-proxy-form">
                 <v-text-field
                   v-model="proxyForm.url"
-                  label="地址"
+                  :label="t('settings.network.fields.url')"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -909,7 +1014,7 @@ onMounted(() => {
                 />
                 <v-text-field
                   v-model="proxyForm.port"
-                  label="端口"
+                  :label="t('settings.network.fields.port')"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -919,7 +1024,7 @@ onMounted(() => {
                 />
                 <v-text-field
                   v-model="proxyForm.username"
-                  label="用户名"
+                  :label="t('settings.network.fields.username')"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -929,7 +1034,7 @@ onMounted(() => {
                 />
                 <v-text-field
                   v-model="proxyForm.password"
-                  label="密码"
+                  :label="t('settings.network.fields.password')"
                   type="password"
                   variant="outlined"
                   density="compact"
@@ -942,12 +1047,12 @@ onMounted(() => {
                   color="primary"
                   variant="tonal"
                   class="settings-proxy-form__save"
-                  aria-label="保存 HTTP 代理"
+                  :aria-label="t('settings.network.saveHttpProxy')"
                   :disabled="proxyDisabled || !proxyChanged || proxySaving"
                   :loading="proxySaving"
                   @click="saveProxyForm"
                 >
-                  保存
+                  {{ t("common.actions.save") }}
                 </v-btn>
               </div>
             </SettingsItem>
@@ -955,7 +1060,7 @@ onMounted(() => {
 
           <div class="settings-list-card">
             <SettingsItem
-              title="PyPI 镜像"
+              :title="t('settings.network.pypiMirror')"
               stacked
               label-for="setting-pypi-mirror"
             >
@@ -963,7 +1068,7 @@ onMounted(() => {
                 <v-text-field
                   id="setting-pypi-mirror"
                   v-model="pypiMirror"
-                  aria-label="PyPI 镜像"
+                  :aria-label="t('settings.network.pypiMirror')"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -975,18 +1080,18 @@ onMounted(() => {
                 <v-btn
                   color="primary"
                   variant="tonal"
-                  aria-label="保存 PyPI 镜像"
+                  :aria-label="t('settings.network.savePypiMirror')"
                   :disabled="!pypiChanged || pypiSaving"
                   :loading="pypiSaving"
                   @click="savePypiMirrorForm"
                 >
-                  保存
+                  {{ t("common.actions.save") }}
                 </v-btn>
               </div>
             </SettingsItem>
 
             <SettingsItem
-              title="Node.js 镜像"
+              :title="t('settings.network.nodejsMirror')"
               stacked
               label-for="setting-nodejs-mirror"
             >
@@ -994,7 +1099,7 @@ onMounted(() => {
                 <v-text-field
                   id="setting-nodejs-mirror"
                   v-model="nodejsMirror"
-                  aria-label="Node.js 镜像"
+                  :aria-label="t('settings.network.nodejsMirror')"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -1006,18 +1111,18 @@ onMounted(() => {
                 <v-btn
                   color="primary"
                   variant="tonal"
-                  aria-label="保存 Node.js 镜像"
+                  :aria-label="t('settings.network.saveNodejsMirror')"
                   :disabled="!nodejsChanged || nodejsSaving"
                   :loading="nodejsSaving"
                   @click="saveNodejsMirrorForm"
                 >
-                  保存
+                  {{ t("common.actions.save") }}
                 </v-btn>
               </div>
             </SettingsItem>
 
             <SettingsItem
-              title="npm registry"
+              :title="t('settings.network.npmRegistry')"
               stacked
               label-for="setting-npm-registry"
             >
@@ -1025,7 +1130,7 @@ onMounted(() => {
                 <v-text-field
                   id="setting-npm-registry"
                   v-model="npmRegistry"
-                  aria-label="npm registry"
+                  :aria-label="t('settings.network.npmRegistry')"
                   variant="outlined"
                   density="compact"
                   hide-details
@@ -1037,12 +1142,12 @@ onMounted(() => {
                 <v-btn
                   color="primary"
                   variant="tonal"
-                  aria-label="保存 npm registry"
+                  :aria-label="t('settings.network.saveNpmRegistry')"
                   :disabled="!npmChanged || npmSaving"
                   :loading="npmSaving"
                   @click="saveNpmRegistryForm"
                 >
-                  保存
+                  {{ t("common.actions.save") }}
                 </v-btn>
               </div>
             </SettingsItem>
@@ -1056,48 +1161,48 @@ onMounted(() => {
           aria-labelledby="settings-data-title"
         >
           <h2 id="settings-data-title" class="settings-section__title">
-            数据与维护
+            {{ t("settings.nav.data") }}
           </h2>
 
           <div class="settings-list-card">
-            <SettingsItem title="数据目录" stacked>
+            <SettingsItem :title="t('settings.data.dataDirectory')" stacked>
               <div class="settings-path-row">
                 <code class="settings-path">{{ dataDir || "—" }}</code>
                 <v-btn
                   color="primary"
                   variant="tonal"
-                  aria-label="更改数据目录"
+                  :aria-label="t('settings.data.changeDirectory')"
                   :loading="pickingDirectory"
                   :disabled="changeDirSaving"
                   @click="chooseDataDirectory"
                 >
-                  更改目录
+                  {{ t("settings.data.change") }}
                 </v-btn>
               </div>
             </SettingsItem>
 
-            <SettingsItem title="重建实例清单">
+            <SettingsItem :title="t('settings.data.rebuildManifest')">
               <v-btn
                 color="primary"
                 variant="tonal"
-                aria-label="重建实例清单"
+                :aria-label="t('settings.data.rebuildManifest')"
                 :disabled="rebuilding"
                 @click="rebuildDialogOpen = true"
               >
-                重建
+                {{ t("settings.data.rebuild") }}
               </v-btn>
             </SettingsItem>
 
-            <SettingsItem title="uv 缓存">
+            <SettingsItem :title="t('settings.data.uvCache')">
               <v-btn
                 color="primary"
                 variant="tonal"
-                aria-label="清理 uv 缓存"
+                :aria-label="t('settings.data.clearUvCacheAria')"
                 :loading="clearingUvCache"
                 :disabled="clearingUvCache"
                 @click="handleClearUvCache"
               >
-                清理
+                {{ t("settings.data.clear") }}
               </v-btn>
             </SettingsItem>
           </div>
@@ -1110,7 +1215,7 @@ onMounted(() => {
             density="comfortable"
             role="status"
           >
-            <div>数据目录已更改，重启启动器后生效。</div>
+            <div>{{ t("settings.data.restartNotice") }}</div>
             <code class="settings-path">{{ restartPendingDir }}</code>
           </v-alert>
         </section>
@@ -1122,13 +1227,13 @@ onMounted(() => {
           aria-labelledby="settings-about-title"
         >
           <h2 id="settings-about-title" class="settings-section__title">
-            关于
+            {{ t("settings.nav.about") }}
           </h2>
           <div class="settings-list-card">
-            <SettingsItem title="应用名称">
+            <SettingsItem :title="t('settings.about.appName')">
               <span class="settings-value">AstrBot Launcher</span>
             </SettingsItem>
-            <SettingsItem title="版本">
+            <SettingsItem :title="t('settings.about.version')">
               <span class="settings-value">{{ appVersion }}</span>
             </SettingsItem>
             <SettingsItem title="GitHub">
@@ -1137,7 +1242,7 @@ onMounted(() => {
                 color="primary"
                 size="small"
                 append-icon="mdi-open-in-new"
-                aria-label="打开 astrbot-launcher 仓库"
+                :aria-label="t('settings.about.openLauncherRepo')"
                 @click="openLink(launcherRepoUrl)"
               >
                 astrbot-launcher
@@ -1149,7 +1254,7 @@ onMounted(() => {
                 color="primary"
                 size="small"
                 append-icon="mdi-open-in-new"
-                aria-label="打开 AstrBot 仓库"
+                :aria-label="t('settings.about.openAstrbotRepo')"
                 @click="openLink(astrbotRepoUrl)"
               >
                 AstrBot
@@ -1162,9 +1267,11 @@ onMounted(() => {
 
     <ConfirmDialog
       v-model="changeDirDialogOpen"
-      title="更改数据目录"
-      :message="`新目录：${pendingDir}\n重启启动器后生效。`"
-      confirm-label="更改"
+      :title="t('settings.data.changeDirectory')"
+      :message="
+        t('settings.data.changeDirectoryMessage', { path: pendingDir })
+      "
+      :confirm-label="t('settings.data.change')"
       color="warning"
       :loading="changeDirSaving"
       @confirm="confirmDataDirectoryChange"
@@ -1172,9 +1279,9 @@ onMounted(() => {
 
     <ConfirmDialog
       v-model="rebuildDialogOpen"
-      title="重建实例清单"
-      message="将根据磁盘内容重建实例清单。"
-      confirm-label="重建"
+      :title="t('settings.data.rebuildManifest')"
+      :message="t('settings.data.rebuildManifestMessage')"
+      :confirm-label="t('settings.data.rebuild')"
       :loading="rebuilding"
       @confirm="confirmRebuildManifest"
     />

@@ -52,3 +52,38 @@ pub struct ComponentStatus {
 pub struct ComponentsSnapshot {
     pub components: Vec<ComponentStatus>,
 }
+
+/// Result of a component action, with a key the frontend can translate.
+#[derive(Debug, Clone, Serialize)]
+pub struct ComponentActionResult {
+    pub key: String,
+    pub versions: Vec<String>,
+    pub message: String,
+}
+
+impl ComponentActionResult {
+    pub fn new(key: &str, message: impl Into<String>) -> Self {
+        Self {
+            key: key.to_string(),
+            versions: Vec::new(),
+            message: message.into(),
+        }
+    }
+
+    pub fn with_versions(key: &str, versions: Vec<String>, message: impl Into<String>) -> Self {
+        Self {
+            key: key.to_string(),
+            versions,
+            message: message.into(),
+        }
+    }
+}
+
+/// Translation keys for component action results.
+pub mod result_keys {
+    pub const ALREADY_INSTALLED: &str = "components.result.alreadyInstalled";
+    pub const INSTALLED: &str = "components.result.installed";
+    pub const UNINSTALLED: &str = "components.result.uninstalled";
+    pub const NOT_INSTALLED: &str = "components.result.notInstalled";
+    pub const REINSTALLED: &str = "components.result.reinstalled";
+}

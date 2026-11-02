@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, type ComponentPublicInstance } from "vue";
+import { useI18n } from "vue-i18n";
 import logoUrl from "../assets/favicon.svg";
 import { useLauncherStore } from "../stores/launcher";
 import { HOME_TAB, useTabsStore } from "../stores/tabs";
@@ -13,6 +14,7 @@ const {
   activateHome,
 } = useTabsStore();
 const { instances } = useLauncherStore();
+const { t } = useI18n();
 
 const tabs = computed(() =>
   instanceIds.value.map((id) => {
@@ -110,12 +112,12 @@ function onAuxClick(event: MouseEvent, id: string): void {
 </script>
 
 <template>
-  <div class="titlebar-tabs" role="tablist" aria-label="标签页">
+  <div class="titlebar-tabs" role="tablist" :aria-label="t('shell.tabs.label')">
     <button
       type="button"
       class="titlebar-tabs__home"
       role="tab"
-      aria-label="首页"
+      :aria-label="t('shell.tabs.home')"
       aria-controls="tabpanel-home"
       :aria-selected="isHomeActive"
       :tabindex="isHomeActive ? 0 : -1"
@@ -155,7 +157,7 @@ function onAuxClick(event: MouseEvent, id: string): void {
         <button
           type="button"
           class="titlebar-tabs__close"
-          :aria-label="`关闭 ${tab.name}`"
+          :aria-label="t('shell.tabs.close', { name: tab.name })"
           @click.stop="closeTab(tab.id)"
         >
           <v-icon icon="mdi-close" size="14" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { DefaultCredentials } from "../../types/launcher";
 import { showToast } from "../../stores/toast";
 
@@ -12,6 +13,7 @@ const emit = defineEmits<{
   (event: "update:modelValue", value: boolean): void;
 }>();
 
+const { t } = useI18n();
 const revealPassword = ref(false);
 
 function close(): void {
@@ -21,9 +23,9 @@ function close(): void {
 async function copy(value: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(value);
-    showToast("已复制", "success");
+    showToast(t("instances.credentials.copied"), "success");
   } catch {
-    showToast("复制失败", "error");
+    showToast(t("instances.credentials.copyFailed"), "error");
   }
 }
 </script>
@@ -35,16 +37,22 @@ async function copy(value: string): Promise<void> {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <v-card>
-      <v-card-title class="credentials-dialog__title">默认账号</v-card-title>
+      <v-card-title class="credentials-dialog__title">
+        {{ t("instances.credentials.title") }}
+      </v-card-title>
       <v-card-text class="credentials-dialog__body">
         <div class="credentials-dialog__row">
-          <span class="credentials-dialog__label">实例</span>
+          <span class="credentials-dialog__label">
+            {{ t("instances.credentials.instance") }}
+          </span>
           <span class="credentials-dialog__value">
             {{ credentials?.display_name ?? "—" }}
           </span>
         </div>
         <div class="credentials-dialog__row">
-          <span class="credentials-dialog__label">用户名</span>
+          <span class="credentials-dialog__label">
+            {{ t("instances.credentials.username") }}
+          </span>
           <code class="credentials-dialog__value">
             {{ credentials?.username ?? "—" }}
           </code>
@@ -52,13 +60,15 @@ async function copy(value: string): Promise<void> {
             icon="mdi-content-copy"
             size="x-small"
             variant="text"
-            aria-label="复制用户名"
+            :aria-label="t('instances.credentials.aria.copyUsername')"
             :disabled="!credentials"
             @click="credentials && copy(credentials.username)"
           />
         </div>
         <div class="credentials-dialog__row">
-          <span class="credentials-dialog__label">密码</span>
+          <span class="credentials-dialog__label">
+            {{ t("instances.credentials.password") }}
+          </span>
           <code class="credentials-dialog__value">
             {{ revealPassword ? (credentials?.password ?? "—") : "••••••" }}
           </code>
@@ -66,14 +76,18 @@ async function copy(value: string): Promise<void> {
             :icon="revealPassword ? 'mdi-eye-off' : 'mdi-eye'"
             size="x-small"
             variant="text"
-            :aria-label="revealPassword ? '隐藏密码' : '显示密码'"
+            :aria-label="
+              revealPassword
+                ? t('instances.credentials.aria.hidePassword')
+                : t('instances.credentials.aria.showPassword')
+            "
             @click="revealPassword = !revealPassword"
           />
           <v-btn
             icon="mdi-content-copy"
             size="x-small"
             variant="text"
-            aria-label="复制密码"
+            :aria-label="t('instances.credentials.aria.copyPassword')"
             :disabled="!credentials"
             @click="credentials && copy(credentials.password)"
           />
@@ -81,7 +95,9 @@ async function copy(value: string): Promise<void> {
       </v-card-text>
       <v-card-actions class="credentials-dialog__actions">
         <v-spacer />
-        <v-btn variant="text" @click="close">关闭</v-btn>
+        <v-btn variant="text" @click="close">
+          {{ t("common.actions.close") }}
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { InstanceStatus } from "../../types/launcher";
 
 const props = withDefaults(
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   (event: "submit", instanceId: string): void;
 }>();
 
+const { t } = useI18n();
 const selectedId = ref<string | null>(null);
 
 const stoppedInstances = computed(() =>
@@ -23,7 +25,9 @@ const stoppedInstances = computed(() =>
 );
 
 const emptyReason = computed(() =>
-  props.instances.length === 0 ? "暂无实例" : "没有已停止的实例",
+  props.instances.length === 0
+    ? t("backups.createDialog.noInstances")
+    : t("backups.createDialog.noStoppedInstances"),
 );
 
 watch(
@@ -77,7 +81,9 @@ function submit(): void {
     @update:model-value="updateOpen"
   >
     <v-card>
-      <v-card-title class="create-backup__title">创建备份</v-card-title>
+      <v-card-title class="create-backup__title">
+        {{ t("backups.createDialog.title") }}
+      </v-card-title>
       <v-card-text class="create-backup__body">
         <v-alert
           v-if="stoppedInstances.length === 0"
@@ -93,7 +99,7 @@ function submit(): void {
           :items="stoppedInstances"
           item-title="name"
           item-value="id"
-          label="实例"
+          :label="t('backups.createDialog.instanceLabel')"
           variant="outlined"
           density="compact"
           hide-details
@@ -102,7 +108,9 @@ function submit(): void {
       </v-card-text>
       <v-card-actions class="create-backup__actions">
         <v-spacer />
-        <v-btn variant="text" :disabled="loading" @click="close">取消</v-btn>
+        <v-btn variant="text" :disabled="loading" @click="close">
+          {{ t("common.actions.cancel") }}
+        </v-btn>
         <v-btn
           color="primary"
           variant="flat"
@@ -110,7 +118,7 @@ function submit(): void {
           :disabled="stoppedInstances.length === 0 || selectedId === null"
           @click="submit"
         >
-          创建
+          {{ t("common.actions.create") }}
         </v-btn>
       </v-card-actions>
     </v-card>

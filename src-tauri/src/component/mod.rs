@@ -19,7 +19,7 @@ use crate::utils::paths::{get_component_dir, get_node_exe_path, get_nodejs_shim_
 pub use node_shim::generate_shims;
 pub use nodejs::build_nodejs_env_vars;
 pub use python::{create_venv, pip_install_requirements};
-pub use types::{ComponentId, ComponentsSnapshot};
+pub use types::{ComponentActionResult, ComponentId, ComponentsSnapshot};
 pub use uv::{clear_uv_cache, is_uv_installed, uv_sync};
 
 use types::ComponentStatus;
@@ -47,7 +47,7 @@ pub async fn install_component(
     client: &Client,
     id: ComponentId,
     app_handle: Option<&AppHandle>,
-) -> Result<String> {
+) -> Result<ComponentActionResult> {
     log::info!("Installing component {:?}", id);
     let result = match id {
         ComponentId::Python => python::install_component(client, app_handle).await,
@@ -64,7 +64,7 @@ pub async fn install_component(
 }
 
 /// Uninstall a component by id, dispatching to the appropriate sub-module.
-pub fn uninstall_component(id: ComponentId) -> Result<String> {
+pub fn uninstall_component(id: ComponentId) -> Result<ComponentActionResult> {
     log::info!("Uninstalling component {:?}", id);
     let result = match id {
         ComponentId::Python => python::uninstall_component(),
@@ -73,7 +73,7 @@ pub fn uninstall_component(id: ComponentId) -> Result<String> {
     };
 
     match &result {
-        Ok(msg) => log::info!("Component {:?} uninstalled: {}", id, msg),
+        Ok(msg) => log::info!("Component {:?} uninstalled: {}", id, msg.message),
         Err(e) => log::error!("Failed to uninstall component {:?}: {}", id, e),
     }
 
@@ -85,7 +85,7 @@ pub async fn reinstall_component(
     client: &Client,
     id: ComponentId,
     app_handle: Option<&AppHandle>,
-) -> Result<String> {
+) -> Result<ComponentActionResult> {
     match id {
         ComponentId::Python => python::reinstall_component(client, app_handle).await,
         ComponentId::Nodejs => nodejs::reinstall_nodejs(client, app_handle).await,

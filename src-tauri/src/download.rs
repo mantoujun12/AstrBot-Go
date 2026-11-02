@@ -18,6 +18,52 @@ use crate::utils::net::{ensure_success_status, send_get};
 use crate::utils::paths::get_versions_dir;
 use crate::validation::resolve_version_zip_path;
 
+/// Download progress messages emitted to the frontend.
+#[derive(Debug, Clone, Copy)]
+pub enum DownloadMessage {
+    Resuming,
+    Cancelled,
+    Paused,
+    AccelerationFallback,
+    Starting,
+    Downloading,
+    Completed,
+    Extracting,
+    Installed,
+}
+
+impl DownloadMessage {
+    /// Translation key shared with the frontend locale catalogs.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Resuming => "progress.download.resuming",
+            Self::Cancelled => "progress.download.cancelled",
+            Self::Paused => "progress.download.paused",
+            Self::AccelerationFallback => "progress.download.accelerationFallback",
+            Self::Starting => "progress.download.starting",
+            Self::Downloading => "progress.download.downloading",
+            Self::Completed => "progress.download.completed",
+            Self::Extracting => "progress.download.extracting",
+            Self::Installed => "progress.download.installed",
+        }
+    }
+
+    /// Chinese fallback used when the frontend cannot resolve the key.
+    pub fn fallback(self) -> &'static str {
+        match self {
+            Self::Resuming => "继续下载",
+            Self::Cancelled => "下载已取消",
+            Self::Paused => "已暂停",
+            Self::AccelerationFallback => "加速下载失败，正在回退直连",
+            Self::Starting => "开始下载",
+            Self::Downloading => "下载中",
+            Self::Completed => "下载完成",
+            Self::Extracting => "正在解压",
+            Self::Installed => "安装完成",
+        }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct DownloadProgress {
     pub id: String,
@@ -29,6 +75,8 @@ pub struct DownloadProgress {
     pub speed: Option<u64>,
     pub step: String,
     pub message: String,
+    /// Translation key for `message`.
+    pub message_key: String,
 }
 
 pub struct DownloadOptions<'a> {
@@ -45,7 +93,7 @@ pub fn emit_download_progress(
     progress: Option<u8>,
     speed: Option<u64>,
     step: &str,
-    message: &str,
+    message: DownloadMessage,
 ) {
     let _ = opts.app_handle.emit(
         "download-progress",
@@ -56,7 +104,8 @@ pub fn emit_download_progress(
             progress,
             speed,
             step: step.to_string(),
-            message: message.to_string(),
+            message_key: message.key().to_string(),
+            message: message.fallback().to_string(),
         },
     );
 }
@@ -122,7 +171,7 @@ async fn checkpoint(
                         compute_percent_0_99(downloaded, total),
                         None,
                         "downloading",
-                        "继续下载",
+                        DownloadMessage::Resuming,
                     );
                 }
                 return Ok(());
@@ -135,7 +184,7 @@ async fn checkpoint(
                     compute_percent_0_99(downloaded, total),
                     Some(0),
                     "cancelled",
-                    "下载已取消",
+                    DownloadMessage::Cancelled,
                 );
                 return Err(AppError::download_cancelled());
             }
@@ -148,7 +197,7 @@ async fn checkpoint(
                         compute_percent_0_99(downloaded, total),
                         Some(0),
                         "paused",
-                        "已暂停",
+                        DownloadMessage::Paused,
                     );
                     paused = true;
                 }
@@ -315,7 +364,7 @@ pub async fn download_file_with_fallbacks(
                     None,
                     None,
                     "downloading",
-                    "加速下载失败，正在回退直连",
+                    DownloadMessage::AccelerationFallback,
                 );
             }
         }
@@ -362,7 +411,7 @@ async fn download_file_inner(
             compute_percent_0_99(0, total),
             None,
             "downloading",
-            "开始下载",
+            DownloadMessage::Starting,
         );
     }
 
@@ -405,7 +454,7 @@ async fn download_file_inner(
                     compute_percent_0_99(downloaded, total),
                     meter.update(downloaded, now),
                     "downloading",
-                    "下载中",
+                    DownloadMessage::Downloading,
                 );
                 last_emit = now;
                 last_percent = current_percent;
@@ -424,7 +473,7 @@ async fn download_file_inner(
             compute_percent_0_99(downloaded, total).or(Some(99)),
             meter.update(downloaded, Instant::now()),
             "downloading",
-            "下载完成",
+            DownloadMessage::Completed,
         );
     }
 
@@ -468,7 +517,7 @@ pub async fn download_version(
             Some(100),
             None,
             "done",
-            "下载完成",
+            DownloadMessage::Completed,
         );
     }
 

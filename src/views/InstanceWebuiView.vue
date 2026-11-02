@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import EmptyState from "../components/common/EmptyState.vue";
 import StatusChip from "../components/common/StatusChip.vue";
 import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import { useOperation } from "../composables/useOperation";
+import { translateDynamicKey } from "../i18n/dynamic";
 import { openExternalUrl } from "../services/app";
 import { openInstanceCoreFolder, startInstance } from "../services/instances";
 import { useLauncherStore } from "../stores/launcher";
@@ -18,6 +20,7 @@ const props = defineProps<{
   instanceId: string;
 }>();
 
+const { t } = useI18n();
 const { instances } = useLauncherStore();
 const { isBusy, run } = useOperation();
 const { activeTab } = useTabsStore();
@@ -127,7 +130,7 @@ async function startFromEmpty(): Promise<void> {
 
   beginDeploy(target.id);
   const ok = await run(startKey.value, () => startInstance(target.id), {
-    success: "实例已启动",
+    success: t("instances.toasts.started"),
   });
 
   if (!ok || !deploys.value[target.id]) {
@@ -191,7 +194,7 @@ onBeforeUnmount(() => {
         icon="mdi-refresh"
         variant="text"
         size="small"
-        aria-label="刷新 WebUI"
+        :aria-label="t('instances.webui.aria.refresh')"
         :disabled="!showIframe"
         @click="reloadFrame"
       />
@@ -199,7 +202,7 @@ onBeforeUnmount(() => {
         icon="mdi-open-in-new"
         variant="text"
         size="small"
-        aria-label="在浏览器中打开"
+        :aria-label="t('instances.actions.openInBrowser')"
         :disabled="!instance.dashboard_enabled"
         @click="openInBrowser"
       />
@@ -207,7 +210,7 @@ onBeforeUnmount(() => {
         icon="mdi-folder-open-outline"
         variant="text"
         size="small"
-        aria-label="打开核心目录"
+        :aria-label="t('instances.actions.openCoreFolder')"
         @click="openCoreFolder"
       />
     </div>
@@ -228,7 +231,7 @@ onBeforeUnmount(() => {
               indeterminate
               color="primary"
               size="36"
-              aria-label="加载中"
+              :aria-label="t('instances.loading')"
             />
           </template>
           <template v-else-if="frameState === 'error'">
@@ -237,7 +240,9 @@ onBeforeUnmount(() => {
               size="36"
               color="warning"
             />
-            <p class="instance-webui__overlay-text">WebUI 加载超时</p>
+            <p class="instance-webui__overlay-text">
+              {{ t("instances.webui.loadTimeout") }}
+            </p>
             <div class="instance-webui__overlay-actions">
               <v-btn
                 variant="tonal"
@@ -245,14 +250,14 @@ onBeforeUnmount(() => {
                 prepend-icon="mdi-refresh"
                 @click="reloadFrame"
               >
-                重试
+                {{ t("common.actions.retry") }}
               </v-btn>
               <v-btn
                 variant="text"
                 prepend-icon="mdi-open-in-new"
                 @click="openInBrowser"
               >
-                在浏览器中打开
+                {{ t("instances.actions.openInBrowser") }}
               </v-btn>
             </div>
           </template>
@@ -262,7 +267,7 @@ onBeforeUnmount(() => {
       <div v-else class="instance-webui__state">
         <EmptyState
           v-if="!instance.dashboard_enabled"
-          text="WebUI 未启用"
+          :text="t('instances.webui.disabled')"
           icon="mdi-web-off"
         >
           <v-btn
@@ -270,13 +275,13 @@ onBeforeUnmount(() => {
             prepend-icon="mdi-folder-open-outline"
             @click="openCoreFolder"
           >
-            打开核心目录
+            {{ t("instances.actions.openCoreFolder") }}
           </v-btn>
         </EmptyState>
 
         <EmptyState
           v-else-if="instance.state === 'stopped'"
-          text="实例未运行"
+          :text="t('instances.webui.notRunning')"
           icon="mdi-power"
         >
           <v-btn
@@ -287,13 +292,17 @@ onBeforeUnmount(() => {
             :loading="startBusy"
             @click="startFromEmpty"
           >
-            启动
+            {{ t("instances.actions.start") }}
           </v-btn>
         </EmptyState>
 
         <EmptyState
           v-else
-          :text="instance.state === 'starting' ? '启动中…' : '停止中…'"
+          :text="
+            instance.state === 'starting'
+              ? t('instances.webui.starting')
+              : t('instances.webui.stopping')
+          "
           icon="mdi-progress-clock"
         >
           <v-progress-circular
@@ -308,8 +317,13 @@ onBeforeUnmount(() => {
 
     <TaskProgressDialog
       :model-value="deployDialogOpen"
-      title="实例部署"
-      :message="activeDeploy?.message ?? ''"
+      :title="t('instances.deploy.title')"
+      :message="
+        translateDynamicKey(
+          activeDeploy?.message_key,
+          activeDeploy?.message ?? '',
+        )
+      "
       :progress="activeDeploy?.progress ?? null"
     />
   </div>

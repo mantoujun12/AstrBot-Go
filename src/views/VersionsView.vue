@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import ConfirmDialog from "../components/common/ConfirmDialog.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import PageHeader from "../components/common/PageHeader.vue";
 import DownloadProgressBar from "../components/versions/DownloadProgressBar.vue";
 import ReleaseNotesDialog from "../components/versions/ReleaseNotesDialog.vue";
 import { useOperation } from "../composables/useOperation";
+import { translateDynamicKey } from "../i18n/dynamic";
 import { openFolder } from "../services/app";
 import {
   clearUvCache,
@@ -26,6 +28,7 @@ import { useLauncherStore } from "../stores/launcher";
 import { useProgressStore } from "../stores/progress";
 import { showErrorToast, showToast } from "../stores/toast";
 import type {
+  ComponentActionResult,
   ComponentId,
   ComponentStatus,
   DownloadProgress,
@@ -48,6 +51,7 @@ const {
 } = useLauncherStore();
 const { downloads } = useProgressStore();
 const { isBusy, run } = useOperation();
+const { t } = useI18n();
 
 const releases = ref<GitHubRelease[]>([]);
 const releasesLoading = ref(false);
@@ -175,11 +179,11 @@ const confirmOpen = computed({
 const confirmTitle = computed(() => {
   switch (pendingAction.value?.kind) {
     case "reinstall-component":
-      return "重新下载组件";
+      return t("versions.confirm.titles.reinstallComponent");
     case "uninstall-component":
-      return "卸载组件";
+      return t("versions.confirm.titles.uninstallComponent");
     case "uninstall-version":
-      return "卸载版本";
+      return t("versions.confirm.titles.uninstallVersion");
     default:
       return "";
   }
@@ -192,23 +196,29 @@ const confirmMessage = computed(() => {
   }
   switch (action.kind) {
     case "reinstall-component":
-      return `将重新下载 ${action.name}，现有安装会被覆盖。`;
+      return t("versions.confirm.messages.reinstallComponent", {
+        name: action.name,
+      });
     case "uninstall-component":
-      return `确定要卸载 ${action.name} 吗？`;
+      return t("versions.confirm.messages.uninstallComponent", {
+        name: action.name,
+      });
     case "uninstall-version":
-      return `确定要卸载版本 ${action.version} 吗？正在使用该版本的实例将无法启动。`;
+      return t("versions.confirm.messages.uninstallVersion", {
+        version: action.version,
+      });
   }
 });
 
 const confirmLabel = computed(() => {
   switch (pendingAction.value?.kind) {
     case "reinstall-component":
-      return "重新下载";
+      return t("versions.actions.reinstall");
     case "uninstall-component":
     case "uninstall-version":
-      return "卸载";
+      return t("common.actions.uninstall");
     default:
-      return "确认";
+      return t("common.actions.confirm");
   }
 });
 
@@ -276,18 +286,45 @@ function requestUninstallVersion(version: string): void {
 
 async function runComponentCommand(
   componentId: ComponentId,
-  task: () => Promise<string>,
+  task: () => Promise<ComponentActionResult>,
 ): Promise<boolean> {
-  let message = "";
+  const results: ComponentActionResult[] = [];
   const ok = await run(`component:${componentId}`, async () => {
-    message = await task();
+    results.push(await task());
   });
+  const result = results.pop();
 
-  if (ok) {
-    const text = message.trim();
-    showToast(text !== "" ? text : "操作完成", "success");
+  if (!ok || result === undefined) {
+    return false;
   }
-  return ok;
+
+  let key = result.key;
+  if (result.versions.length === 0) {
+    switch (key) {
+      case "components.result.installed":
+        key = "components.result.installedWithoutVersions";
+        break;
+      case "components.result.uninstalled":
+        key = "components.result.uninstalledWithoutVersions";
+        break;
+      case "components.result.reinstalled":
+        key = "components.result.reinstalledWithoutVersions";
+        break;
+      default:
+        break;
+    }
+  }
+
+  const fallback =
+    result.message.trim() !== ""
+      ? result.message
+      : t("common.operationComplete");
+  const text = translateDynamicKey(key, fallback, {
+    name: t("components.name." + componentId),
+    versions: result.versions.join(", "),
+  });
+  showToast(text, "success");
+  return true;
 }
 
 function handleInstallComponent(id: string): void {
@@ -300,7 +337,7 @@ function handleInstallComponent(id: string): void {
 
 function handleClearUvCache(): void {
   void run(CLEAR_UV_CACHE_KEY, clearUvCache, {
-    success: "已清理 uv 缓存",
+    success: t("versions.toasts.uvCacheCleared"),
   });
 }
 
@@ -326,7 +363,11 @@ async function handleConfirm(): Promise<void> {
       ok = await run(
         `version:${action.version}`,
         () => uninstallVersion(action.version),
-        { success: `已卸载 ${action.version}` },
+        {
+          success: t("versions.toasts.versionUninstalled", {
+            version: action.version,
+          }),
+        },
       );
       break;
   }
@@ -354,12 +395,12 @@ function handleInstallRelease(release: GitHubRelease): void {
 
   activeDownloads.add(tag);
   void run(`version:${tag}`, () => installVersion(release), {
-    success: `已安装 ${tag}`,
+    success: t("versions.toasts.versionInstalled", { version: tag }),
     onError: (error) => {
       if (!isDownloadCancelled(error)) {
         return false;
       }
-      showToast(`已停止下载 ${tag}`, "info");
+      showToast(t("versions.toasts.downloadStopped", { version: tag }), "info");
       return true;
     },
   }).finally(() => {
@@ -394,7 +435,7 @@ function openReleaseNotes(release: GitHubRelease): void {
 
 <template>
   <div class="page-shell">
-    <PageHeader title="版本">
+    <PageHeader :title="t('versions.title')">
       <template #actions>
         <v-btn
           variant="tonal"
@@ -403,7 +444,7 @@ function openReleaseNotes(release: GitHubRelease): void {
           :loading="releasesLoading"
           @click="handleRefresh"
         >
-          刷新
+          {{ t("common.actions.refresh") }}
         </v-btn>
       </template>
     </PageHeader>
@@ -423,14 +464,16 @@ function openReleaseNotes(release: GitHubRelease): void {
           :loading="snapshotLoading"
           @click="retrySnapshot"
         >
-          重试
+          {{ t("common.actions.retry") }}
         </v-btn>
       </template>
     </v-alert>
 
     <section class="page-section">
       <div class="page-section-head">
-        <h2 class="page-section-title version-section-title">组件管理</h2>
+        <h2 class="page-section-title version-section-title">
+          {{ t("versions.sections.components") }}
+        </h2>
       </div>
       <div class="page-card version-card">
         <div
@@ -438,11 +481,11 @@ function openReleaseNotes(release: GitHubRelease): void {
           class="version-loading"
         >
           <v-progress-linear indeterminate color="primary" height="5" rounded />
-          <div class="page-muted">加载中…</div>
+          <div class="page-muted">{{ t("versions.loading") }}</div>
         </div>
         <EmptyState
           v-else-if="componentRows.length === 0"
-          text="暂无组件信息"
+          :text="t('versions.components.empty')"
           icon="mdi-puzzle-outline"
         />
         <div v-else class="version-rows">
@@ -460,10 +503,21 @@ function openReleaseNotes(release: GitHubRelease): void {
                   :color="row.status.installed ? 'success' : 'secondary'"
                   variant="tonal"
                 >
-                  {{ row.status.installed ? "已安装" : "未安装" }}
+                  {{
+                    row.status.installed
+                      ? t("versions.status.installed")
+                      : t("versions.status.notInstalled")
+                  }}
                 </v-chip>
               </div>
-              <div class="version-row__sub">{{ row.status.description }}</div>
+              <div class="version-row__sub">
+                {{
+                  translateDynamicKey(
+                    "components.description." + row.status.id,
+                    row.status.description,
+                  )
+                }}
+              </div>
               <DownloadProgressBar :progress="row.progress" />
             </div>
             <div class="version-row__actions">
@@ -476,7 +530,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                   :loading="row.busy"
                   @click="handleInstallComponent(row.status.id)"
                 >
-                  下载
+                  {{ t("versions.actions.download") }}
                 </v-btn>
                 <template v-else>
                   <v-btn
@@ -491,7 +545,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                       )
                     "
                   >
-                    重新下载
+                    {{ t("versions.actions.reinstall") }}
                   </v-btn>
                   <v-btn
                     size="small"
@@ -505,7 +559,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                       )
                     "
                   >
-                    卸载
+                    {{ t("common.actions.uninstall") }}
                   </v-btn>
                 </template>
               </template>
@@ -520,7 +574,7 @@ function openReleaseNotes(release: GitHubRelease): void {
             :loading="isBusy(CLEAR_UV_CACHE_KEY)"
             @click="handleClearUvCache"
           >
-            清理 uv 缓存
+            {{ t("versions.actions.clearUvCache") }}
           </v-btn>
         </div>
       </div>
@@ -528,7 +582,9 @@ function openReleaseNotes(release: GitHubRelease): void {
 
     <section class="page-section">
       <div class="page-section-head">
-        <h2 class="page-section-title version-section-title">已安装</h2>
+        <h2 class="page-section-title version-section-title">
+          {{ t("versions.sections.installed") }}
+        </h2>
       </div>
       <div class="page-card version-card">
         <div
@@ -536,11 +592,11 @@ function openReleaseNotes(release: GitHubRelease): void {
           class="version-loading"
         >
           <v-progress-linear indeterminate color="primary" height="5" rounded />
-          <div class="page-muted">加载中…</div>
+          <div class="page-muted">{{ t("versions.loading") }}</div>
         </div>
         <EmptyState
           v-else-if="installedRows.length === 0"
-          text="暂无已安装版本"
+          :text="t('versions.installed.empty')"
           icon="mdi-archive-outline"
         />
         <div v-else class="version-rows">
@@ -565,7 +621,9 @@ function openReleaseNotes(release: GitHubRelease): void {
                     {{ instance.name }}
                   </v-chip>
                 </template>
-                <span v-else class="page-muted">未被实例使用</span>
+                <span v-else class="page-muted">
+                  {{ t("versions.installed.unused") }}
+                </span>
               </div>
             </div>
             <div class="version-row__actions">
@@ -575,7 +633,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                 prepend-icon="mdi-folder-open-outline"
                 @click="handleOpenVersionFolder(row.version)"
               >
-                打开所在文件夹
+                {{ t("versions.actions.openFolder") }}
               </v-btn>
               <v-btn
                 size="small"
@@ -584,7 +642,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                 :disabled="row.busy"
                 @click="requestUninstallVersion(row.version.version)"
               >
-                卸载
+                {{ t("common.actions.uninstall") }}
               </v-btn>
             </div>
           </div>
@@ -594,7 +652,9 @@ function openReleaseNotes(release: GitHubRelease): void {
 
     <section class="page-section">
       <div class="page-section-head">
-        <h2 class="page-section-title version-section-title">可下载</h2>
+        <h2 class="page-section-title version-section-title">
+          {{ t("versions.sections.available") }}
+        </h2>
       </div>
       <div class="page-card version-card">
         <v-alert
@@ -612,7 +672,7 @@ function openReleaseNotes(release: GitHubRelease): void {
               :loading="releasesLoading"
               @click="retryReleases"
             >
-              重试
+              {{ t("common.actions.retry") }}
             </v-btn>
           </template>
         </v-alert>
@@ -622,16 +682,16 @@ function openReleaseNotes(release: GitHubRelease): void {
           class="version-loading"
         >
           <v-progress-linear indeterminate color="primary" height="5" rounded />
-          <div class="page-muted">正在获取版本列表…</div>
+          <div class="page-muted">{{ t("versions.releases.loading") }}</div>
         </div>
         <EmptyState
           v-else-if="!releasesError && releaseRows.length === 0"
-          text="暂无可下载版本"
+          :text="t('versions.releases.empty')"
           icon="mdi-cloud-off-outline"
         />
         <EmptyState
           v-else-if="allReleasesInstalled"
-          text="所有版本均已安装"
+          :text="t('versions.releases.allInstalled')"
           icon="mdi-check-circle-outline"
         />
         <div v-else-if="releaseRows.length > 0" class="version-rows">
@@ -650,7 +710,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                   variant="tonal"
                   label
                 >
-                  预发行
+                  {{ t("versions.status.prerelease") }}
                 </v-chip>
                 <v-chip
                   v-if="row.installed"
@@ -659,7 +719,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                   variant="tonal"
                   label
                 >
-                  已安装
+                  {{ t("versions.status.installed") }}
                 </v-chip>
               </div>
               <div class="version-row__sub">
@@ -677,7 +737,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                 variant="text"
                 @click="openReleaseNotes(row.release)"
               >
-                详情
+                {{ t("versions.actions.details") }}
               </v-btn>
               <template v-if="row.downloading">
                 <v-btn
@@ -687,7 +747,11 @@ function openReleaseNotes(release: GitHubRelease): void {
                   :prepend-icon="row.paused ? 'mdi-play' : 'mdi-pause'"
                   @click="handleTogglePause(row)"
                 >
-                  {{ row.paused ? "继续" : "暂停" }}
+                  {{
+                    row.paused
+                      ? t("versions.actions.resume")
+                      : t("versions.actions.pause")
+                  }}
                 </v-btn>
                 <v-btn
                   size="small"
@@ -696,7 +760,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                   prepend-icon="mdi-stop"
                   @click="handleStopDownload(row)"
                 >
-                  停止
+                  {{ t("versions.actions.stop") }}
                 </v-btn>
               </template>
               <v-btn
@@ -708,7 +772,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                 :loading="row.busy"
                 @click="handleInstallRelease(row.release)"
               >
-                安装
+                {{ t("common.actions.install") }}
               </v-btn>
             </div>
           </div>

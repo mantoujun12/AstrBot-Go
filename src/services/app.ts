@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { i18n } from "../i18n";
 import type { AppSnapshot, DataDirChangeResult } from "../types/launcher";
 
 export function getAppSnapshot(): Promise<AppSnapshot> {
@@ -32,7 +33,7 @@ export async function pickDirectory(): Promise<string | null> {
   const selected = await open({
     directory: true,
     multiple: false,
-    title: "选择数据目录",
+    title: i18n.global.t("dialogs.pickDirectoryTitle"),
   });
 
   if (typeof selected === "string" && selected.trim() !== "") {

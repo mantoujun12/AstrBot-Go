@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{
     has_config_record, has_manifest_record, with_config_mut, with_manifest_mut, AppConfig,
-    AppManifest, InstalledVersion, InstanceConfig, ThemePreference,
+    AppManifest, InstalledVersion, InstanceConfig, LanguagePreference, ThemePreference,
 };
 use crate::utils::paths::{config_path, manifest_path};
 
@@ -83,6 +83,7 @@ impl LegacyAppConfig {
             use_short_instance_id: false,
             lock_check_extension_whitelist: false,
             theme_preference: self.theme_preference,
+            language_preference: LanguagePreference::System,
         }
     }
 

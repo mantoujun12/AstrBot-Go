@@ -97,8 +97,9 @@ cargo clippy --all-targets -- -D warnings
 
 - Chinese copy must use full-width punctuation: `，。：；？！（）“”`. Do not use an ASCII comma `,` instead of `，` or an ASCII colon `:` instead of `：` at Chinese sentence boundaries.
 - English copy, code, and `en-US` locale files must use ASCII punctuation: `, . : ; ( )`.
+- Russian copy uses native typography such as `«»` and `—`; Japanese copy uses full-width punctuation such as `、。：「」`.
 - Only adjust punctuation in comments, docstrings, and string literals. Punctuation that is part of code syntax must not be changed.
-- Keep locale keys synchronized across Chinese and English when adding, removing, or modifying entries. Do not leave visible copy that exists in only one language.
+- Keep locale keys synchronized across `zh-CN`, `en-US`, `ru-RU`, and `ja-JP` when adding, removing, or modifying entries. Do not leave visible copy that exists in only some languages.
 - Do not mechanically replace punctuation in URLs, regular expressions, version numbers, format placeholders, or code snippets.
 
 ## Verification Requirements

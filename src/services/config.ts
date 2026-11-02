@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ThemePreference } from "../types/launcher";
+import type { LanguagePreference, ThemePreference } from "../types/launcher";
 
 export interface ProxySettings {
   proxyUrl: string;
@@ -79,6 +79,12 @@ export function saveThemePreference(
   themePreference: ThemePreference,
 ): Promise<void> {
   return invoke("save_theme_preference", { themePreference });
+}
+
+export function saveLanguagePreference(
+  languagePreference: LanguagePreference,
+): Promise<void> {
+  return invoke("save_language_preference", { languagePreference });
 }
 
 export function saveMainlandAcceleration(

@@ -32,6 +32,21 @@ pub enum ThemePreference {
     Dark,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum LanguagePreference {
+    #[default]
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "zh-CN")]
+    ZhCn,
+    #[serde(rename = "en-US")]
+    EnUs,
+    #[serde(rename = "ru-RU")]
+    RuRu,
+    #[serde(rename = "ja-JP")]
+    JaJp,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     #[serde(default)]
@@ -70,6 +85,8 @@ pub struct AppConfig {
     pub lock_check_extension_whitelist: bool,
     #[serde(default)]
     pub theme_preference: ThemePreference,
+    #[serde(default)]
+    pub language_preference: LanguagePreference,
 }
 
 impl Default for AppConfig {
@@ -93,6 +110,7 @@ impl Default for AppConfig {
             use_short_instance_id: false,
             lock_check_extension_whitelist: false,
             theme_preference: ThemePreference::System,
+            language_preference: LanguagePreference::System,
         }
     }
 }
@@ -503,6 +521,32 @@ version = "v4.0.0"
         assert_eq!(decoded.includes_data, metadata.includes_data);
         assert_eq!(decoded.arch_target, metadata.arch_target);
         assert_eq!(decoded.auto_generated, metadata.auto_generated);
+        Ok(())
+    }
+
+    #[test]
+    fn language_preference_defaults_to_system() -> Result<()> {
+        let config: AppConfig = serde_json::from_str("{}")?;
+        assert_eq!(config.language_preference, LanguagePreference::System);
+        Ok(())
+    }
+
+    #[test]
+    fn language_preference_round_trips_exact_tags() -> Result<()> {
+        let cases = [
+            (LanguagePreference::System, "system"),
+            (LanguagePreference::ZhCn, "zh-CN"),
+            (LanguagePreference::EnUs, "en-US"),
+            (LanguagePreference::RuRu, "ru-RU"),
+            (LanguagePreference::JaJp, "ja-JP"),
+        ];
+
+        for (preference, tag) in cases {
+            let encoded = serde_json::to_string(&preference)?;
+            assert_eq!(encoded, format!("\"{tag}\""));
+            let decoded: LanguagePreference = serde_json::from_str(&encoded)?;
+            assert_eq!(decoded, preference);
+        }
         Ok(())
     }
 }

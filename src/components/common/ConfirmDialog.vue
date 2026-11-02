@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
@@ -12,12 +15,19 @@ const props = withDefaults(
   }>(),
   {
     message: "",
-    confirmLabel: "确认",
-    cancelLabel: "取消",
     color: "primary",
     loading: false,
     maxWidth: 440,
   },
+);
+
+const { t } = useI18n();
+
+const confirmText = computed(
+  () => props.confirmLabel || t("common.actions.confirm"),
+);
+const cancelText = computed(
+  () => props.cancelLabel || t("common.actions.cancel"),
 );
 
 const emit = defineEmits<{
@@ -48,7 +58,7 @@ function close(): void {
       <v-card-actions class="confirm-dialog__actions">
         <v-spacer />
         <v-btn variant="text" :disabled="loading" @click="close">
-          {{ cancelLabel }}
+          {{ cancelText }}
         </v-btn>
         <v-btn
           :color="color"
@@ -56,7 +66,7 @@ function close(): void {
           :loading="loading"
           @click="emit('confirm')"
         >
-          {{ confirmLabel }}
+          {{ confirmText }}
         </v-btn>
       </v-card-actions>
     </v-card>

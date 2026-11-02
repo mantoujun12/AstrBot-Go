@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { LogEntry, LogLevel } from "../../types/launcher";
 import { formatLogTime, stripAnsi } from "../../utils/format";
 
@@ -25,6 +26,8 @@ const props = defineProps<{
   fontSize: number;
   filterKey: string;
 }>();
+
+const { t } = useI18n();
 
 const LEVEL_TEXT: Record<LogLevel, string> = {
   debug: "DEBUG",
@@ -221,12 +224,14 @@ onBeforeUnmount(() => {
       class="log-console__scroll"
       role="log"
       aria-live="off"
-      aria-label="日志"
+      :aria-label="t('logs.title')"
       tabindex="0"
       :style="{ fontSize: `${fontSize}px` }"
       @scroll.passive="handleScroll"
     >
-      <div v-if="rows.length === 0" class="log-console__empty">暂无日志</div>
+      <div v-if="rows.length === 0" class="log-console__empty">
+        {{ t("logs.empty") }}
+      </div>
       <div v-else class="log-console__rows">
         <div
           v-for="row in rows"
@@ -255,10 +260,10 @@ onBeforeUnmount(() => {
       size="small"
       rounded="pill"
       prepend-icon="mdi-arrow-down"
-      aria-label="回到最新日志"
+      :aria-label="t('logs.jumpToLatestAria')"
       @click="handleJumpToLatest"
     >
-      回到最新
+      {{ t("logs.jumpToLatest") }}
     </v-btn>
   </div>
 </template>

@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, oneshot, watch};
 
 use super::crud::{is_dashboard_enabled, normalize_instance_host};
 use super::deploy::{deploy_instance, emit_progress};
+use super::types::ProgressMessage;
 use crate::component;
 use crate::config::{load_config, load_manifest};
 use crate::error::{AppError, Result};
@@ -230,7 +231,13 @@ pub async fn launch_instance(
     // Check if dashboard is enabled
     let dashboard_enabled = is_dashboard_enabled(instance_id);
 
-    emit_progress(app_handle, instance_id, "start", "正在启动实例…", 95);
+    emit_progress(
+        app_handle,
+        instance_id,
+        "start",
+        ProgressMessage::StartingInstance,
+        95,
+    );
 
     let core_dir = get_instance_core_dir(instance_id);
     let venv_dir = get_instance_venv_dir(instance_id);
@@ -428,7 +435,13 @@ pub async fn launch_instance(
                 pid,
                 port
             );
-            emit_progress(app_handle, instance_id, "done", "实例已启动", 100);
+            emit_progress(
+                app_handle,
+                instance_id,
+                "done",
+                ProgressMessage::InstanceStarted,
+                100,
+            );
             Ok(LaunchResult {
                 pid,
                 executable_path,

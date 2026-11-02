@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import InstanceWebuiView from "../views/InstanceWebuiView.vue";
 import { useLauncherStore } from "../stores/launcher";
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 }>();
 
 const route = useRoute();
+const { t } = useI18n();
 const { instanceIds, activeTab } = useTabsStore();
 const { instances } = useLauncherStore();
 const homePane = ref<HTMLElement | null>(null);
@@ -47,7 +49,7 @@ watch(
         v-if="mobile && isHome"
         class="launcher-mobile-menu"
         icon
-        aria-label="打开菜单"
+        :aria-label="t('shell.main.openMenu')"
         color="surface"
         elevation="2"
         @click="emit('open-menu')"
@@ -61,7 +63,7 @@ watch(
         ref="homePane"
         class="launcher-home-pane"
         role="tabpanel"
-        aria-label="首页"
+        :aria-label="t('shell.main.home')"
       >
         <router-view />
       </div>

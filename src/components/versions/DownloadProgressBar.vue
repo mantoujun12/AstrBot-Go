@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { translateDynamicKey } from "../../i18n/dynamic";
 import type { DownloadProgress } from "../../types/launcher";
 import { formatFileSize } from "../../utils/format";
 
 const props = defineProps<{
   progress: DownloadProgress | null;
 }>();
+
+const messageText = computed(() =>
+  props.progress
+    ? translateDynamicKey(
+        props.progress.message_key,
+        props.progress.message || props.progress.step,
+      )
+    : "",
+);
 
 const percent = computed(() => {
   const value = props.progress?.progress;
@@ -39,7 +49,7 @@ const speedText = computed(() => {
       rounded
     />
     <div class="download-progress__meta">
-      <span>{{ props.progress.message || props.progress.step }}</span>
+      <span>{{ messageText }}</span>
       <span class="download-progress__stats">
         <span v-if="sizeText">{{ sizeText }}</span>
         <span v-if="speedText" class="download-progress__speed">{{ speedText }}</span>

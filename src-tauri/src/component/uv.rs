@@ -5,6 +5,7 @@ use tauri::AppHandle;
 use tokio::process::Command;
 
 use super::common::install_from_archive_with_progress;
+use super::types::{result_keys, ComponentActionResult};
 use crate::archive::ArchiveFormat;
 use crate::config::{load_config, AppConfig};
 use crate::error::{AppError, Result};
@@ -125,29 +126,54 @@ pub async fn uv_sync(
     Ok(())
 }
 
-pub async fn install_uv(client: &Client, app_handle: Option<&AppHandle>) -> Result<String> {
+pub async fn install_uv(
+    client: &Client,
+    app_handle: Option<&AppHandle>,
+) -> Result<ComponentActionResult> {
     if is_uv_installed() {
-        return Ok("uv 已安装".to_string());
+        return Ok(ComponentActionResult::new(
+            result_keys::ALREADY_INSTALLED,
+            "uv 已安装",
+        ));
     }
     let version = do_install_uv(client, app_handle).await?;
-    Ok(format!("已安装 uv：{}", version))
+    let message = format!("已安装 uv：{}", version);
+    Ok(ComponentActionResult::with_versions(
+        result_keys::INSTALLED,
+        vec![version],
+        message,
+    ))
 }
 
 /// Uninstall uv.
-pub fn uninstall_uv() -> Result<String> {
+pub fn uninstall_uv() -> Result<ComponentActionResult> {
     let dir = get_component_dir("uv");
     if dir.exists() {
         std::fs::remove_dir_all(&dir)
             .map_err(|e| AppError::io(format!("Failed to remove uv: {}", e)))?;
-        Ok("已卸载 uv".to_string())
+        Ok(ComponentActionResult::new(
+            result_keys::UNINSTALLED,
+            "已卸载 uv",
+        ))
     } else {
-        Ok("uv 组件未安装".to_string())
+        Ok(ComponentActionResult::new(
+            result_keys::NOT_INSTALLED,
+            "uv 组件未安装",
+        ))
     }
 }
 
-pub async fn reinstall_uv(client: &Client, app_handle: Option<&AppHandle>) -> Result<String> {
+pub async fn reinstall_uv(
+    client: &Client,
+    app_handle: Option<&AppHandle>,
+) -> Result<ComponentActionResult> {
     let version = do_install_uv(client, app_handle).await?;
-    Ok(format!("已重新安装 uv：{}", version))
+    let message = format!("已重新安装 uv：{}", version);
+    Ok(ComponentActionResult::with_versions(
+        result_keys::REINSTALLED,
+        vec![version],
+        message,
+    ))
 }
 
 async fn detect_installed_uv_version(uv_exe: &std::path::Path) -> String {

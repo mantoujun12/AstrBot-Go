@@ -8,6 +8,10 @@
 
 export type ThemePreference = "system" | "light" | "dark";
 
+export type SupportedLocale = "zh-CN" | "en-US" | "ru-RU" | "ja-JP";
+
+export type LanguagePreference = "system" | SupportedLocale;
+
 export type InstanceState = "stopped" | "starting" | "running" | "stopping";
 
 export type ComponentId = "python" | "nodejs" | "uv";
@@ -52,6 +56,7 @@ export interface AppConfig {
   use_short_instance_id: boolean;
   lock_check_extension_whitelist: boolean;
   theme_preference: ThemePreference;
+  language_preference: LanguagePreference;
 }
 
 export interface InstanceStatus {
@@ -136,13 +141,21 @@ export interface DownloadProgress {
   speed: number | null;
   step: string;
   message: string;
+  message_key?: string;
 }
 
 export interface DeployProgress {
   instance_id: string;
   step: string;
   message: string;
+  message_key?: string;
   progress: number;
+}
+
+export interface ComponentActionResult {
+  key: string;
+  versions: string[];
+  message: string;
 }
 
 export interface LogEntry {

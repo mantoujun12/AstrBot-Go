@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import SidebarNavItem from "./SidebarNavItem.vue";
 
 const props = defineProps<{
@@ -9,6 +10,7 @@ const props = defineProps<{
 }>();
 
 const drawerOpen = defineModel<boolean>({ required: true });
+const { t } = useI18n();
 
 const emit = defineEmits<{
   (event: "navigate"): void;
@@ -16,7 +18,7 @@ const emit = defineEmits<{
 }>();
 
 const toggleLabel = computed(() =>
-  props.rail ? "展开侧边栏" : "收起侧边栏",
+  props.rail ? t("shell.sidebar.expand") : t("shell.sidebar.collapse"),
 );
 </script>
 
@@ -36,7 +38,7 @@ const toggleLabel = computed(() =>
       <v-list nav density="comfortable" class="launcher-sidebar__nav">
         <SidebarNavItem
           icon="mdi-view-dashboard-outline"
-          label="概览"
+          :label="t('shell.nav.overview')"
           to="/"
           :tooltip-disabled="!props.rail"
           :active="props.homeActive ? undefined : false"
@@ -44,7 +46,7 @@ const toggleLabel = computed(() =>
         />
         <SidebarNavItem
           icon="mdi-server-outline"
-          label="实例"
+          :label="t('shell.nav.instances')"
           to="/instances"
           :tooltip-disabled="!props.rail"
           :active="props.homeActive ? undefined : false"
@@ -52,7 +54,7 @@ const toggleLabel = computed(() =>
         />
         <SidebarNavItem
           icon="mdi-tag-multiple-outline"
-          label="版本"
+          :label="t('shell.nav.versions')"
           to="/versions"
           :tooltip-disabled="!props.rail"
           :active="props.homeActive ? undefined : false"
@@ -60,7 +62,7 @@ const toggleLabel = computed(() =>
         />
         <SidebarNavItem
           icon="mdi-archive-outline"
-          label="备份"
+          :label="t('shell.nav.backups')"
           to="/backups"
           :tooltip-disabled="!props.rail"
           :active="props.homeActive ? undefined : false"
@@ -68,7 +70,7 @@ const toggleLabel = computed(() =>
         />
         <SidebarNavItem
           icon="mdi-text-box-outline"
-          label="日志"
+          :label="t('shell.nav.logs')"
           to="/logs"
           :tooltip-disabled="!props.rail"
           :active="props.homeActive ? undefined : false"
@@ -84,7 +86,7 @@ const toggleLabel = computed(() =>
         >
           <SidebarNavItem
             icon="mdi-cog-outline"
-            label="设置"
+            :label="t('shell.nav.settings')"
             to="/settings"
             :tooltip-disabled="!props.rail"
             :active="props.homeActive ? undefined : false"

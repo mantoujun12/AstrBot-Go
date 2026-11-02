@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { VForm } from "vuetify/components";
 import type {
   InstanceStatus,
@@ -25,6 +26,7 @@ const emit = defineEmits<{
   (event: "go-versions"): void;
 }>();
 
+const { t } = useI18n();
 const formRef = ref<VForm | null>(null);
 const name = ref("");
 const version = ref("");
@@ -87,13 +89,13 @@ function initialize(): void {
 function validateName(value: unknown): true | string {
   return typeof value === "string" && value.trim() !== ""
     ? true
-    : "请输入名称";
+    : t("instances.form.validation.nameRequired");
 }
 
 function validateVersion(value: unknown): true | string {
   return typeof value === "string" && value.trim() !== ""
     ? true
-    : "请选择版本";
+    : t("instances.form.validation.versionRequired");
 }
 
 function validatePort(value: unknown): true | string {
@@ -106,10 +108,10 @@ function validatePort(value: unknown): true | string {
     parsed < 1 ||
     parsed > 65535
   ) {
-    return "端口需为 1 至 65535 的整数";
+    return t("instances.form.validation.portRange", { min: 1, max: 65535 });
   }
   if (otherPorts.value.includes(parsed)) {
-    return "端口已被占用";
+    return t("instances.form.validation.portInUse");
   }
   return true;
 }
@@ -193,13 +195,17 @@ watch(
   >
     <v-card>
       <v-card-title class="instance-form__title">
-        {{ isEditing ? "编辑实例" : "创建实例" }}
+        {{
+          isEditing
+            ? t("instances.form.titles.edit")
+            : t("instances.form.titles.create")
+        }}
       </v-card-title>
       <v-card-text class="instance-form__body">
         <v-form ref="formRef" @submit.prevent="submit">
           <v-text-field
             v-model="name"
-            label="名称"
+            :label="t('instances.form.fields.name')"
             variant="outlined"
             density="comfortable"
             autofocus
@@ -210,7 +216,7 @@ watch(
           <v-select
             v-if="versionOptions.length > 0"
             v-model="version"
-            label="版本"
+            :label="t('instances.form.fields.version')"
             variant="outlined"
             density="comfortable"
             :items="versionOptions"
@@ -218,7 +224,7 @@ watch(
             :disabled="loading"
           />
           <div v-else class="instance-form__empty">
-            <span>暂无已安装版本</span>
+            <span>{{ t("instances.form.emptyVersions") }}</span>
             <v-btn
               size="small"
               variant="text"
@@ -226,14 +232,14 @@ watch(
               :disabled="loading"
               @click="goVersions"
             >
-              前往版本页
+              {{ t("instances.form.goVersions") }}
             </v-btn>
           </div>
 
           <v-text-field
             v-if="isEditing"
             v-model="host"
-            label="主机"
+            :label="t('instances.form.fields.host')"
             placeholder="127.0.0.1"
             variant="outlined"
             density="comfortable"
@@ -242,7 +248,7 @@ watch(
 
           <v-text-field
             v-model="portText"
-            label="端口"
+            :label="t('instances.form.fields.port')"
             type="number"
             min="1"
             max="65535"
@@ -255,7 +261,7 @@ watch(
           <v-switch
             v-if="isEditing"
             v-model="checkUpdate"
-            label="检查更新"
+            :label="t('instances.form.fields.checkUpdate')"
             color="primary"
             inset
             hide-details
@@ -265,7 +271,9 @@ watch(
       </v-card-text>
       <v-card-actions class="instance-form__actions">
         <v-spacer />
-        <v-btn variant="text" :disabled="loading" @click="close">取消</v-btn>
+        <v-btn variant="text" :disabled="loading" @click="close">
+          {{ t("common.actions.cancel") }}
+        </v-btn>
         <v-btn
           color="primary"
           variant="flat"
@@ -273,7 +281,9 @@ watch(
           :disabled="!canSubmit"
           @click="submit"
         >
-          {{ isEditing ? "保存" : "创建" }}
+          {{
+            isEditing ? t("common.actions.save") : t("common.actions.create")
+          }}
         </v-btn>
       </v-card-actions>
     </v-card>

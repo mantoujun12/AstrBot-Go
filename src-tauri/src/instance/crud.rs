@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use super::deploy::{
     deploy_instance_core_with_version, emit_progress, ensure_webui_for_version_after_restore,
 };
-use super::types::{CmdConfig, InstanceStatus};
+use super::types::{CmdConfig, InstanceStatus, ProgressMessage};
 use crate::backup::{create_backup, find_pending_auto_backup, restore_data_to_instance};
 use crate::config::{
     load_manifest, with_manifest_mut, AppManifest, InstanceConfig, DEFAULT_INSTANCE_HOST,
@@ -250,13 +250,25 @@ pub async fn update_instance(
         let core_dir = get_instance_core_dir(instance_id);
 
         // Backup
-        emit_progress(app_handle, instance_id, "backup", "正在备份数据…", 5);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "backup",
+            ProgressMessage::BackingUpData,
+            5,
+        );
         let backup_path = if core_dir.join("data").exists() {
             Some(create_backup(instance_id, true)?)
         } else {
             None
         };
-        emit_progress(app_handle, instance_id, "backup", "数据备份完成", 10);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "backup",
+            ProgressMessage::DataBackupDone,
+            10,
+        );
 
         // Clear core_dir and venv_dir
         if core_dir.exists() {
@@ -282,14 +294,26 @@ pub async fn update_instance(
 
         // Restore data from backup
         if let Some(ref bp) = backup_path {
-            emit_progress(app_handle, instance_id, "restore", "正在还原数据…", 92);
+            emit_progress(
+                app_handle,
+                instance_id,
+                "restore",
+                ProgressMessage::RestoringData,
+                92,
+            );
             restore_data_to_instance(bp, instance_id).map_err(|err| {
                 AppError::backup(format!(
                     "自动备份还原失败，已保留备份 {}。请在“备份管理”中手动恢复该备份并确认数据。原始错误：{}",
                     bp, err
                 ))
             })?;
-            emit_progress(app_handle, instance_id, "restore", "数据还原完成", 95);
+            emit_progress(
+                app_handle,
+                instance_id,
+                "restore",
+                ProgressMessage::DataRestored,
+                95,
+            );
         }
 
         ensure_webui_for_version_after_restore(instance_id, new_version, app_handle).await?;
@@ -305,7 +329,13 @@ pub async fn update_instance(
             check_update_enabled,
         )?;
 
-        emit_progress(app_handle, instance_id, "done", "更新完成", 100);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "done",
+            ProgressMessage::UpdateDone,
+            100,
+        );
         Ok(())
     } else {
         // No version change

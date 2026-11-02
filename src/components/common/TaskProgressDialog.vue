@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n();
+
 withDefaults(
   defineProps<{
     modelValue: boolean;
@@ -19,7 +23,7 @@ withDefaults(
       <v-card-title class="task-progress__title">{{ title }}</v-card-title>
       <v-card-text class="task-progress__body">
         <div class="task-progress__message">
-          {{ message || "处理中…" }}
+          {{ message || t("common.processing") }}
         </div>
         <v-progress-linear
           :model-value="progress ?? 0"

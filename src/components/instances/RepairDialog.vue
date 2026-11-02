@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RepairPreserveScope } from "../../types/launcher";
 
 const props = withDefaults(
@@ -20,12 +21,20 @@ interface ScopeOption {
   value: RepairPreserveScope;
 }
 
-const scopeOptions: ScopeOption[] = [
-  { title: "保留数据目录", value: "data_directory" },
-  { title: "保留配置与数据库", value: "config_and_data_files" },
-  { title: "保留核心配置与数据库", value: "core_config_and_data_files" },
-  { title: "仅保留数据库", value: "database_only" },
-];
+const { t } = useI18n();
+
+const scopeOptions = computed<ScopeOption[]>(() => [
+  { title: t("instances.repair.scopes.dataDirectory"), value: "data_directory" },
+  {
+    title: t("instances.repair.scopes.configAndDataFiles"),
+    value: "config_and_data_files",
+  },
+  {
+    title: t("instances.repair.scopes.coreConfigAndDataFiles"),
+    value: "core_config_and_data_files",
+  },
+  { title: t("instances.repair.scopes.databaseOnly"), value: "database_only" },
+]);
 
 const scope = ref<RepairPreserveScope>("data_directory");
 
@@ -54,9 +63,11 @@ watch(
     @update:model-value="emit('update:modelValue', $event)"
   >
     <v-card>
-      <v-card-title class="repair-dialog__title">修复实例</v-card-title>
+      <v-card-title class="repair-dialog__title">
+        {{ t("instances.repair.title") }}
+      </v-card-title>
       <v-card-text class="repair-dialog__body">
-        <p class="repair-dialog__hint">选择保留范围，实例将重新部署。</p>
+        <p class="repair-dialog__hint">{{ t("instances.repair.hint") }}</p>
         <v-radio-group v-model="scope" hide-details>
           <v-radio
             v-for="option in scopeOptions"
@@ -68,14 +79,16 @@ watch(
       </v-card-text>
       <v-card-actions class="repair-dialog__actions">
         <v-spacer />
-        <v-btn variant="text" :disabled="loading" @click="close">取消</v-btn>
+        <v-btn variant="text" :disabled="loading" @click="close">
+          {{ t("common.actions.cancel") }}
+        </v-btn>
         <v-btn
           color="warning"
           variant="flat"
           :loading="loading"
           @click="emit('submit', scope)"
         >
-          修复
+          {{ t("instances.repair.submit") }}
         </v-btn>
       </v-card-actions>
     </v-card>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import LogConsole from "../components/logs/LogConsole.vue";
 import { useLauncherStore } from "../stores/launcher";
@@ -28,12 +29,14 @@ const MAX_FONT_SIZE = 20;
 const DEFAULT_FONT_SIZE = 12;
 const FONT_SIZE_STORAGE_KEY = "astrbot-launcher.logs.font-size";
 
-const LEVEL_OPTIONS: readonly LevelOption[] = [
-  { value: "debug", label: "调试", color: "secondary" },
-  { value: "info", label: "信息", color: "info" },
-  { value: "warn", label: "警告", color: "warning" },
-  { value: "error", label: "错误", color: "error" },
-];
+const { t } = useI18n();
+
+const LEVEL_OPTIONS = computed<LevelOption[]>(() => [
+  { value: "debug", label: t("logs.levels.debug"), color: "secondary" },
+  { value: "info", label: t("logs.levels.info"), color: "info" },
+  { value: "warn", label: t("logs.levels.warn"), color: "warning" },
+  { value: "error", label: t("logs.levels.error"), color: "error" },
+]);
 
 const LEVEL_TEXT: Record<LogLevel, string> = {
   debug: "DEBUG",
@@ -47,8 +50,8 @@ const { entries, clearLogs } = useLogStore();
 const { instances } = useLauncherStore();
 
 const sourceOptions = computed<SourceOption[]>(() => [
-  { title: "全部来源", value: SOURCE_ALL },
-  { title: "系统", value: SOURCE_SYSTEM },
+  { title: t("logs.sources.all"), value: SOURCE_ALL },
+  { title: t("logs.sources.system"), value: SOURCE_SYSTEM },
   ...instances.value.map((instance) => ({
     title: instance.name || instance.id,
     value: instance.id,
@@ -56,7 +59,9 @@ const sourceOptions = computed<SourceOption[]>(() => [
 ]);
 
 const sourceLabels = computed<Record<string, string>>(() => {
-  const labels: Record<string, string> = { [SOURCE_SYSTEM]: "系统" };
+  const labels: Record<string, string> = {
+    [SOURCE_SYSTEM]: t("logs.sources.system"),
+  };
   for (const instance of instances.value) {
     labels[instance.id] = instance.name;
   }
@@ -116,7 +121,7 @@ watch(
 );
 
 const selectedLevels = ref<LogLevel[]>(
-  LEVEL_OPTIONS.map((option) => option.value),
+  LEVEL_OPTIONS.value.map((option) => option.value),
 );
 
 const searchInput = ref("");
@@ -246,9 +251,9 @@ async function copyLogs(): Promise<void> {
       throw new Error("clipboard unavailable");
     }
     await clipboard.writeText(text);
-    showToast("已复制");
+    showToast(t("logs.copied"));
   } catch {
-    showToast("复制失败", "error");
+    showToast(t("logs.copyFailed"), "error");
   } finally {
     copying.value = false;
   }
@@ -260,7 +265,7 @@ function handleClear(): void {
 </script>
 
 <template>
-  <section class="page-shell logs-page" aria-label="日志">
+  <section class="page-shell logs-page" :aria-label="t('logs.title')">
     <div class="logs-toolbar">
       <v-select
         v-model="selectedSource"
@@ -272,8 +277,8 @@ function handleClear(): void {
         variant="outlined"
         hide-details
         rounded="lg"
-        label="来源"
-        aria-label="来源筛选"
+        :label="t('logs.sourceLabel')"
+        :aria-label="t('logs.sourceFilter')"
       />
 
       <v-chip-group
@@ -282,7 +287,7 @@ function handleClear(): void {
         multiple
         filter
         role="group"
-        aria-label="级别筛选"
+        :aria-label="t('logs.levelFilter')"
       >
         <v-chip
           v-for="level in LEVEL_OPTIONS"
@@ -306,8 +311,8 @@ function handleClear(): void {
         rounded="lg"
         clearable
         prepend-inner-icon="mdi-magnify"
-        label="搜索"
-        aria-label="搜索日志"
+        :label="t('logs.search')"
+        :aria-label="t('logs.searchAria')"
       />
 
       <div class="logs-actions">
@@ -318,22 +323,29 @@ function handleClear(): void {
           density="compact"
           hide-details
           inset
-          label="自动滚动"
-          aria-label="自动滚动"
+          :label="t('logs.autoScroll')"
+          :aria-label="t('logs.autoScroll')"
         />
 
-        <div class="logs-font-size" role="group" aria-label="字号">
+        <div
+          class="logs-font-size"
+          role="group"
+          :aria-label="t('logs.fontSize')"
+        >
           <v-btn
             icon
             size="x-small"
             variant="text"
             :disabled="fontSize <= MIN_FONT_SIZE"
-            aria-label="减小字号"
+            :aria-label="t('logs.decreaseFontSize')"
             @click="decreaseFontSize"
           >
             <v-icon icon="mdi-minus" size="16" aria-hidden="true" />
           </v-btn>
-          <output class="logs-font-size__value" aria-label="当前字号">
+          <output
+            class="logs-font-size__value"
+            :aria-label="t('logs.currentFontSize')"
+          >
             {{ fontSize }}
           </output>
           <v-btn
@@ -341,7 +353,7 @@ function handleClear(): void {
             size="x-small"
             variant="text"
             :disabled="fontSize >= MAX_FONT_SIZE"
-            aria-label="增大字号"
+            :aria-label="t('logs.increaseFontSize')"
             @click="increaseFontSize"
           >
             <v-icon icon="mdi-plus" size="16" aria-hidden="true" />
@@ -354,10 +366,10 @@ function handleClear(): void {
           prepend-icon="mdi-content-copy"
           :loading="copying"
           :disabled="filteredEntries.length === 0"
-          aria-label="复制日志"
+          :aria-label="t('logs.copyLogs')"
           @click="copyLogs"
         >
-          复制
+          {{ t("common.actions.copy") }}
         </v-btn>
 
         <v-btn
@@ -365,10 +377,10 @@ function handleClear(): void {
           variant="text"
           prepend-icon="mdi-delete-outline"
           :disabled="entries.length === 0"
-          aria-label="清空日志"
+          :aria-label="t('logs.clearLogs')"
           @click="handleClear"
         >
-          清空
+          {{ t("logs.clear") }}
         </v-btn>
       </div>
     </div>

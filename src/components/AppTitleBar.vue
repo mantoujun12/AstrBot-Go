@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   closeWindow,
   isWindowMaximized,
@@ -9,6 +10,8 @@ import {
   toggleMaximizeWindow,
 } from "../services/windowControls";
 import TitleBarTabs from "./TitleBarTabs.vue";
+
+const { t } = useI18n();
 
 const isMaximized = ref(false);
 let snapOverlayTimer: ReturnType<typeof setTimeout> | undefined;
@@ -93,7 +96,7 @@ onBeforeUnmount(() => {
   <header
     class="app-titlebar"
     data-tauri-decorum-tb
-    aria-label="应用标题栏"
+    :aria-label="t('shell.titleBar.label')"
   >
     <TitleBarTabs />
     <div
@@ -106,7 +109,7 @@ onBeforeUnmount(() => {
         id="decorum-tb-minimize"
         class="decorum-tb-btn app-titlebar__control"
         type="button"
-        aria-label="最小化"
+        :aria-label="t('shell.titleBar.minimize')"
         @click="minimize"
       >
         <span class="app-titlebar__glyph" aria-hidden="true">&#xE921;</span>
@@ -115,7 +118,11 @@ onBeforeUnmount(() => {
         id="decorum-tb-maximize"
         class="decorum-tb-btn app-titlebar__control"
         type="button"
-        :aria-label="isMaximized ? '还原' : '最大化'"
+        :aria-label="
+          isMaximized
+            ? t('shell.titleBar.restore')
+            : t('shell.titleBar.maximize')
+        "
         @click="toggleMaximize"
         @mouseenter="scheduleSnapOverlay"
         @mouseleave="cancelSnapOverlay"
@@ -128,7 +135,7 @@ onBeforeUnmount(() => {
         id="decorum-tb-close"
         class="decorum-tb-btn app-titlebar__control app-titlebar__control--close"
         type="button"
-        aria-label="关闭"
+        :aria-label="t('shell.titleBar.close')"
         @click="close"
       >
         <span class="app-titlebar__glyph" aria-hidden="true">&#xE8BB;</span>

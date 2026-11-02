@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { DataTableHeader } from "vuetify";
 import { useDisplay } from "vuetify";
 import CreateBackupDialog from "../components/backups/CreateBackupDialog.vue";
@@ -18,24 +19,45 @@ import type { BackupInfo } from "../types/launcher";
 import { formatDateTime } from "../utils/format";
 import { dirname } from "../utils/path";
 
+const { t } = useI18n();
 const { mdAndDown } = useDisplay();
 const { snapshot, instances, backups, loading, error, refresh } =
   useLauncherStore();
 const { isBusy, run } = useOperation();
 
-const headers: DataTableHeader[] = [
-  { title: "实例名称", key: "instance_name", sortable: false, minWidth: 180 },
-  { title: "版本", key: "version", sortable: false, width: 120 },
-  { title: "创建时间", key: "created_at", sortable: false, width: 170 },
-  { title: "备注", key: "parse_error", sortable: false, minWidth: 160 },
+const headers = computed<DataTableHeader[]>(() => [
   {
-    title: "操作",
+    title: t("backups.headers.instanceName"),
+    key: "instance_name",
+    sortable: false,
+    minWidth: 180,
+  },
+  {
+    title: t("backups.headers.version"),
+    key: "version",
+    sortable: false,
+    width: 120,
+  },
+  {
+    title: t("backups.headers.createdAt"),
+    key: "created_at",
+    sortable: false,
+    width: 170,
+  },
+  {
+    title: t("backups.headers.note"),
+    key: "parse_error",
+    sortable: false,
+    minWidth: 160,
+  },
+  {
+    title: t("backups.headers.actions"),
     key: "actions",
     sortable: false,
     align: "end",
     width: 240,
   },
-];
+]);
 
 const search = ref<string | null>("");
 const activeInstanceId = ref("");
@@ -47,13 +69,18 @@ const instanceOptions = computed(() => {
     if (id === "" || names.has(id)) {
       continue;
     }
-    names.set(id, backup.metadata.instance_name || id);
+    names.set(
+      id,
+      backup.corrupted
+        ? t("backups.corruptedName")
+        : backup.metadata.instance_name || id,
+    );
   }
   return Array.from(names, ([value, title]) => ({ title, value }));
 });
 
 const instanceFilterItems = computed(() => [
-  { title: "全部实例", value: "" },
+  { title: t("backups.allInstances"), value: "" },
   ...instanceOptions.value,
 ]);
 
@@ -124,7 +151,7 @@ async function handleCreate(instanceId: string): Promise<void> {
     const created = await run(
       `backup:create:${instanceId}`,
       () => createBackup(instanceId),
-      { success: "备份已创建" },
+      { success: t("backups.created") },
     );
     if (created) {
       createOpen.value = false;
@@ -160,8 +187,8 @@ const restoreMessage = computed(() => {
   );
   const name = (instance?.name || backup.metadata.instance_name).trim();
   return name === ""
-    ? "恢复将覆盖目标实例的当前数据。"
-    : `恢复将覆盖实例“${name}”的当前数据。`;
+    ? t("backups.restoreMessageGeneric")
+    : t("backups.restoreMessage", { name });
 });
 
 function requestRestore(path: string): void {
@@ -189,7 +216,7 @@ async function runRestore(
       await restoreBackup(backup.path);
     },
     {
-      success: "备份已恢复",
+      success: t("backups.restored"),
       onError: (cause) => {
         const parsed = parseBackendError(cause);
         if (!parsed.lock) {
@@ -242,7 +269,7 @@ const deleteBusy = computed(() =>
 const deleteMessage = computed(() => {
   const backup = deleteTarget.value;
   return backup
-    ? `确定删除备份“${backup.filename}”吗？删除后无法恢复。`
+    ? t("backups.deleteMessage", { filename: backup.filename })
     : "";
 });
 
@@ -263,7 +290,7 @@ async function handleDeleteConfirmed(): Promise<void> {
   const deleted = await run(
     `backup:delete:${backup.path}`,
     () => deleteBackup(backup.path),
-    { success: "备份已删除" },
+    { success: t("backups.deleted") },
   );
   if (deleted) {
     deleteConfirmOpen.value = false;
@@ -282,7 +309,7 @@ async function handleOpenFolder(path: string): Promise<void> {
 
 <template>
   <div class="page-shell backups-page">
-    <PageHeader title="备份">
+    <PageHeader :title="t('backups.title')">
       <template #actions>
         <v-btn
           variant="text"
@@ -290,7 +317,7 @@ async function handleOpenFolder(path: string): Promise<void> {
           :loading="loading"
           @click="handleRefresh"
         >
-          刷新
+          {{ t("common.actions.refresh") }}
         </v-btn>
         <v-btn
           color="primary"
@@ -299,7 +326,7 @@ async function handleOpenFolder(path: string): Promise<void> {
           :disabled="snapshot === null"
           @click="openCreateDialog"
         >
-          创建备份
+          {{ t("backups.createBackup") }}
         </v-btn>
       </template>
     </PageHeader>
@@ -319,7 +346,7 @@ async function handleOpenFolder(path: string): Promise<void> {
           :loading="loading"
           @click="handleRefresh"
         >
-          重试
+          {{ t("common.actions.retry") }}
         </v-btn>
       </div>
     </v-alert>
@@ -329,13 +356,13 @@ async function handleOpenFolder(path: string): Promise<void> {
         indeterminate
         color="primary"
         size="32"
-        aria-label="加载中"
+        :aria-label="t('backups.loading')"
       />
     </div>
 
     <template v-else-if="snapshot !== null && backups.length === 0">
       <div class="page-table-card">
-        <EmptyState text="暂无备份" icon="mdi-archive-outline">
+        <EmptyState :text="t('backups.empty')" icon="mdi-archive-outline">
           <v-btn
             color="primary"
             variant="flat"
@@ -343,7 +370,7 @@ async function handleOpenFolder(path: string): Promise<void> {
             prepend-icon="mdi-plus"
             @click="openCreateDialog"
           >
-            创建备份
+            {{ t("backups.createBackup") }}
           </v-btn>
         </EmptyState>
       </div>
@@ -356,7 +383,7 @@ async function handleOpenFolder(path: string): Promise<void> {
           :items="instanceFilterItems"
           item-title="title"
           item-value="value"
-          label="实例"
+          :label="t('backups.instanceFilter')"
           variant="outlined"
           density="compact"
           hide-details
@@ -364,7 +391,7 @@ async function handleOpenFolder(path: string): Promise<void> {
         />
         <v-text-field
           v-model="search"
-          label="搜索文件名"
+          :label="t('backups.searchPlaceholder')"
           variant="outlined"
           density="compact"
           hide-details
@@ -385,13 +412,17 @@ async function handleOpenFolder(path: string): Promise<void> {
           :items-per-page="-1"
           disable-sort
           hover
-          loading-text="加载中"
-          no-data-text="没有符合条件的备份"
+          :loading-text="t('backups.loading')"
+          :no-data-text="t('backups.noMatches')"
         >
           <template #item.instance_name="{ item }">
             <div class="backup-name">
               <span class="backup-name__text">
-                {{ item.metadata.instance_name || "—" }}
+                {{
+                  item.corrupted
+                    ? t("backups.corruptedName")
+                    : item.metadata.instance_name || "—"
+                }}
               </span>
               <v-chip
                 v-if="item.metadata.auto_generated"
@@ -399,7 +430,7 @@ async function handleOpenFolder(path: string): Promise<void> {
                 variant="tonal"
                 color="info"
               >
-                自动创建
+                {{ t("backups.autoGenerated") }}
               </v-chip>
               <v-chip
                 v-if="item.corrupted"
@@ -407,7 +438,7 @@ async function handleOpenFolder(path: string): Promise<void> {
                 variant="tonal"
                 color="error"
               >
-                已损坏
+                {{ t("backups.corrupted") }}
               </v-chip>
             </div>
           </template>
@@ -434,7 +465,7 @@ async function handleOpenFolder(path: string): Promise<void> {
                 :disabled="!canRestore(item.path) || isBusy(restoreKey(item.path))"
                 @click="requestRestore(item.path)"
               >
-                恢复
+                {{ t("backups.restore") }}
               </v-btn>
               <v-btn
                 size="small"
@@ -443,14 +474,14 @@ async function handleOpenFolder(path: string): Promise<void> {
                 prepend-icon="mdi-delete-outline"
                 @click="requestDelete(item.path)"
               >
-                删除
+                {{ t("common.actions.delete") }}
               </v-btn>
               <v-btn
                 size="small"
                 variant="text"
                 icon="mdi-folder-open-outline"
-                aria-label="打开所在文件夹"
-                title="打开所在文件夹"
+                :aria-label="t('backups.openFolder')"
+                :title="t('backups.openFolder')"
                 @click="handleOpenFolder(item.path)"
               />
             </div>
@@ -468,9 +499,9 @@ async function handleOpenFolder(path: string): Promise<void> {
 
     <ConfirmDialog
       v-model="restoreConfirmOpen"
-      title="恢复备份"
+      :title="t('backups.restoreTitle')"
       :message="restoreMessage"
-      confirm-label="恢复"
+      :confirm-label="t('backups.restore')"
       color="warning"
       :loading="restoreBusy"
       @confirm="handleRestoreConfirmed"
@@ -478,9 +509,9 @@ async function handleOpenFolder(path: string): Promise<void> {
 
     <ConfirmDialog
       v-model="deleteConfirmOpen"
-      title="删除备份"
+      :title="t('backups.deleteTitle')"
       :message="deleteMessage"
-      confirm-label="删除"
+      :confirm-label="t('common.actions.delete')"
       color="error"
       :loading="deleteBusy"
       @confirm="handleDeleteConfirmed"

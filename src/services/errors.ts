@@ -3,6 +3,8 @@
  * interface can show. Backend error codes are defined in `src-tauri/src/error.rs`.
  */
 
+import { i18n } from "../i18n";
+
 export interface BackendError {
   code: number;
   payload: Record<string, string>;
@@ -17,6 +19,10 @@ export interface LockFailure {
 export interface ParsedBackendError {
   message: string;
   lock: LockFailure | null;
+}
+
+function translate(key: string, params?: Record<string, string>): string {
+  return params ? i18n.global.t(key, params) : i18n.global.t(key);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,9 +75,21 @@ function parseProcessList(raw: string | undefined): string[] {
   }
 }
 
+function lockDetail(payload: Record<string, string>): string {
+  if (payload.reason === "locked") {
+    return translate("errors.lock.detailLocked");
+  }
+  if (payload.reason === "check_failed") {
+    return payload.check_failure_kind === "max_sessions_reached"
+      ? translate("errors.lock.detailMaxSessions")
+      : translate("errors.lock.detailCheckFailed");
+  }
+  return payload.detail ?? translate("errors.lock.detailLocked");
+}
+
 function parseLockFailure(payload: Record<string, string>): LockFailure {
   return {
-    detail: payload.detail ?? "目标路径被占用，请关闭相关进程后重试",
+    detail: lockDetail(payload),
     canContinue: payload.can_continue === "true",
     processes: parseProcessList(payload.locking_processes),
   };
@@ -80,47 +98,67 @@ function parseLockFailure(payload: Record<string, string>): LockFailure {
 function messageForCode(code: number, payload: Record<string, string>): string {
   switch (code) {
     case 1001:
-      return "实例不存在";
+      return translate("errors.instanceNotFound");
     case 1002:
-      return "实例正在运行，请先停止";
+      return translate("errors.instanceRunning");
     case 1003:
-      return "实例未运行";
+      return translate("errors.instanceNotRunning");
     case 1004:
-      return "版本不存在或未安装";
+      return translate("errors.versionNotFound");
     case 1005:
       return payload.instance
-        ? `版本正被实例“${payload.instance}”使用`
-        : "版本正被实例使用";
+        ? translate("errors.versionInUseWithInstance", { instance: payload.instance })
+        : translate("errors.versionInUse");
     case 1006:
-      return "下载已取消";
+      return translate("errors.downloadCancelled");
     case 2001:
-      return payload.detail ?? "配置保存失败";
+      return payload.detail
+        ? translate("errors.configSaveFailedWithDetail", { detail: payload.detail })
+        : translate("errors.configSaveFailed");
     case 2002:
-      return payload.detail ?? "文件操作失败";
+      return payload.detail
+        ? translate("errors.fileOperationFailedWithDetail", { detail: payload.detail })
+        : translate("errors.fileOperationFailed");
     case 2003:
-      return payload.detail ?? "网络请求失败";
+      return payload.detail
+        ? translate("errors.networkRequestFailedWithDetail", { detail: payload.detail })
+        : translate("errors.networkRequestFailed");
     case 3001:
-      return payload.detail ?? "Python 运行环境错误";
+      return payload.detail
+        ? translate("errors.pythonRuntimeErrorWithDetail", { detail: payload.detail })
+        : translate("errors.pythonRuntimeError");
     case 3002:
-      return "Python 运行环境未安装";
+      return translate("errors.pythonNotInstalled");
     case 3003:
-      return payload.detail ?? "进程操作失败";
+      return payload.detail
+        ? translate("errors.processOperationFailedWithDetail", { detail: payload.detail })
+        : translate("errors.processOperationFailed");
     case 3004:
-      return payload.port ? `端口 ${payload.port} 已被占用` : "端口已被占用";
+      return payload.port
+        ? translate("errors.portOccupiedWithPort", { port: payload.port })
+        : translate("errors.portOccupied");
     case 3005:
-      return "实例启动超时";
+      return translate("errors.startupTimeout");
     case 3006:
-      return payload.detail ?? "目标路径被占用";
+      return lockDetail(payload);
     case 3007:
-      return payload.detail ? `主机地址无效：${payload.detail}` : "主机地址无效";
+      return payload.detail
+        ? translate("errors.invalidHostWithDetail", { detail: payload.detail })
+        : translate("errors.invalidHost");
     case 4001:
-      return payload.detail ?? "备份操作失败";
+      return payload.detail
+        ? translate("errors.backupFailedWithDetail", { detail: payload.detail })
+        : translate("errors.backupFailed");
     case 4002:
-      return "GitHub 请求失败";
+      return translate("errors.githubFailed");
     case 9999:
-      return payload.detail ?? "操作失败";
+      return payload.detail
+        ? translate("errors.operationFailedWithDetail", { detail: payload.detail })
+        : translate("errors.operationFailed");
     default:
-      return payload.detail ?? "操作失败";
+      return payload.detail
+        ? translate("errors.operationFailedWithDetail", { detail: payload.detail })
+        : translate("errors.operationFailed");
   }
 }
 
@@ -141,7 +179,7 @@ export function parseBackendError(error: unknown): ParsedBackendError {
     return { message: error, lock: null };
   }
 
-  return { message: "操作失败", lock: null };
+  return { message: translate("errors.operationFailed"), lock: null };
 }
 
 export function toUserMessage(error: unknown): string {

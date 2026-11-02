@@ -4,7 +4,7 @@ use reqwest::Client;
 use tauri::AppHandle;
 
 use crate::archive::{extract_tar_gz_flat, extract_zip_flat, ArchiveFormat};
-use crate::download::{download_file, emit_download_progress, DownloadOptions};
+use crate::download::{download_file, emit_download_progress, DownloadMessage, DownloadOptions};
 use crate::error::{AppError, Result};
 use crate::utils::log_redact;
 
@@ -41,7 +41,15 @@ pub(super) async fn install_from_archive_with_progress(
     download_file(client, download_url, archive_path, opts.as_ref()).await?;
 
     if let Some(o) = &opts {
-        emit_download_progress(o, 0, None, Some(99), None, "extracting", "正在解压");
+        emit_download_progress(
+            o,
+            0,
+            None,
+            Some(99),
+            None,
+            "extracting",
+            DownloadMessage::Extracting,
+        );
     }
 
     match archive_format {
@@ -58,7 +66,15 @@ pub(super) async fn install_from_archive_with_progress(
     }
 
     if let Some(o) = &opts {
-        emit_download_progress(o, 0, None, Some(100), None, "done", "安装完成");
+        emit_download_progress(
+            o,
+            0,
+            None,
+            Some(100),
+            None,
+            "done",
+            DownloadMessage::Installed,
+        );
     }
 
     Ok(())

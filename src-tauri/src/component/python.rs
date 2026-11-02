@@ -5,6 +5,7 @@ use tauri::AppHandle;
 use tokio::process::Command;
 
 use super::common::install_from_archive_with_progress;
+use super::types::{result_keys, ComponentActionResult};
 use crate::archive::ArchiveFormat;
 use crate::config::{load_config, AppConfig};
 use crate::error::{AppError, Result};
@@ -60,20 +61,31 @@ pub fn get_python_for_version(version: &str) -> Result<PathBuf> {
 pub(super) async fn install_component(
     client: &Client,
     app_handle: Option<&AppHandle>,
-) -> Result<String> {
+) -> Result<ComponentActionResult> {
     if is_component_installed() {
-        return Ok("Python 已安装".to_string());
+        return Ok(ComponentActionResult::new(
+            result_keys::ALREADY_INSTALLED,
+            "Python 已安装",
+        ));
     }
     let installed = install_missing_runtimes(client, app_handle).await?;
     if installed.is_empty() {
-        Ok("Python 已安装".to_string())
+        Ok(ComponentActionResult::new(
+            result_keys::ALREADY_INSTALLED,
+            "Python 已安装",
+        ))
     } else {
-        Ok(format!("已安装 Python：{}", installed.join(", ")))
+        let message = format!("已安装 Python：{}", installed.join(", "));
+        Ok(ComponentActionResult::with_versions(
+            result_keys::INSTALLED,
+            installed,
+            message,
+        ))
     }
 }
 
 /// Uninstall unified Python component (3.10 + 3.12).
-pub(super) fn uninstall_component() -> Result<String> {
+pub(super) fn uninstall_component() -> Result<ComponentActionResult> {
     let py310_dir = get_python_runtime_dir(RUNTIME_PY310);
     let py312_dir = get_python_runtime_dir(RUNTIME_PY312);
 
@@ -92,9 +104,17 @@ pub(super) fn uninstall_component() -> Result<String> {
     }
 
     if removed.is_empty() {
-        Ok("Python 组件未安装".to_string())
+        Ok(ComponentActionResult::new(
+            result_keys::NOT_INSTALLED,
+            "Python 组件未安装",
+        ))
     } else {
-        Ok(format!("已卸载 Python：{}", removed.join(", ")))
+        let message = format!("已卸载 Python：{}", removed.join(", "));
+        Ok(ComponentActionResult::with_versions(
+            result_keys::UNINSTALLED,
+            removed,
+            message,
+        ))
     }
 }
 
@@ -102,7 +122,7 @@ pub(super) fn uninstall_component() -> Result<String> {
 pub(super) async fn reinstall_component(
     client: &Client,
     app_handle: Option<&AppHandle>,
-) -> Result<String> {
+) -> Result<ComponentActionResult> {
     let py310_dir = get_python_runtime_dir(RUNTIME_PY310);
     let py312_dir = get_python_runtime_dir(RUNTIME_PY312);
 
@@ -116,7 +136,12 @@ pub(super) async fn reinstall_component(
     }
 
     let installed = install_missing_runtimes(client, app_handle).await?;
-    Ok(format!("已重新安装 Python：{}", installed.join(", ")))
+    let message = format!("已重新安装 Python：{}", installed.join(", "));
+    Ok(ComponentActionResult::with_versions(
+        result_keys::REINSTALLED,
+        installed,
+        message,
+    ))
 }
 
 pub async fn pip_install_requirements(

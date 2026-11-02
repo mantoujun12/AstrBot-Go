@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import type { LockFailure } from "../../services/errors";
+
+const { t } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -31,10 +34,12 @@ function close(): void {
     @update:model-value="emit('update:modelValue', $event)"
   >
     <v-card>
-      <v-card-title class="lock-dialog__title">文件被占用</v-card-title>
+      <v-card-title class="lock-dialog__title">
+        {{ t("errors.lock.title") }}
+      </v-card-title>
       <v-card-text class="lock-dialog__body">
         <p class="lock-dialog__detail">
-          {{ failure?.detail ?? "目标路径被占用，请关闭相关进程后重试" }}
+          {{ failure?.detail ?? t("errors.lock.detailLocked") }}
         </p>
         <ul v-if="failure && failure.processes.length > 0" class="lock-dialog__list">
           <li v-for="process in failure.processes" :key="process">
@@ -44,7 +49,9 @@ function close(): void {
       </v-card-text>
       <v-card-actions class="lock-dialog__actions">
         <v-spacer />
-        <v-btn variant="text" :disabled="loading" @click="close">取消</v-btn>
+        <v-btn variant="text" :disabled="loading" @click="close">
+          {{ t("common.actions.cancel") }}
+        </v-btn>
         <v-btn
           v-if="failure?.canContinue"
           color="warning"
@@ -52,7 +59,7 @@ function close(): void {
           :loading="loading"
           @click="emit('continue')"
         >
-          仍然继续
+          {{ t("errors.lock.continueAnyway") }}
         </v-btn>
       </v-card-actions>
     </v-card>

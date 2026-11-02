@@ -82,7 +82,7 @@ fn format_locking_process(process: &LockingProcessInfo) -> String {
         labels.push(process.app_name.clone());
     }
     if !process.service_short_name.is_empty() {
-        labels.push(format!("服务：{}", process.service_short_name.clone()));
+        labels.push(format!("service: {}", process.service_short_name.clone()));
     }
 
     if labels.is_empty() {

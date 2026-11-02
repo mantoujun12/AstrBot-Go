@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Emitter as _};
 
-use super::types::DeployProgress;
+use super::types::{DeployProgress, ProgressMessage};
 use crate::archive::extract_zip_flat;
 use crate::component;
 use crate::config::{load_config, load_manifest, with_config_mut};
@@ -30,7 +30,7 @@ pub fn emit_progress(
     app_handle: &AppHandle,
     instance_id: &str,
     step: &str,
-    message: &str,
+    message: ProgressMessage,
     progress: u8,
 ) {
     let _ = app_handle.emit(
@@ -38,7 +38,8 @@ pub fn emit_progress(
         DeployProgress {
             instance_id: instance_id.to_string(),
             step: step.to_string(),
-            message: message.to_string(),
+            message_key: message.key().to_string(),
+            message: message.fallback().to_string(),
             progress,
         },
     );
@@ -110,26 +111,62 @@ async fn deploy_instance_with_version_impl(
 
     let main_py = core_dir.join("main.py");
     if !main_py.exists() {
-        emit_progress(app_handle, instance_id, "extract", "正在解压代码…", 10);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "extract",
+            ProgressMessage::ExtractingCode,
+            10,
+        );
 
         fs::create_dir_all(&core_dir)
             .map_err(|e| AppError::io(format!("Failed to create core dir: {}", e)))?;
         clear_core_except_data(&core_dir)?;
 
         extract_zip_flat(&zip_path, &core_dir)?;
-        emit_progress(app_handle, instance_id, "extract", "代码解压完成", 30);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "extract",
+            ProgressMessage::CodeExtracted,
+            30,
+        );
     }
 
     let venv_python = get_venv_python(&venv_dir);
     if !venv_python.exists() {
-        emit_progress(app_handle, instance_id, "venv", "正在创建虚拟环境…", 40);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "venv",
+            ProgressMessage::CreatingVenv,
+            40,
+        );
         component::create_venv(&venv_dir, version).await?;
-        emit_progress(app_handle, instance_id, "venv", "虚拟环境创建完成", 50);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "venv",
+            ProgressMessage::VenvCreated,
+            50,
+        );
     }
 
-    emit_progress(app_handle, instance_id, "deps", "正在安装依赖…", 60);
+    emit_progress(
+        app_handle,
+        instance_id,
+        "deps",
+        ProgressMessage::InstallingDeps,
+        60,
+    );
     sync_dependencies(instance_id, &venv_python, &core_dir).await?;
-    emit_progress(app_handle, instance_id, "deps", "依赖安装完成", 90);
+    emit_progress(
+        app_handle,
+        instance_id,
+        "deps",
+        ProgressMessage::DepsInstalled,
+        90,
+    );
     if ensure_webui {
         ensure_webui_for_version(instance_id, version, app_handle).await?;
     }
@@ -165,7 +202,13 @@ pub async fn repair_instance(
         )));
     }
 
-    emit_progress(app_handle, instance_id, "extract", "正在准备修复实例…", 5);
+    emit_progress(
+        app_handle,
+        instance_id,
+        "extract",
+        ProgressMessage::PreparingRepair,
+        5,
+    );
 
     let core_dir = get_instance_core_dir(instance_id);
     let venv_dir = get_instance_venv_dir(instance_id);
@@ -202,15 +245,33 @@ pub async fn repair_instance(
     deploy_instance_core_with_version(instance_id, &version, app_handle).await?;
 
     if let Some(preserved) = preserved {
-        emit_progress(app_handle, instance_id, "restore", "正在恢复保留数据…", 92);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "restore",
+            ProgressMessage::RestoringPreservedData,
+            92,
+        );
         restore_preserved_data(&core_dir, &preserved)?;
         remove_preserve_dir(&preserved.temp_dir);
-        emit_progress(app_handle, instance_id, "restore", "保留数据恢复完成", 95);
+        emit_progress(
+            app_handle,
+            instance_id,
+            "restore",
+            ProgressMessage::PreservedDataRestored,
+            95,
+        );
     }
 
     ensure_webui_for_version_after_restore(instance_id, &version, app_handle).await?;
     clear_pycache_in_dirs(&core_dir, &venv_dir)?;
-    emit_progress(app_handle, instance_id, "done", "实例修复完成", 100);
+    emit_progress(
+        app_handle,
+        instance_id,
+        "done",
+        ProgressMessage::RepairDone,
+        100,
+    );
 
     Ok(())
 }
@@ -556,7 +617,7 @@ async fn ensure_webui_for_version_with_progress(
         app_handle,
         instance_id,
         "webui",
-        "正在下载 WebUI…",
+        ProgressMessage::DownloadingWebui,
         progress.0,
     );
 
@@ -598,7 +659,7 @@ async fn ensure_webui_for_version_with_progress(
             app_handle,
             instance_id,
             "webui",
-            "正在解压 WebUI…",
+            ProgressMessage::ExtractingWebui,
             progress.1,
         );
 
@@ -614,7 +675,7 @@ async fn ensure_webui_for_version_with_progress(
                     app_handle,
                     instance_id,
                     "webui",
-                    "WebUI 替换完成",
+                    ProgressMessage::WebuiReplaced,
                     progress.2,
                 );
                 install_result = Ok(());

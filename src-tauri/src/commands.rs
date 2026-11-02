@@ -7,10 +7,10 @@ use tauri_plugin_opener::open_path;
 
 use crate::backup;
 use crate::component;
-use crate::component::ComponentsSnapshot;
+use crate::component::{ComponentActionResult, ComponentsSnapshot};
 use crate::config::{
     load_config, load_manifest, reload_config, reload_manifest, with_config_mut, AppConfig,
-    AppManifest, BackupInfo, InstalledVersion, ThemePreference,
+    AppManifest, BackupInfo, InstalledVersion, LanguagePreference, ThemePreference,
 };
 use crate::download;
 use crate::download_control;
@@ -325,6 +325,20 @@ define_save_config_command!(
     theme_preference
 );
 
+#[tauri::command]
+pub fn save_language_preference(
+    language_preference: LanguagePreference,
+    app_handle: AppHandle,
+) -> Result<()> {
+    with_config_mut(move |config| {
+        config.language_preference = language_preference;
+        Ok(())
+    })?;
+
+    crate::tray::refresh_tray_menu(&app_handle);
+    Ok(())
+}
+
 // === Data Directory ===
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -399,7 +413,7 @@ async fn run_component_command(
     state: &State<'_, AppState>,
     component_id: &str,
     action: ComponentCommandAction,
-) -> Result<String> {
+) -> Result<ComponentActionResult> {
     let client = state.client();
     let id = component::ComponentId::from_str_id(component_id)
         .ok_or_else(|| AppError::other(format!("Unknown component: {}", component_id)))?;
@@ -424,7 +438,7 @@ pub async fn install_component(
     app_handle: AppHandle,
     state: State<'_, AppState>,
     component_id: String,
-) -> Result<String> {
+) -> Result<ComponentActionResult> {
     run_component_command(
         &app_handle,
         &state,
@@ -439,7 +453,7 @@ pub async fn reinstall_component(
     app_handle: AppHandle,
     state: State<'_, AppState>,
     component_id: String,
-) -> Result<String> {
+) -> Result<ComponentActionResult> {
     run_component_command(
         &app_handle,
         &state,
@@ -454,7 +468,7 @@ pub async fn uninstall_component(
     app_handle: AppHandle,
     state: State<'_, AppState>,
     component_id: String,
-) -> Result<String> {
+) -> Result<ComponentActionResult> {
     run_component_command(
         &app_handle,
         &state,

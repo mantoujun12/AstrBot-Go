@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import type { DataTableHeader } from "vuetify";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import ConfirmDialog from "../components/common/ConfirmDialog.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import LockCheckDialog from "../components/common/LockCheckDialog.vue";
@@ -12,6 +13,7 @@ import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import InstanceFormDialog from "../components/instances/InstanceFormDialog.vue";
 import RepairDialog from "../components/instances/RepairDialog.vue";
 import { useOperation } from "../composables/useOperation";
+import { translateDynamicKey } from "../i18n/dynamic";
 import { openExternalUrl } from "../services/app";
 import { createBackup } from "../services/backups";
 import { parseBackendError, type LockFailure } from "../services/errors";
@@ -52,20 +54,41 @@ const {
   dismissDeploy,
 } = useProgressStore();
 const { isHomeActive, openInstanceTab } = useTabsStore();
+const { t } = useI18n();
 
-const headers: DataTableHeader[] = [
-  { title: "名称", key: "name", sortable: false, minWidth: 160 },
-  { title: "状态", key: "state", sortable: false, width: 160 },
-  { title: "版本", key: "version", sortable: false, width: 120 },
-  { title: "端口", key: "port", sortable: false, width: 90 },
+const headers = computed<DataTableHeader[]>(() => [
   {
-    title: "操作",
+    title: t("instances.list.columns.name"),
+    key: "name",
+    sortable: false,
+    minWidth: 160,
+  },
+  {
+    title: t("instances.list.columns.state"),
+    key: "state",
+    sortable: false,
+    width: 160,
+  },
+  {
+    title: t("instances.list.columns.version"),
+    key: "version",
+    sortable: false,
+    width: 120,
+  },
+  {
+    title: t("instances.list.columns.port"),
+    key: "port",
+    sortable: false,
+    width: 90,
+  },
+  {
+    title: t("instances.list.columns.actions"),
     key: "actions",
     sortable: false,
     align: "end",
     minWidth: 300,
   },
-];
+]);
 
 const portsInUse = computed(() =>
   instances.value.map((instance) => instance.configured_port),
@@ -113,17 +136,17 @@ const confirmOpen = computed({
 const confirmTitle = computed(() => {
   switch (confirmState.value?.kind) {
     case "delete":
-      return "删除实例";
+      return t("instances.confirm.titles.delete");
     case "backup":
-      return "创建备份";
+      return t("instances.confirm.titles.backup");
     case "clear-data":
-      return "清除数据";
+      return t("instances.confirm.titles.clearData");
     case "clear-venv":
-      return "清除虚拟环境";
+      return t("instances.confirm.titles.clearVenv");
     case "clear-pycache":
-      return "清除 Python 缓存";
+      return t("instances.confirm.titles.clearPycache");
     case "upgrade":
-      return "变更版本";
+      return t("instances.confirm.titles.upgrade");
     default:
       return "";
   }
@@ -137,34 +160,37 @@ const confirmMessage = computed(() => {
   const name = state.instance.name;
   switch (state.kind) {
     case "delete":
-      return `确定删除实例“${name}”？实例数据将被移除，此操作不可恢复。`;
+      return t("instances.confirm.messages.delete", { name });
     case "backup":
-      return `将为实例“${name}”创建备份。`;
+      return t("instances.confirm.messages.backup", { name });
     case "clear-data":
-      return `将删除实例“${name}”的数据目录，此操作不可恢复。`;
+      return t("instances.confirm.messages.clearData", { name });
     case "clear-venv":
-      return `将删除实例“${name}”的虚拟环境，下次启动会重新安装依赖。`;
+      return t("instances.confirm.messages.clearVenv", { name });
     case "clear-pycache":
-      return `将删除实例“${name}”的 Python 字节码缓存。`;
+      return t("instances.confirm.messages.clearPycache", { name });
     case "upgrade":
-      return `将把实例“${name}”切换到 ${state.version ?? ""}，升级会重新部署并自动备份数据。`;
+      return t("instances.confirm.messages.upgrade", {
+        name,
+        version: state.version ?? "",
+      });
   }
 });
 
 const confirmLabel = computed(() => {
   switch (confirmState.value?.kind) {
     case "delete":
-      return "删除";
+      return t("common.actions.delete");
     case "backup":
-      return "创建";
+      return t("common.actions.create");
     case "clear-data":
     case "clear-venv":
     case "clear-pycache":
-      return "清除";
+      return t("instances.confirm.labels.clear");
     case "upgrade":
-      return "继续";
+      return t("instances.confirm.labels.continue");
     default:
-      return "确认";
+      return t("common.actions.confirm");
   }
 });
 
@@ -284,11 +310,11 @@ function lockInput(action: LockableAction): LockCheckInput {
 function actionSuccessMessage(action: LockableAction): string {
   switch (action.kind) {
     case "delete":
-      return "实例已删除";
+      return t("instances.toasts.deleted");
     case "backup":
-      return "备份已创建";
+      return t("instances.toasts.backupCreated");
     case "upgrade":
-      return "实例已更新";
+      return t("instances.toasts.updated");
   }
 }
 
@@ -396,7 +422,7 @@ async function preflightLock(action: LockableAction): Promise<boolean> {
 
 async function runLockable(action: LockableAction): Promise<boolean> {
   if (isInstanceBusy(action.instance.id)) {
-    showToast("操作进行中，请稍候", "info");
+    showToast(t("instances.toasts.busy"), "info");
     return false;
   }
 
@@ -483,7 +509,7 @@ async function handleCreate(payload: {
   const ok = await run(
     "instance:create",
     () => createInstance(payload.name, payload.version, payload.port),
-    { success: "实例已创建" },
+    { success: t("instances.toasts.created") },
   );
   if (ok) {
     formOpen.value = false;
@@ -496,7 +522,7 @@ async function handleUpdate(
 ): Promise<void> {
   const target = instances.value.find((item) => item.id === instanceId);
   if (!target) {
-    showToast("实例不存在", "error");
+    showToast(t("instances.toasts.missing"), "error");
     return;
   }
 
@@ -517,7 +543,7 @@ async function handleUpdate(
   const ok = await run(
     `instance:${instanceId}:edit`,
     () => updateInstance(instanceId, request),
-    { success: "实例已更新" },
+    { success: t("instances.toasts.updated") },
   );
   if (ok) {
     formOpen.value = false;
@@ -552,21 +578,21 @@ async function handleConfirm(): Promise<void> {
       await run(
         clearDataKey(current.instance.id),
         () => clearInstanceData(current.instance.id),
-        { success: "数据已清除" },
+        { success: t("instances.toasts.dataCleared") },
       );
       break;
     case "clear-venv":
       await run(
         clearVenvKey(current.instance.id),
         () => clearInstanceVenv(current.instance.id),
-        { success: "虚拟环境已清除" },
+        { success: t("instances.toasts.venvCleared") },
       );
       break;
     case "clear-pycache":
       await run(
         clearPycacheKey(current.instance.id),
         () => clearPycache(current.instance.id),
-        { success: "Python 缓存已清除" },
+        { success: t("instances.toasts.pycacheCleared") },
       );
       break;
   }
@@ -607,7 +633,7 @@ async function handleRepair(scope: RepairPreserveScope): Promise<void> {
   const ok = await run(
     repairKey(target.id),
     () => repairInstance(target.id, scope),
-    { success: "修复完成" },
+    { success: t("instances.toasts.repairComplete") },
   );
 
   finishDeployIfNeeded(target.id, ok);
@@ -621,14 +647,14 @@ async function handleStart(instance: InstanceStatus): Promise<void> {
   const ok = await run(
     startKey(instance.id),
     () => startInstance(instance.id),
-    { success: "实例已启动" },
+    { success: t("instances.toasts.started") },
   );
   finishDeployIfNeeded(instance.id, ok);
 }
 
 async function handleStop(instance: InstanceStatus): Promise<void> {
   await run(stopKey(instance.id), () => stopInstance(instance.id), {
-    success: "实例已停止",
+    success: t("instances.toasts.stopped"),
   });
 }
 
@@ -640,7 +666,7 @@ async function handleRestart(instance: InstanceStatus): Promise<void> {
   const ok = await run(
     restartKey(instance.id),
     () => restartInstance(instance.id),
-    { success: "实例已重启" },
+    { success: t("instances.toasts.restarted") },
   );
   finishDeployIfNeeded(instance.id, ok);
 }
@@ -678,7 +704,7 @@ watch(activeDeploy, (progress) => {
 
 <template>
   <div class="page-shell">
-    <PageHeader title="实例">
+    <PageHeader :title="t('instances.title')">
       <template #actions>
         <v-btn
           variant="text"
@@ -686,7 +712,7 @@ watch(activeDeploy, (progress) => {
           :loading="loading"
           @click="refresh()"
         >
-          刷新
+          {{ t("common.actions.refresh") }}
         </v-btn>
         <v-btn
           color="primary"
@@ -695,7 +721,7 @@ watch(activeDeploy, (progress) => {
           :disabled="snapshot === null"
           @click="openCreate"
         >
-          创建实例
+          {{ t("instances.actions.create") }}
         </v-btn>
       </template>
     </PageHeader>
@@ -715,7 +741,7 @@ watch(activeDeploy, (progress) => {
           :loading="loading"
           @click="refresh()"
         >
-          重试
+          {{ t("common.actions.retry") }}
         </v-btn>
       </div>
     </v-alert>
@@ -725,7 +751,7 @@ watch(activeDeploy, (progress) => {
         indeterminate
         color="primary"
         size="32"
-        aria-label="加载中"
+        :aria-label="t('instances.loading')"
       />
     </div>
 
@@ -733,7 +759,7 @@ watch(activeDeploy, (progress) => {
       v-else-if="snapshot !== null && instances.length === 0"
       class="page-table-card"
     >
-      <EmptyState text="暂无实例" icon="mdi-server-plus-outline">
+      <EmptyState :text="t('instances.list.empty')" icon="mdi-server-plus-outline">
         <v-btn
           color="primary"
           variant="flat"
@@ -741,7 +767,7 @@ watch(activeDeploy, (progress) => {
           prepend-icon="mdi-plus"
           @click="openCreate"
         >
-          创建实例
+          {{ t("instances.actions.create") }}
         </v-btn>
       </EmptyState>
     </div>
@@ -757,14 +783,14 @@ watch(activeDeploy, (progress) => {
         :items-per-page="-1"
         disable-sort
         hover
-        no-data-text="暂无实例"
+        :no-data-text="t('instances.list.empty')"
       >
         <template #item.state="{ item }">
           <div class="instance-status">
             <StatusChip :state="item.state" />
             <v-tooltip
               v-if="item.pid_tracker_not_available"
-              text="WebUI 未启用，无法跟踪进程状态"
+              :text="t('instances.list.pidWarning')"
               location="top"
             >
               <template #activator="{ props }">
@@ -774,7 +800,7 @@ watch(activeDeploy, (progress) => {
                   size="16"
                   color="warning"
                   tabindex="0"
-                  aria-label="进程状态可能不准确"
+                  :aria-label="t('instances.list.aria.pidUnreliable')"
                 />
               </template>
             </v-tooltip>
@@ -796,7 +822,7 @@ watch(activeDeploy, (progress) => {
                 :loading="isBusy(startKey(item.id))"
                 @click="handleStart(item)"
               >
-                启动
+                {{ t("instances.actions.start") }}
               </v-btn>
             </template>
             <template v-else-if="item.state === 'running'">
@@ -808,7 +834,7 @@ watch(activeDeploy, (progress) => {
                 :loading="isBusy(stopKey(item.id))"
                 @click="handleStop(item)"
               >
-                停止
+                {{ t("instances.actions.stop") }}
               </v-btn>
               <v-btn
                 size="small"
@@ -817,11 +843,15 @@ watch(activeDeploy, (progress) => {
                 :loading="isBusy(restartKey(item.id))"
                 @click="handleRestart(item)"
               >
-                重启
+                {{ t("instances.actions.restart") }}
               </v-btn>
             </template>
             <v-btn v-else size="small" variant="tonal" disabled loading>
-              {{ item.state === "starting" ? "启动中" : "停止中" }}
+              {{
+                item.state === "starting"
+                  ? t("common.instanceState.starting")
+                  : t("common.instanceState.stopping")
+              }}
             </v-btn>
 
             <v-btn
@@ -830,7 +860,7 @@ watch(activeDeploy, (progress) => {
               :disabled="!item.dashboard_enabled"
               @click="openWebui(item)"
             >
-              打开
+              {{ t("common.actions.open") }}
             </v-btn>
 
             <v-menu location="bottom end">
@@ -840,67 +870,67 @@ watch(activeDeploy, (progress) => {
                   icon="mdi-dots-horizontal"
                   variant="text"
                   size="small"
-                  aria-label="更多操作"
+                  :aria-label="t('instances.list.aria.moreActions')"
                 />
               </template>
               <v-list density="compact" class="instance-menu">
                 <v-list-item
                   prepend-icon="mdi-folder-open-outline"
-                  title="打开核心目录"
+                  :title="t('instances.actions.openCoreFolder')"
                   @click="handleOpenCoreFolder(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-pencil-outline"
-                  title="编辑"
+                  :title="t('common.actions.edit')"
                   :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
                   @click="openEdit(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-archive-arrow-down-outline"
-                  title="创建备份"
+                  :title="t('instances.actions.createBackup')"
                   :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
                   @click="askBackup(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-lifebuoy"
-                  title="修复实例"
+                  :title="t('instances.actions.repair')"
                   :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
                   @click="openRepair(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-text-box-outline"
-                  title="查看日志"
+                  :title="t('instances.actions.viewLogs')"
                   @click="openLogs(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-open-in-new"
-                  title="在浏览器中打开"
+                  :title="t('instances.actions.openInBrowser')"
                   :disabled="!item.dashboard_enabled"
                   @click="handleOpenInBrowser(item)"
                 />
                 <v-divider />
                 <v-list-item
                   prepend-icon="mdi-database-remove-outline"
-                  title="清除数据"
+                  :title="t('instances.actions.clearData')"
                   :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
                   @click="askClear(item, 'clear-data')"
                 />
                 <v-list-item
                   prepend-icon="mdi-delete-sweep-outline"
-                  title="清除虚拟环境"
+                  :title="t('instances.actions.clearVenv')"
                   :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
                   @click="askClear(item, 'clear-venv')"
                 />
                 <v-list-item
                   prepend-icon="mdi-broom"
-                  title="清除 Python 缓存"
+                  :title="t('instances.actions.clearPycache')"
                   :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
                   @click="askClear(item, 'clear-pycache')"
                 />
                 <v-divider />
                 <v-list-item
                   prepend-icon="mdi-delete-outline"
-                  title="删除实例"
+                  :title="t('instances.actions.deleteInstance')"
                   base-color="error"
                   :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
                   @click="askDelete(item)"
@@ -930,6 +960,7 @@ watch(activeDeploy, (progress) => {
       :title="confirmTitle"
       :message="confirmMessage"
       :confirm-label="confirmLabel"
+      :cancel-label="t('common.actions.cancel')"
       :color="confirmColor"
       @confirm="handleConfirm"
     />
@@ -944,8 +975,13 @@ watch(activeDeploy, (progress) => {
 
     <TaskProgressDialog
       :model-value="deployDialogOpen"
-      title="实例部署"
-      :message="activeDeploy?.message ?? ''"
+      :title="t('instances.deploy.title')"
+      :message="
+        translateDynamicKey(
+          activeDeploy?.message_key,
+          activeDeploy?.message ?? '',
+        )
+      "
       :progress="activeDeploy?.progress ?? null"
     />
   </div>

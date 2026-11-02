@@ -5,6 +5,7 @@ use serde::Deserialize;
 use tauri::AppHandle;
 
 use super::common::install_from_archive_with_progress;
+use super::types::{result_keys, ComponentActionResult};
 use crate::archive::ArchiveFormat;
 use crate::config::load_config;
 use crate::error::{AppError, Result};
@@ -117,30 +118,55 @@ pub fn build_nodejs_env_vars() -> Vec<(OsString, OsString)> {
 }
 
 /// Install Node.js LTS if not already installed.
-pub async fn install_nodejs(client: &Client, app_handle: Option<&AppHandle>) -> Result<String> {
+pub async fn install_nodejs(
+    client: &Client,
+    app_handle: Option<&AppHandle>,
+) -> Result<ComponentActionResult> {
     if is_nodejs_installed() {
-        return Ok("Node.js (LTS) 已安装".to_string());
+        return Ok(ComponentActionResult::new(
+            result_keys::ALREADY_INSTALLED,
+            "Node.js (LTS) 已安装",
+        ));
     }
     let version = do_install_nodejs(client, app_handle).await?;
-    Ok(format!("已安装 Node.js (LTS)：{}", version))
+    let message = format!("已安装 Node.js (LTS)：{}", version);
+    Ok(ComponentActionResult::with_versions(
+        result_keys::INSTALLED,
+        vec![version],
+        message,
+    ))
 }
 
 /// Uninstall Node.js LTS.
-pub fn uninstall_nodejs() -> Result<String> {
+pub fn uninstall_nodejs() -> Result<ComponentActionResult> {
     let dir = get_component_dir("nodejs");
     if dir.exists() {
         std::fs::remove_dir_all(&dir)
             .map_err(|e| AppError::io(format!("Failed to remove Node.js: {}", e)))?;
-        Ok("已卸载 Node.js (LTS)".to_string())
+        Ok(ComponentActionResult::new(
+            result_keys::UNINSTALLED,
+            "已卸载 Node.js (LTS)",
+        ))
     } else {
-        Ok("Node.js (LTS) 组件未安装".to_string())
+        Ok(ComponentActionResult::new(
+            result_keys::NOT_INSTALLED,
+            "Node.js (LTS) 组件未安装",
+        ))
     }
 }
 
 /// Reinstall Node.js LTS (always removes existing and re-downloads).
-pub async fn reinstall_nodejs(client: &Client, app_handle: Option<&AppHandle>) -> Result<String> {
+pub async fn reinstall_nodejs(
+    client: &Client,
+    app_handle: Option<&AppHandle>,
+) -> Result<ComponentActionResult> {
     let version = do_install_nodejs(client, app_handle).await?;
-    Ok(format!("已重新安装 Node.js (LTS)：{}", version))
+    let message = format!("已重新安装 Node.js (LTS)：{}", version);
+    Ok(ComponentActionResult::with_versions(
+        result_keys::REINSTALLED,
+        vec![version],
+        message,
+    ))
 }
 
 async fn do_install_nodejs(client: &Client, app_handle: Option<&AppHandle>) -> Result<String> {

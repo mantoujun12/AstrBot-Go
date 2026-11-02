@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import type { ChartConfiguration } from "chart.js";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import CanvasChart from "../components/common/CanvasChart.vue";
 import EmptyState from "../components/common/EmptyState.vue";
+import { getCurrentLocale } from "../i18n";
 import { useLauncherStore } from "../stores/launcher";
 import type {
   BackupInfo,
@@ -33,6 +35,7 @@ interface MonthBucket {
 }
 
 interface CompositionItem {
+  key: string;
   label: string;
   count: number;
   color: string;
@@ -49,6 +52,7 @@ const STATE_ORDER: readonly InstanceState[] = [
 
 const router = useRouter();
 const theme = useTheme();
+const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const {
   snapshot,
@@ -62,13 +66,12 @@ const {
 } = useLauncherStore();
 
 const backupRange = ref<BackupRange>(6);
-const backupRangeOptions: ReadonlyArray<{
-  value: BackupRange;
-  label: string;
-}> = [
-  { value: 6, label: "6 个月" },
-  { value: 12, label: "12 个月" },
-];
+const backupRangeOptions = computed<
+  ReadonlyArray<{ value: BackupRange; label: string }>
+>(() => [
+  { value: 6, label: t("overview.backups.rangeMonths", { count: 6 }) },
+  { value: 12, label: t("overview.backups.rangeMonths", { count: 12 }) },
+]);
 
 const prefersReducedMotion =
   typeof window !== "undefined" &&
@@ -113,31 +116,31 @@ const installedComponentCount = computed(
 const statCards = computed<StatCard[]>(() => [
   {
     key: "instances",
-    label: "实例总数",
+    label: t("overview.stats.instances"),
     value: String(instances.value.length),
     icon: "mdi-robot-outline",
   },
   {
     key: "running",
-    label: "运行中",
+    label: t("overview.stats.running"),
     value: String(stateCounts.value.running),
     icon: "mdi-play-circle-outline",
   },
   {
     key: "versions",
-    label: "已安装版本",
+    label: t("overview.stats.versions"),
     value: String(versions.value.length),
     icon: "mdi-package-variant-closed",
   },
   {
     key: "backups",
-    label: "备份数量",
+    label: t("overview.stats.backups"),
     value: String(backups.value.length),
     icon: "mdi-archive-outline",
   },
   {
     key: "components",
-    label: "运行组件",
+    label: t("overview.stats.components"),
     value: `${installedComponentCount.value} / ${COMPONENT_TOTAL}`,
     icon: "mdi-puzzle-outline",
   },
@@ -158,6 +161,9 @@ function parseBackupDate(backup: BackupInfo): Date | null {
 
 const backupMonths = computed<MonthBucket[]>(() => {
   const now = new Date();
+  const monthFormatter = new Intl.DateTimeFormat(getCurrentLocale(), {
+    month: "short",
+  });
   const buckets: MonthBucket[] = [];
   const positions = new Map<string, number>();
 
@@ -167,7 +173,7 @@ const backupMonths = computed<MonthBucket[]>(() => {
     positions.set(key, buckets.length);
     buckets.push({
       key,
-      label: `${date.getMonth() + 1}月`,
+      label: monthFormatter.format(date),
       count: 0,
     });
   }
@@ -244,9 +250,24 @@ const backupComposition = computed<CompositionItem[]>(() => {
   }
 
   return [
-    { label: "手动", count: manual, color: themePalette.value.primary },
-    { label: "自动", count: auto, color: themePalette.value.success },
-    { label: "损坏", count: corrupted, color: themePalette.value.error },
+    {
+      key: "manual",
+      label: t("overview.backups.composition.manual"),
+      count: manual,
+      color: themePalette.value.primary,
+    },
+    {
+      key: "auto",
+      label: t("overview.backups.composition.auto"),
+      count: auto,
+      color: themePalette.value.success,
+    },
+    {
+      key: "corrupted",
+      label: t("overview.backups.composition.corrupted"),
+      count: corrupted,
+      color: themePalette.value.error,
+    },
   ];
 });
 
@@ -260,12 +281,23 @@ const donutSeries = computed(() =>
 
 const donutAriaLabel = computed(() => {
   const counts = stateCounts.value;
-  return `实例状态分布：运行中 ${counts.running} 个，启动中 ${counts.starting} 个，停止中 ${counts.stopping} 个，已停止 ${counts.stopped} 个`;
+  return t("overview.instances.donutAria", {
+    running: instanceStateLabel("running"),
+    runningCount: counts.running,
+    starting: instanceStateLabel("starting"),
+    startingCount: counts.starting,
+    stopping: instanceStateLabel("stopping"),
+    stoppingCount: counts.stopping,
+    stopped: instanceStateLabel("stopped"),
+    stoppedCount: counts.stopped,
+  });
 });
 
-const backupChartAriaLabel = computed(
-  () =>
-    `近 ${backupRange.value} 个月备份数量，共 ${backupTotalInRange.value} 个`,
+const backupChartAriaLabel = computed(() =>
+  t("overview.backups.chartAria", {
+    range: backupRange.value,
+    total: backupTotalInRange.value,
+  }),
 );
 
 function withAlpha(color: string, alpha: number): string {
@@ -380,7 +412,7 @@ const backupConfig = computed<ChartConfiguration<"bar", number[], string>>(
         labels: backupMonthLabels.value,
         datasets: [
           {
-            label: "备份数量",
+            label: t("overview.backups.series"),
             data: backupCounts.value,
             backgroundColor: palette.primary,
             hoverBackgroundColor: palette.primary,
@@ -433,7 +465,11 @@ const backupConfig = computed<ChartConfiguration<"bar", number[], string>>(
             callbacks: {
               label: (context) => {
                 const value = context.parsed.y;
-                return `${context.dataset.label ?? "备份数量"}：${value} 个`;
+                return t("overview.backups.tooltip", {
+                  label:
+                    context.dataset.label ?? t("overview.backups.series"),
+                  value,
+                });
               },
             },
           },
@@ -448,9 +484,12 @@ function stateDotColor(state: InstanceState): string {
 }
 
 function instanceRowLabel(instance: InstanceStatus): string {
-  return `${instance.name}，${instanceStateLabel(instance.state)}，版本 ${
-    instance.version || "未知"
-  }，端口 ${instance.port}`;
+  return t("overview.instances.rowLabel", {
+    name: instance.name,
+    state: instanceStateLabel(instance.state),
+    version: instance.version || t("overview.instances.unknownVersion"),
+    port: instance.port,
+  });
 }
 
 function goToInstances(): void {
@@ -481,7 +520,7 @@ function retry(): void {
           :disabled="loading"
           @click="retry"
         >
-          重试
+          {{ t("common.actions.retry") }}
         </v-btn>
       </div>
     </v-alert>
@@ -490,7 +529,7 @@ function retry(): void {
       v-if="snapshot === null"
       class="overview-loading"
       role="status"
-      aria-label="正在加载"
+      :aria-label="t('overview.loading')"
     >
       <div class="stat-grid" aria-hidden="true">
         <div
@@ -511,7 +550,12 @@ function retry(): void {
           v-for="card in statCards"
           :key="card.key"
           class="stat-card"
-          :aria-label="`${card.label}：${card.value}`"
+          :aria-label="
+            t('overview.stats.ariaLabel', {
+              label: card.label,
+              value: card.value,
+            })
+          "
         >
           <v-icon
             :icon="card.icon"
@@ -526,14 +570,16 @@ function retry(): void {
 
       <section class="page-section" aria-labelledby="overview-instances-title">
         <div class="page-section-head overview-section-head">
-          <h2 id="overview-instances-title" class="section-title">实例</h2>
+          <h2 id="overview-instances-title" class="section-title">
+            {{ t("overview.sections.instances") }}
+          </h2>
         </div>
 
         <div class="page-grid-2 instance-grid">
           <div class="panel-card chart-card">
             <EmptyState
               v-if="instances.length === 0"
-              text="暂无实例"
+              :text="t('overview.empty.instances')"
               icon="mdi-robot-off-outline"
             />
             <div
@@ -546,10 +592,13 @@ function retry(): void {
             </div>
           </div>
 
-          <section class="panel-card list-card" aria-label="实例列表">
+          <section
+            class="panel-card list-card"
+            :aria-label="t('overview.instances.listLabel')"
+          >
             <EmptyState
               v-if="instances.length === 0"
-              text="暂无实例"
+              :text="t('overview.empty.instances')"
               icon="mdi-robot-off-outline"
             />
             <div v-else class="instance-list">
@@ -570,7 +619,10 @@ function retry(): void {
                   <span class="instance-name">{{ instance.name }}</span>
                   <span class="instance-meta">
                     {{ instanceStateLabel(instance.state) }} ·
-                    {{ instance.version || "—" }} · 端口 {{ instance.port }}
+                    {{ instance.version || "—" }} ·
+                    {{
+                      t("overview.instances.port", { port: instance.port })
+                    }}
                   </span>
                 </span>
                 <v-icon
@@ -587,8 +639,14 @@ function retry(): void {
 
       <section class="page-section" aria-labelledby="overview-backups-title">
         <div class="page-section-head overview-section-head">
-          <h2 id="overview-backups-title" class="section-title">备份</h2>
-          <div class="range-switch" role="group" aria-label="备份统计范围">
+          <h2 id="overview-backups-title" class="section-title">
+            {{ t("overview.sections.backups") }}
+          </h2>
+          <div
+            class="range-switch"
+            role="group"
+            :aria-label="t('overview.backups.rangeLabel')"
+          >
             <button
               v-for="option in backupRangeOptions"
               :key="option.value"
@@ -607,7 +665,7 @@ function retry(): void {
           <div class="panel-card chart-card">
             <EmptyState
               v-if="backups.length === 0"
-              text="暂无备份"
+              :text="t('overview.empty.backups')"
               icon="mdi-archive-off-outline"
             />
             <div
@@ -626,12 +684,12 @@ function retry(): void {
               aria-labelledby="overview-composition-title"
             >
               <h3 id="overview-composition-title" class="card-title">
-                备份构成
+                {{ t("overview.backups.composition.title") }}
               </h3>
               <div class="composition-list">
                 <div
                   v-for="item in backupComposition"
-                  :key="item.label"
+                  :key="item.key"
                   class="composition-row"
                 >
                   <span class="composition-label">
@@ -647,14 +705,18 @@ function retry(): void {
               </div>
 
               <div class="recent-backup">
-                <div class="card-subtitle">最近备份</div>
+                <div class="card-subtitle">
+                  {{ t("overview.backups.recentTitle") }}
+                </div>
                 <template v-if="latestBackupName">
                   <div class="recent-name" :title="latestBackupName">
                     {{ latestBackupName }}
                   </div>
                   <div class="recent-date">{{ latestBackupDate }}</div>
                 </template>
-                <div v-else class="page-muted recent-empty">暂无备份</div>
+                <div v-else class="page-muted recent-empty">
+                  {{ t("overview.empty.backups") }}
+                </div>
               </div>
             </section>
 
@@ -663,11 +725,11 @@ function retry(): void {
               aria-labelledby="overview-components-title"
             >
               <h3 id="overview-components-title" class="card-title">
-                运行环境
+                {{ t("overview.components.title") }}
               </h3>
               <EmptyState
                 v-if="components.length === 0"
-                text="暂无组件"
+                :text="t('overview.empty.components')"
                 icon="mdi-puzzle-outline"
               />
               <div v-else class="component-list">
@@ -685,7 +747,11 @@ function retry(): void {
                     variant="tonal"
                     label
                   >
-                    {{ component.installed ? "已安装" : "未安装" }}
+                    {{
+                      component.installed
+                        ? t("overview.components.installed")
+                        : t("overview.components.notInstalled")
+                    }}
                   </v-chip>
                 </div>
               </div>
