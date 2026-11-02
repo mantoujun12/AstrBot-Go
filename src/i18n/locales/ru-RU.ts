@@ -511,6 +511,7 @@ const ruRU = {
       instanceLabel: "Экземпляр",
       noteLabel: "Заметка",
       notePlaceholder: "Необязательно",
+      noteTooLong: "Заметка не должна превышать {max} символов.",
       noInstances: "Экземпляров нет",
       noStoppedInstances: "Нет остановленных экземпляров",
     },

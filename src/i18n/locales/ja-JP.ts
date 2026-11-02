@@ -486,6 +486,7 @@ const jaJP = {
       instanceLabel: "インスタンス",
       noteLabel: "メモ",
       notePlaceholder: "任意",
+      noteTooLong: "メモは {max} 文字以内で入力してください。",
       noInstances: "インスタンスはありません",
       noStoppedInstances: "停止済みのインスタンスはありません",
     },

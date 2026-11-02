@@ -486,6 +486,7 @@ const enUS = {
       instanceLabel: "Instance",
       noteLabel: "Note",
       notePlaceholder: "Optional",
+      noteTooLong: "Note must be {max} characters or fewer.",
       noInstances: "No instances",
       noStoppedInstances: "No stopped instances",
     },

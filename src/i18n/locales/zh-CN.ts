@@ -484,6 +484,7 @@ const zhCN = {
       "instanceLabel": "实例",
       "noteLabel": "备注",
       "notePlaceholder": "可选",
+      "noteTooLong": "备注不能超过 {max} 个字符。",
       "noInstances": "暂无实例",
       "noStoppedInstances": "没有已停止的实例"
     },

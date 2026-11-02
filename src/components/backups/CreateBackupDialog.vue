@@ -2,6 +2,11 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { InstanceStatus } from "../../types/launcher";
+import {
+  BACKUP_NOTE_MAX_LENGTH,
+  countBackupNoteChars,
+} from "../../utils/backupNote";
+import BackupNoteField from "./BackupNoteField.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -17,11 +22,13 @@ const emit = defineEmits<{
   (event: "submit", instanceId: string, note: string): void;
 }>();
 
-const NOTE_MAX_LENGTH = 200;
-
 const { t } = useI18n();
 const selectedId = ref<string | null>(null);
 const note = ref("");
+
+const noteTooLong = computed(
+  () => countBackupNoteChars(note.value) > BACKUP_NOTE_MAX_LENGTH,
+);
 
 const stoppedInstances = computed(() =>
   props.instances.filter((instance) => instance.state === "stopped"),
@@ -64,7 +71,7 @@ function close(): void {
 }
 
 function submit(): void {
-  if (props.loading) {
+  if (props.loading || noteTooLong.value) {
     return;
   }
   const instance = stoppedInstances.value.find(
@@ -109,16 +116,9 @@ function submit(): void {
           hide-details
           :disabled="loading"
         />
-        <v-text-field
+        <BackupNoteField
           v-if="stoppedInstances.length > 0"
           v-model="note"
-          :label="t('backups.createDialog.noteLabel')"
-          :placeholder="t('backups.createDialog.notePlaceholder')"
-          :maxlength="NOTE_MAX_LENGTH"
-          :counter="NOTE_MAX_LENGTH"
-          variant="outlined"
-          density="compact"
-          hide-details="auto"
           :disabled="loading"
           class="create-backup__note"
         />
@@ -132,7 +132,11 @@ function submit(): void {
           color="primary"
           variant="flat"
           :loading="loading"
-          :disabled="stoppedInstances.length === 0 || selectedId === null"
+          :disabled="
+            stoppedInstances.length === 0 ||
+            selectedId === null ||
+            noteTooLong
+          "
           @click="submit"
         >
           {{ t("common.actions.create") }}
