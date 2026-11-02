@@ -111,6 +111,22 @@ cargo clippy --all-targets -- -D warnings
 - If the repository has no configured frontend lint or test script, do not invent commands or claim that they were run.
 - Report only the commands that were actually run and their results during verification. Clearly disclose checks that were not run, platform behavior that could not be reproduced, and any remaining risks.
 
+## Changelog and Release
+
+References:
+
+- [Semantic Versioning](https://semver.org/)
+- [Keep a Changelog](https://keepachangelog.com/)
+
+- During development, add user-facing changes to `changelog/unreleased.md` in the same pull request, under `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security` as applicable. Internal refactors, CI changes, and documentation-only changes may skip it.
+- `changelog/unreleased.md` is a working draft. It is not used as release notes until it is renamed.
+- Versions follow [Semantic Versioning](https://semver.org/); changelog entries follow [Keep a Changelog](https://keepachangelog.com/).
+- After a release, continue development and keep adding entries to `changelog/unreleased.md`; do not bump the version until you are ready to release.
+- When ready to release, create a version update pull request that bumps `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` to the release version, updates `src-tauri/Cargo.lock` by running `cargo check` in `src-tauri/`, renames `changelog/unreleased.md` to `changelog/v<version>.md`, and recreates an empty `changelog/unreleased.md` for the next cycle.
+- Merge the version update pull request into `main`. `.github/workflows/auto-release.yml` builds the Windows installers and publishes the GitHub Release.
+- The workflow only enforces that `package.json` and `src-tauri/tauri.conf.json` share the same version; `src-tauri/Cargo.toml` must be kept in sync manually.
+- The workflow only publishes when the versions match, `changelog/v<version>.md` exists with real entries, and no GitHub Release exists for the tag. An existing tag without a release also skips and requires manual handling.
+
 ## Commit Conventions
 
 Use Conventional Commits with English messages, and keep each commit focused on a single responsibility.
