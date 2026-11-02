@@ -258,7 +258,7 @@ pub async fn update_instance(
             5,
         );
         let backup_path = if core_dir.join("data").exists() {
-            Some(create_backup(instance_id, true)?)
+            Some(create_backup(instance_id, true, None)?)
         } else {
             None
         };

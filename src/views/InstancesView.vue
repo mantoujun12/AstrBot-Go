@@ -4,6 +4,7 @@ import type { DataTableHeader } from "vuetify";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
+import BackupNoteField from "../components/backups/BackupNoteField.vue";
 import ConfirmDialog from "../components/common/ConfirmDialog.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import LockCheckDialog from "../components/common/LockCheckDialog.vue";
@@ -41,6 +42,10 @@ import type {
   RepairPreserveScope,
   UpdateInstanceRequest,
 } from "../types/launcher";
+import {
+  BACKUP_NOTE_MAX_LENGTH,
+  countBackupNoteChars,
+} from "../utils/backupNote";
 
 const { mdAndDown } = useDisplay();
 const router = useRouter();
@@ -123,15 +128,21 @@ interface ConfirmState {
 }
 
 const confirmState = ref<ConfirmState | null>(null);
+const confirmNote = ref("");
 
 const confirmOpen = computed({
   get: () => confirmState.value !== null,
   set: (value: boolean) => {
     if (!value) {
       confirmState.value = null;
+      confirmNote.value = "";
     }
   },
 });
+
+const confirmNoteTooLong = computed(
+  () => countBackupNoteChars(confirmNote.value) > BACKUP_NOTE_MAX_LENGTH,
+);
 
 const confirmTitle = computed(() => {
   switch (confirmState.value?.kind) {
@@ -210,7 +221,7 @@ const confirmColor = computed(() => {
 
 type LockableAction =
   | { kind: "delete"; instance: InstanceStatus }
-  | { kind: "backup"; instance: InstanceStatus }
+  | { kind: "backup"; instance: InstanceStatus; note: string }
   | {
       kind: "upgrade";
       instance: InstanceStatus;
@@ -373,7 +384,7 @@ async function executeLockableAction(
       await deleteInstance(action.instance.id);
       break;
     case "backup":
-      await createBackup(action.instance.id);
+      await createBackup(action.instance.id, action.note);
       break;
     case "upgrade":
       beginDeploy(action.instance.id);
@@ -558,12 +569,19 @@ async function handleConfirm(): Promise<void> {
 
   confirmState.value = null;
 
+  const note = confirmNote.value.trim();
+  confirmNote.value = "";
+
   switch (current.kind) {
     case "delete":
       await runLockable({ kind: "delete", instance: current.instance });
       break;
     case "backup":
-      await runLockable({ kind: "backup", instance: current.instance });
+      await runLockable({
+        kind: "backup",
+        instance: current.instance,
+        note,
+      });
       break;
     case "upgrade":
       if (current.request) {
@@ -603,6 +621,7 @@ function askDelete(instance: InstanceStatus): void {
 }
 
 function askBackup(instance: InstanceStatus): void {
+  confirmNote.value = "";
   confirmState.value = { kind: "backup", instance };
 }
 
@@ -962,8 +981,16 @@ watch(activeDeploy, (progress) => {
       :confirm-label="confirmLabel"
       :cancel-label="t('common.actions.cancel')"
       :color="confirmColor"
+      :confirm-disabled="
+        confirmState?.kind === 'backup' && confirmNoteTooLong
+      "
       @confirm="handleConfirm"
-    />
+    >
+      <BackupNoteField
+        v-if="confirmState?.kind === 'backup'"
+        v-model="confirmNote"
+      />
+    </ConfirmDialog>
 
     <LockCheckDialog
       :model-value="lockOpen"

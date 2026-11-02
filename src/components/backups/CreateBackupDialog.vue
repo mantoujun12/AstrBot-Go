@@ -2,6 +2,11 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { InstanceStatus } from "../../types/launcher";
+import {
+  BACKUP_NOTE_MAX_LENGTH,
+  countBackupNoteChars,
+} from "../../utils/backupNote";
+import BackupNoteField from "./BackupNoteField.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -14,11 +19,16 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (event: "update:modelValue", value: boolean): void;
-  (event: "submit", instanceId: string): void;
+  (event: "submit", instanceId: string, note: string): void;
 }>();
 
 const { t } = useI18n();
 const selectedId = ref<string | null>(null);
+const note = ref("");
+
+const noteTooLong = computed(
+  () => countBackupNoteChars(note.value) > BACKUP_NOTE_MAX_LENGTH,
+);
 
 const stoppedInstances = computed(() =>
   props.instances.filter((instance) => instance.state === "stopped"),
@@ -35,6 +45,7 @@ watch(
   (open) => {
     if (open) {
       selectedId.value = null;
+      note.value = "";
     }
   },
 );
@@ -60,7 +71,7 @@ function close(): void {
 }
 
 function submit(): void {
-  if (props.loading) {
+  if (props.loading || noteTooLong.value) {
     return;
   }
   const instance = stoppedInstances.value.find(
@@ -69,7 +80,7 @@ function submit(): void {
   if (!instance) {
     return;
   }
-  emit("submit", instance.id);
+  emit("submit", instance.id, note.value.trim());
 }
 </script>
 
@@ -105,6 +116,12 @@ function submit(): void {
           hide-details
           :disabled="loading"
         />
+        <BackupNoteField
+          v-if="stoppedInstances.length > 0"
+          v-model="note"
+          :disabled="loading"
+          class="create-backup__note"
+        />
       </v-card-text>
       <v-card-actions class="create-backup__actions">
         <v-spacer />
@@ -115,7 +132,11 @@ function submit(): void {
           color="primary"
           variant="flat"
           :loading="loading"
-          :disabled="stoppedInstances.length === 0 || selectedId === null"
+          :disabled="
+            stoppedInstances.length === 0 ||
+            selectedId === null ||
+            noteTooLong
+          "
           @click="submit"
         >
           {{ t("common.actions.create") }}
@@ -134,6 +155,10 @@ function submit(): void {
 
 .create-backup__body {
   padding: 14px 20px 0;
+}
+
+.create-backup__note {
+  margin-top: 12px;
 }
 
 .create-backup__actions {
