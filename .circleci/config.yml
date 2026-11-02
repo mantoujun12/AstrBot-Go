@@ -3,7 +3,8 @@
 # - cimg/node image: https://circleci.com/developer/images/image/cimg/node
 # - Configuration reference (docker, workspaces, caches, workflows): https://circleci.com/docs/configuration-reference/
 # - pnpm lockfile version: 9.0, frontend node version: 24.22, rustc version: 1.99.1
-# - `dist` is gitignored, so the frontend job persists it to the workspace for tauri-build's frontendDist check.
+# - `dist` is gitignored; the rust job runs `pnpm tauri build --no-bundle`, so beforeBuildCommand regenerates it in place.
+# - The `-node` variant of cimg/rust provides Node.js for the Tauri CLI; `--no-bundle` skips deb/rpm/AppImage tooling.
 # - clippy runs without `-D warnings`: Cargo.toml already denies critical lints, while unwrap_used / expect_used stay at warn.
 # - cimg/node ships pnpm under root-owned /usr/local/lib/node_modules, so the global install needs sudo to avoid EACCES.
 
@@ -26,18 +27,20 @@ jobs:
       - run:
           name: Type check and build frontend
           command: pnpm build
-      - persist_to_workspace:
-          root: .
-          paths:
-            - dist
 
   rust:
     docker:
-      - image: cimg/rust:1.99
+      - image: cimg/rust:1.99-node
     steps:
       - checkout
-      - attach_workspace:
-          at: .
+      - run:
+          name: Install pnpm
+          command: |
+            sudo env "PATH=$PATH" npm install --global pnpm@12
+            pnpm --version
+      - run:
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile
       - run:
           name: Install Tauri Linux system dependencies
           command: |
@@ -70,6 +73,9 @@ jobs:
           name: Run clippy
           command: cargo clippy --workspace --all-targets --locked
           working_directory: src-tauri
+      - run:
+          name: Build release binary without bundling
+          command: pnpm tauri build --no-bundle
       - save_cache:
           key: cargo-v1-{{ checksum "src-tauri/Cargo.lock" }}
           paths:
