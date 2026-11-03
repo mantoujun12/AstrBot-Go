@@ -11,6 +11,11 @@ import ConfirmDialog from "../components/common/ConfirmDialog.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import PageHeader from "../components/common/PageHeader.vue";
 import SettingsItem from "../components/settings/SettingsItem.vue";
+import NetworkSourceList from "../components/settings/NetworkSourceList.vue";
+import {
+  NETWORK_SOURCES,
+  type NetworkSourceKey,
+} from "../constants/networkSources";
 import {
   getAppVersion,
   openExternalUrl,
@@ -19,6 +24,7 @@ import {
 } from "../services/app";
 import { clearUvCache } from "../services/components";
 import {
+  saveAllowLocalDnsProbe,
   saveAutostartMinimizeToTray,
   saveCheckInstanceUpdate,
   saveCloseToTray,
@@ -26,17 +32,22 @@ import {
   saveIgnoreExternalPath,
   saveLanguagePreference,
   saveLockCheckExtensionWhitelist,
-  saveMainlandAcceleration,
   saveNodejsMirror,
   saveNpmRegistry,
   savePersistInstanceState,
   saveProxy,
   savePypiMirror,
+  savePythonMirror,
   saveThemePreference,
   saveUseShortInstanceId,
   saveUseUvForDeps,
+  saveUvMirror,
 } from "../services/config";
 import { toUserMessage } from "../services/errors";
+import {
+  testHttpProxy,
+  type NetworkProbeResult,
+} from "../services/network";
 import { rebuildInstanceManifest } from "../services/instances";
 import { useLauncherStore } from "../stores/launcher";
 import { showErrorToast, showToast } from "../stores/toast";
@@ -57,6 +68,7 @@ import type {
   ThemePreference,
 } from "../types/launcher";
 import { readCachedLanguage } from "../utils/languageCache";
+import { formatLatency, formatSpeed } from "../utils/network";
 import { cacheTheme } from "../utils/themeCache";
 
 const { config, dataDir, loading, error, refresh } = useLauncherStore();
@@ -386,13 +398,6 @@ async function changeToggle(key: ToggleKey, value: unknown): Promise<void> {
 
 /* Network */
 
-const mainlandAcceleration = ref(false);
-const mainlandSaving = ref(false);
-
-const githubProxy = ref("");
-const githubDirty = ref(false);
-const githubSaving = ref(false);
-
 const proxyForm = reactive({
   url: "",
   port: "",
@@ -401,25 +406,57 @@ const proxyForm = reactive({
 });
 const proxyDirty = ref(false);
 const proxySaving = ref(false);
+const proxyTesting = ref(false);
+const proxyTestResult = ref<NetworkProbeResult | null>(null);
+const proxyTestError = ref("");
+const allowLocalDnsProbe = ref(false);
+const allowLocalDnsProbeSaving = ref(false);
 
-const pypiMirror = ref("");
-const pypiDirty = ref(false);
-const pypiSaving = ref(false);
-
-const nodejsMirror = ref("");
-const nodejsDirty = ref(false);
-const nodejsSaving = ref(false);
-
-const npmRegistry = ref("");
-const npmDirty = ref(false);
-const npmSaving = ref(false);
-
-const proxyDisabled = computed(() => mainlandAcceleration.value);
-
-const githubChanged = computed(() => {
-  const value = config.value;
-  return value !== null && githubProxy.value !== value.github_proxy;
+const networkDrafts = reactive<Record<NetworkSourceKey, string>>({
+  github: "",
+  pypi: "",
+  nodejs: "",
+  npm: "",
+  python: "",
+  uv: "",
 });
+const networkDirty = reactive<Record<NetworkSourceKey, boolean>>({
+  github: false,
+  pypi: false,
+  nodejs: false,
+  npm: false,
+  python: false,
+  uv: false,
+});
+const networkSaving = reactive<Record<NetworkSourceKey, boolean>>({
+  github: false,
+  pypi: false,
+  nodejs: false,
+  npm: false,
+  python: false,
+  uv: false,
+});
+
+const networkFields: Record<NetworkSourceKey, keyof AppConfig> = {
+  github: "github_proxy",
+  pypi: "pypi_mirror",
+  nodejs: "nodejs_mirror",
+  npm: "npm_registry",
+  python: "python_mirror",
+  uv: "uv_mirror",
+};
+
+const networkSaveHandlers: Record<
+  NetworkSourceKey,
+  (value: string) => Promise<void>
+> = {
+  github: saveGithubProxy,
+  pypi: savePypiMirror,
+  nodejs: saveNodejsMirror,
+  npm: saveNpmRegistry,
+  python: savePythonMirror,
+  uv: saveUvMirror,
+};
 
 const proxyChanged = computed(() => {
   const value = config.value;
@@ -434,65 +471,47 @@ const proxyChanged = computed(() => {
   );
 });
 
-const pypiChanged = computed(() => {
-  const value = config.value;
-  return value !== null && pypiMirror.value !== value.pypi_mirror;
-});
-
-const nodejsChanged = computed(() => {
-  const value = config.value;
-  return value !== null && nodejsMirror.value !== value.nodejs_mirror;
-});
-
-const npmChanged = computed(() => {
-  const value = config.value;
-  return value !== null && npmRegistry.value !== value.npm_registry;
-});
-
 function markProxyDirty(): void {
   proxyDirty.value = true;
+  proxyTestResult.value = null;
+  proxyTestError.value = "";
 }
 
-async function changeMainlandAcceleration(value: unknown): Promise<void> {
-  if (typeof value !== "boolean" || mainlandSaving.value) {
+function setNetworkDraft(key: NetworkSourceKey, value: string): void {
+  networkDrafts[key] = value;
+  const current = config.value;
+  networkDirty[key] =
+    current !== null && value !== current[networkFields[key]];
+}
+
+async function saveNetworkSource(key: NetworkSourceKey): Promise<void> {
+  if (networkSaving[key] || !networkDirty[key]) {
     return;
   }
 
-  const previous =
-    config.value?.mainland_acceleration ?? mainlandAcceleration.value;
-  mainlandAcceleration.value = value;
-  mainlandSaving.value = true;
+  networkSaving[key] = true;
+  const snapshot = networkDrafts[key];
   try {
-    await saveMainlandAcceleration(value);
+    await networkSaveHandlers[key](snapshot);
     await refresh();
-  } catch (cause) {
-    mainlandAcceleration.value = previous;
-    showErrorToast(cause);
-  } finally {
-    mainlandSaving.value = false;
-  }
-}
-
-async function saveGithubProxyForm(): Promise<void> {
-  if (githubSaving.value || !githubChanged.value) {
-    return;
-  }
-
-  githubSaving.value = true;
-  try {
-    await saveGithubProxy(githubProxy.value);
-    githubDirty.value = false;
-    await refresh();
+    const current = config.value;
+    const saved = current?.[networkFields[key]];
+    // Only adopt the saved value if the draft was not edited while saving.
+    if (networkDrafts[key] === snapshot && typeof saved === "string") {
+      networkDrafts[key] = saved;
+    }
+    networkDirty[key] =
+      current !== null && networkDrafts[key] !== current[networkFields[key]];
     showToast(t("settings.saved"));
   } catch (cause) {
     showErrorToast(cause);
   } finally {
-    githubSaving.value = false;
+    networkSaving[key] = false;
   }
 }
 
 async function saveProxyForm(): Promise<void> {
-  if (proxySaving.value || proxyDisabled.value || !proxyChanged.value) {
+  if (proxySaving.value || !proxyChanged.value) {
     return;
   }
 
@@ -514,57 +533,44 @@ async function saveProxyForm(): Promise<void> {
   }
 }
 
-async function savePypiMirrorForm(): Promise<void> {
-  if (pypiSaving.value || !pypiChanged.value) {
+async function runProxyTest(): Promise<void> {
+  if (proxyTesting.value) {
     return;
   }
 
-  pypiSaving.value = true;
+  proxyTesting.value = true;
+  proxyTestError.value = "";
   try {
-    await savePypiMirror(pypiMirror.value);
-    pypiDirty.value = false;
-    await refresh();
-    showToast(t("settings.saved"));
+    proxyTestResult.value = await testHttpProxy({
+      proxyUrl: proxyForm.url,
+      proxyPort: proxyForm.port,
+      proxyUsername: proxyForm.username,
+      proxyPassword: proxyForm.password,
+    });
   } catch (cause) {
-    showErrorToast(cause);
+    proxyTestResult.value = null;
+    proxyTestError.value = toUserMessage(cause);
   } finally {
-    pypiSaving.value = false;
+    proxyTesting.value = false;
   }
 }
 
-async function saveNodejsMirrorForm(): Promise<void> {
-  if (nodejsSaving.value || !nodejsChanged.value) {
+async function changeAllowLocalDnsProbe(value: unknown): Promise<void> {
+  if (typeof value !== "boolean" || allowLocalDnsProbeSaving.value) {
     return;
   }
 
-  nodejsSaving.value = true;
+  const previous = allowLocalDnsProbe.value;
+  allowLocalDnsProbe.value = value;
+  allowLocalDnsProbeSaving.value = true;
   try {
-    await saveNodejsMirror(nodejsMirror.value);
-    nodejsDirty.value = false;
+    await saveAllowLocalDnsProbe(value);
     await refresh();
-    showToast(t("settings.saved"));
   } catch (cause) {
+    allowLocalDnsProbe.value = previous;
     showErrorToast(cause);
   } finally {
-    nodejsSaving.value = false;
-  }
-}
-
-async function saveNpmRegistryForm(): Promise<void> {
-  if (npmSaving.value || !npmChanged.value) {
-    return;
-  }
-
-  npmSaving.value = true;
-  try {
-    await saveNpmRegistry(npmRegistry.value);
-    npmDirty.value = false;
-    await refresh();
-    showToast(t("settings.saved"));
-  } catch (cause) {
-    showErrorToast(cause);
-  } finally {
-    npmSaving.value = false;
+    allowLocalDnsProbeSaving.value = false;
   }
 }
 
@@ -572,8 +578,8 @@ function syncNetworkForms(value: AppConfig | null): void {
   if (!value) {
     return;
   }
-  if (!githubDirty.value) {
-    githubProxy.value = value.github_proxy;
+  if (!allowLocalDnsProbeSaving.value) {
+    allowLocalDnsProbe.value = value.allow_local_dns_probe;
   }
   if (!proxyDirty.value) {
     proxyForm.url = value.proxy_url;
@@ -581,14 +587,10 @@ function syncNetworkForms(value: AppConfig | null): void {
     proxyForm.username = value.proxy_username;
     proxyForm.password = value.proxy_password;
   }
-  if (!pypiDirty.value) {
-    pypiMirror.value = value.pypi_mirror;
-  }
-  if (!nodejsDirty.value) {
-    nodejsMirror.value = value.nodejs_mirror;
-  }
-  if (!npmDirty.value) {
-    npmRegistry.value = value.npm_registry;
+  for (const definition of NETWORK_SOURCES) {
+    if (!networkDirty[definition.key]) {
+      networkDrafts[definition.key] = value[definition.configField];
+    }
   }
 }
 
@@ -724,9 +726,6 @@ watch(
       }
     }
 
-    if (!mainlandSaving.value) {
-      mainlandAcceleration.value = value.mainland_acceleration;
-    }
     if (!themeSaving.value) {
       themePreference.value = value.theme_preference;
     }
@@ -946,63 +945,42 @@ onMounted(() => {
 
           <div class="settings-list-card">
             <SettingsItem
-              :title="t('settings.network.mainlandAcceleration')"
-              label-for="setting-mainland-acceleration"
+              :title="t('settings.network.allowLocalDnsProbe')"
+              :subtitle="t('settings.network.allowLocalDnsProbeHint')"
+              label-for="setting-allow-local-dns-probe"
             >
               <v-switch
-                id="setting-mainland-acceleration"
-                :model-value="mainlandAcceleration"
-                :loading="mainlandSaving"
-                :disabled="mainlandSaving"
+                id="setting-allow-local-dns-probe"
+                :model-value="allowLocalDnsProbe"
+                :loading="allowLocalDnsProbeSaving"
+                :disabled="allowLocalDnsProbeSaving"
                 color="primary"
                 density="compact"
                 hide-details
-                @update:model-value="changeMainlandAcceleration"
+                @update:model-value="changeAllowLocalDnsProbe"
               />
             </SettingsItem>
           </div>
 
-          <div class="settings-list-card">
-            <SettingsItem
-              :title="t('settings.network.githubProxy')"
-              stacked
-              label-for="setting-github-proxy"
-            >
-              <div class="settings-field-row">
-                <v-text-field
-                  id="setting-github-proxy"
-                  v-model="githubProxy"
-                  :aria-label="t('settings.network.githubProxy')"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  clearable
-                  :disabled="githubSaving"
-                  class="settings-inline-field"
-                  @update:model-value="githubDirty = true"
-                />
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  :aria-label="t('settings.network.saveGithubProxy')"
-                  :disabled="!githubChanged || githubSaving"
-                  :loading="githubSaving"
-                  @click="saveGithubProxyForm"
-                >
-                  {{ t("common.actions.save") }}
-                </v-btn>
-              </div>
-            </SettingsItem>
+          <div
+            v-for="definition in NETWORK_SOURCES"
+            :key="definition.key"
+            class="settings-list-card"
+          >
+            <NetworkSourceList
+              :definition="definition"
+              :model-value="networkDrafts[definition.key]"
+              :dirty="networkDirty[definition.key]"
+              :saving="networkSaving[definition.key]"
+              @update:model-value="
+                (value: string) => setNetworkDraft(definition.key, value)
+              "
+              @save="saveNetworkSource(definition.key)"
+            />
           </div>
 
           <div class="settings-list-card">
-            <SettingsItem
-              :title="t('settings.network.httpProxy')"
-              :subtitle="
-                proxyDisabled ? t('settings.network.proxyDisabled') : ''
-              "
-              stacked
-            >
+            <SettingsItem :title="t('settings.network.httpProxy')" stacked>
               <div class="settings-proxy-form">
                 <v-text-field
                   v-model="proxyForm.url"
@@ -1010,7 +988,7 @@ onMounted(() => {
                   variant="outlined"
                   density="compact"
                   hide-details
-                  :disabled="proxyDisabled || proxySaving"
+                  :disabled="proxySaving"
                   class="settings-proxy-form__url"
                   @update:model-value="markProxyDirty"
                 />
@@ -1020,7 +998,7 @@ onMounted(() => {
                   variant="outlined"
                   density="compact"
                   hide-details
-                  :disabled="proxyDisabled || proxySaving"
+                  :disabled="proxySaving"
                   class="settings-proxy-form__port"
                   @update:model-value="markProxyDirty"
                 />
@@ -1030,7 +1008,7 @@ onMounted(() => {
                   variant="outlined"
                   density="compact"
                   hide-details
-                  :disabled="proxyDisabled || proxySaving"
+                  :disabled="proxySaving"
                   class="settings-proxy-form__credential"
                   @update:model-value="markProxyDirty"
                 />
@@ -1041,119 +1019,78 @@ onMounted(() => {
                   variant="outlined"
                   density="compact"
                   hide-details
-                  :disabled="proxyDisabled || proxySaving"
+                  :disabled="proxySaving"
                   class="settings-proxy-form__credential"
                   @update:model-value="markProxyDirty"
                 />
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  class="settings-proxy-form__save"
-                  :aria-label="t('settings.network.saveHttpProxy')"
-                  :disabled="proxyDisabled || !proxyChanged || proxySaving"
-                  :loading="proxySaving"
-                  @click="saveProxyForm"
-                >
-                  {{ t("common.actions.save") }}
-                </v-btn>
+                <div class="settings-proxy-form__actions">
+                  <v-tooltip
+                    location="top"
+                    :text="t('settings.network.sources.httpTestHint')"
+                  >
+                    <template #activator="{ props: tooltipProps }">
+                      <v-btn
+                        v-bind="tooltipProps"
+                        variant="tonal"
+                        color="primary"
+                        :loading="proxyTesting"
+                        :disabled="proxyTesting"
+                        :aria-label="t('settings.network.sources.testHttp')"
+                        @click="runProxyTest"
+                      >
+                        {{
+                          proxyTesting
+                            ? t("settings.network.sources.testing", {
+                                done: 0,
+                                total: 1,
+                              })
+                            : t("settings.network.sources.testHttp")
+                        }}
+                      </v-btn>
+                    </template>
+                  </v-tooltip>
+                  <v-btn
+                    color="primary"
+                    variant="tonal"
+                    :aria-label="t('settings.network.saveHttpProxy')"
+                    :disabled="!proxyChanged || proxySaving"
+                    :loading="proxySaving"
+                    @click="saveProxyForm"
+                  >
+                    {{ t("common.actions.save") }}
+                  </v-btn>
+                </div>
+              </div>
+              <div
+                v-if="proxyTestResult || proxyTestError"
+                class="settings-proxy-result"
+              >
+                <template v-if="proxyTestResult">
+                  <v-chip
+                    size="small"
+                    color="success"
+                    variant="tonal"
+                    :aria-label="`${t('settings.network.sources.latency')} ${formatLatency(proxyTestResult.latency_ms)}`"
+                  >
+                    {{ formatLatency(proxyTestResult.latency_ms) }}
+                  </v-chip>
+                  <v-chip
+                    v-if="proxyTestResult.speed_bps !== null"
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    :aria-label="`${t('settings.network.sources.speed')} ${formatSpeed(proxyTestResult.speed_bps)}`"
+                  >
+                    {{ formatSpeed(proxyTestResult.speed_bps) }}
+                  </v-chip>
+                </template>
+                <span v-else class="settings-proxy-result__error" role="alert">
+                  {{ proxyTestError }}
+                </span>
               </div>
             </SettingsItem>
           </div>
 
-          <div class="settings-list-card">
-            <SettingsItem
-              :title="t('settings.network.pypiMirror')"
-              stacked
-              label-for="setting-pypi-mirror"
-            >
-              <div class="settings-field-row">
-                <v-text-field
-                  id="setting-pypi-mirror"
-                  v-model="pypiMirror"
-                  :aria-label="t('settings.network.pypiMirror')"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  clearable
-                  :disabled="pypiSaving"
-                  class="settings-inline-field"
-                  @update:model-value="pypiDirty = true"
-                />
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  :aria-label="t('settings.network.savePypiMirror')"
-                  :disabled="!pypiChanged || pypiSaving"
-                  :loading="pypiSaving"
-                  @click="savePypiMirrorForm"
-                >
-                  {{ t("common.actions.save") }}
-                </v-btn>
-              </div>
-            </SettingsItem>
-
-            <SettingsItem
-              :title="t('settings.network.nodejsMirror')"
-              stacked
-              label-for="setting-nodejs-mirror"
-            >
-              <div class="settings-field-row">
-                <v-text-field
-                  id="setting-nodejs-mirror"
-                  v-model="nodejsMirror"
-                  :aria-label="t('settings.network.nodejsMirror')"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  clearable
-                  :disabled="nodejsSaving"
-                  class="settings-inline-field"
-                  @update:model-value="nodejsDirty = true"
-                />
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  :aria-label="t('settings.network.saveNodejsMirror')"
-                  :disabled="!nodejsChanged || nodejsSaving"
-                  :loading="nodejsSaving"
-                  @click="saveNodejsMirrorForm"
-                >
-                  {{ t("common.actions.save") }}
-                </v-btn>
-              </div>
-            </SettingsItem>
-
-            <SettingsItem
-              :title="t('settings.network.npmRegistry')"
-              stacked
-              label-for="setting-npm-registry"
-            >
-              <div class="settings-field-row">
-                <v-text-field
-                  id="setting-npm-registry"
-                  v-model="npmRegistry"
-                  :aria-label="t('settings.network.npmRegistry')"
-                  variant="outlined"
-                  density="compact"
-                  hide-details
-                  clearable
-                  :disabled="npmSaving"
-                  class="settings-inline-field"
-                  @update:model-value="npmDirty = true"
-                />
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  :aria-label="t('settings.network.saveNpmRegistry')"
-                  :disabled="!npmChanged || npmSaving"
-                  :loading="npmSaving"
-                  @click="saveNpmRegistryForm"
-                >
-                  {{ t("common.actions.save") }}
-                </v-btn>
-              </div>
-            </SettingsItem>
-          </div>
         </section>
 
         <section
@@ -1471,9 +1408,25 @@ onMounted(() => {
   min-width: 0;
 }
 
-.settings-proxy-form__save {
+.settings-proxy-form__actions {
+  display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-left: auto;
+}
+
+.settings-proxy-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.settings-proxy-result__error {
+  color: rgb(var(--v-theme-error));
+  font-size: 0.8rem;
 }
 
 .settings-path-row {

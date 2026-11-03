@@ -195,7 +195,7 @@ pub async fn fetch_python_releases(client: &Client) -> Result<Vec<GitHubRelease>
 }
 
 /// Fetch the release body text for a specific launcher version tag.
-/// Respects github_proxy and mainland_acceleration settings.
+/// Respects the configured GitHub proxy.
 pub async fn fetch_launcher_release_notes(
     client: &Client,
     version: &str,
@@ -205,14 +205,7 @@ pub async fn fetch_launcher_release_notes(
         "https://api.github.com/repos/{}/releases/tags/v{}",
         LAUNCHER_REPO, version
     );
-    let url = if config.mainland_acceleration {
-        wrap_with_proxy(
-            crate::network_config::MAINLAND_ASTRBOT_DOWNLOAD_PROXY,
-            &raw_url,
-        )
-    } else {
-        wrap_with_proxy(&config.github_proxy, &raw_url)
-    };
+    let url = wrap_with_proxy(&config.github_proxy, &raw_url);
 
     #[derive(Deserialize)]
     struct ReleaseNotes {

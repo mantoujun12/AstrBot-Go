@@ -17,12 +17,14 @@ use crate::download_control;
 use crate::error::{AppError, Result};
 use crate::github::{self, GitHubRelease};
 use crate::instance::{self, InstanceStatus};
-use crate::network_config;
+use crate::network_config::{self, NetworkSourceKind};
 use crate::platform;
 use crate::process::ProcessManager;
 use crate::utils::index_url::normalize_default_index;
 use crate::utils::lock_check::{collect_files_for_lock_check, ensure_target_not_locked};
-use crate::utils::net::{build_http_client_with_proxy, check_url};
+use crate::utils::net::{
+    build_http_client_with_proxy, check_url, probe_endpoint, probe_pypi, ProbeResult, ProbeStage,
+};
 use crate::utils::paths::{
     default_data_dir, ensure_data_dirs, get_data_dir, get_instance_core_dir, set_data_dir_override,
     validate_data_dir,
@@ -258,17 +260,78 @@ define_save_config_command!(save_nodejs_mirror, nodejs_mirror: String, nodejs_mi
 define_save_config_command!(save_npm_registry, npm_registry: String, npm_registry);
 
 #[tauri::command]
-pub async fn save_mainland_acceleration(
-    mainland_acceleration: bool,
-    state: State<'_, AppState>,
-) -> Result<()> {
-    let next_client = with_config_mut(move |config| {
-        config.mainland_acceleration = mainland_acceleration;
-        network_config::build_http_client_from_config(config)
-    })?;
+pub async fn save_python_mirror(python_mirror: String) -> Result<()> {
+    let python_mirror = python_mirror.trim().to_string();
+    with_config_mut(move |config| {
+        config.python_mirror = python_mirror;
+        Ok(())
+    })
+}
 
-    state.replace_client(next_client);
-    Ok(())
+#[tauri::command]
+pub async fn save_uv_mirror(uv_mirror: String) -> Result<()> {
+    let uv_mirror = uv_mirror.trim().to_string();
+    with_config_mut(move |config| {
+        config.uv_mirror = uv_mirror;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub async fn save_allow_local_dns_probe(allow_local_dns_probe: bool) -> Result<()> {
+    with_config_mut(move |config| {
+        config.allow_local_dns_probe = allow_local_dns_probe;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub async fn test_network_source(
+    kind: NetworkSourceKind,
+    value: String,
+    stage: ProbeStage,
+    state: State<'_, AppState>,
+) -> Result<ProbeResult> {
+    let config = load_config()?;
+    let allow_local_dns = config.allow_local_dns_probe;
+    let client = state.client();
+    let url =
+        network_config::source_probe_url(kind, &value, config.as_ref(), &client, allow_local_dns)
+            .await?;
+
+    if kind == NetworkSourceKind::Pypi {
+        probe_pypi(&client, &url, stage, allow_local_dns).await
+    } else {
+        probe_endpoint(&client, &url, stage, allow_local_dns).await
+    }
+}
+
+#[tauri::command]
+pub async fn test_http_proxy(
+    proxy_url: String,
+    proxy_port: String,
+    proxy_username: String,
+    proxy_password: String,
+) -> Result<ProbeResult> {
+    let proxy_fields = ProxyFields::new(proxy_url, proxy_port, proxy_username, proxy_password);
+    let proxy = build_single_url_proxy_settings(
+        ProxySource::AppConfig,
+        &proxy_fields,
+        Some(DEFAULT_NO_PROXY_VALUE.to_string()),
+    )?;
+    let client = build_http_client_with_proxy(proxy)?;
+    const SPEED_URL: &str = "https://speed.cloudflare.com/__down?bytes=1048576";
+
+    match probe_endpoint(&client, SPEED_URL, ProbeStage::Both, false).await {
+        Ok(result) => Ok(result),
+        Err(_) => {
+            let mut latency =
+                probe_endpoint(&client, "https://www.baidu.com", ProbeStage::Latency, false)
+                    .await?;
+            latency.speed_bps = None;
+            Ok(latency)
+        }
+    }
 }
 
 #[tauri::command]

@@ -87,10 +87,18 @@ export function saveLanguagePreference(
   return invoke("save_language_preference", { languagePreference });
 }
 
-export function saveMainlandAcceleration(
-  mainlandAcceleration: boolean,
+export function savePythonMirror(pythonMirror: string): Promise<void> {
+  return invoke("save_python_mirror", { pythonMirror });
+}
+
+export function saveAllowLocalDnsProbe(
+  allowLocalDnsProbe: boolean,
 ): Promise<void> {
-  return invoke("save_mainland_acceleration", { mainlandAcceleration });
+  return invoke("save_allow_local_dns_probe", { allowLocalDnsProbe });
+}
+
+export function saveUvMirror(uvMirror: string): Promise<void> {
+  return invoke("save_uv_mirror", { uvMirror });
 }
 
 export function compareVersions(a: string, b: string): Promise<number> {
