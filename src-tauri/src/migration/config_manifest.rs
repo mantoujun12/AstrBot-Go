@@ -74,6 +74,7 @@ impl LegacyAppConfig {
             npm_registry: self.npm_registry,
             python_mirror: String::new(),
             uv_mirror: String::new(),
+            allow_local_dns_probe: false,
             use_uv_for_deps: self.use_uv_for_deps,
             close_to_tray: self.close_to_tray,
             autostart_minimize_to_tray: self.autostart_minimize_to_tray,

@@ -71,6 +71,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub uv_mirror: String,
     #[serde(default)]
+    pub allow_local_dns_probe: bool,
+    #[serde(default)]
     pub use_uv_for_deps: bool,
     #[serde(default = "default_true")]
     pub close_to_tray: bool,
@@ -105,6 +107,7 @@ impl Default for AppConfig {
             npm_registry: String::new(),
             python_mirror: String::new(),
             uv_mirror: String::new(),
+            allow_local_dns_probe: false,
             use_uv_for_deps: false,
             close_to_tray: true,
             autostart_minimize_to_tray: false,
@@ -159,20 +162,6 @@ fn deserialize_value<T: DeserializeOwned>(raw: &[u8]) -> Result<T> {
     serde_json::from_slice(raw).map_err(|e| AppError::config(e.to_string()))
 }
 
-fn insert_config_value(value: &AppConfig) -> Result<()> {
-    let payload = serialize_value(value)?;
-    let db = config_db()?;
-    let write_txn = db.begin_write().map_err(map_redb_error)?;
-    {
-        let mut table = write_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
-        table
-            .insert(&ROOT_ROW_KEY, payload.as_slice())
-            .map_err(map_redb_error)?;
-    }
-    write_txn.commit().map_err(map_redb_error)?;
-    Ok(())
-}
-
 fn insert_manifest_value(value: &AppManifest) -> Result<()> {
     let payload = serialize_value(value)?;
     let db = config_db()?;
@@ -195,44 +184,91 @@ struct LegacyNetworkConfig {
     mainland_acceleration: bool,
 }
 
-fn load_or_init_config_value() -> Result<AppConfig> {
-    let stored = {
-        let db = config_db()?;
-        let read_txn = db.begin_read().map_err(map_redb_error)?;
-        let table = read_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
-        table
-            .get(&ROOT_ROW_KEY)
-            .map_err(map_redb_error)?
-            .map(|raw| -> Result<(AppConfig, bool)> {
-                let config = deserialize_value::<AppConfig>(raw.value())?;
-                let legacy =
-                    serde_json::from_slice::<LegacyNetworkConfig>(raw.value()).unwrap_or_default();
-                Ok((config, legacy.mainland_acceleration))
-            })
+/// Stored config record as classified by one transaction.
+enum StoredConfig {
+    Ready(AppConfig),
+    NeedsMigration(AppConfig),
+    Corrupted(String),
+    Missing,
+}
+
+fn classify_config_record(raw: Option<&[u8]>) -> StoredConfig {
+    let Some(raw) = raw else {
+        return StoredConfig::Missing;
     };
 
-    match stored {
-        Some(Ok((mut config, legacy_mainland))) => {
-            if legacy_mainland {
+    let config = match deserialize_value::<AppConfig>(raw) {
+        Ok(config) => config,
+        Err(error) => return StoredConfig::Corrupted(error.to_string()),
+    };
+    let legacy = serde_json::from_slice::<LegacyNetworkConfig>(raw).unwrap_or_default();
+
+    if legacy.mainland_acceleration {
+        StoredConfig::NeedsMigration(config)
+    } else {
+        StoredConfig::Ready(config)
+    }
+}
+
+fn read_config_record(db: &Database) -> Result<Option<Vec<u8>>> {
+    let read_txn = db.begin_read().map_err(map_redb_error)?;
+    let table = read_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
+    let raw = table.get(&ROOT_ROW_KEY).map_err(map_redb_error)?;
+    Ok(raw.map(|raw| raw.value().to_vec()))
+}
+
+/// Migrate the legacy mainland switch or initialize a missing record.
+///
+/// The record is read again inside the write transaction so a concurrent save
+/// cannot be overwritten by a stale migration.
+fn rewrite_config_record(db: &Database) -> Result<AppConfig> {
+    let write_txn = db.begin_write().map_err(map_redb_error)?;
+
+    let config = {
+        let mut table = write_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
+        let raw = table
+            .get(&ROOT_ROW_KEY)
+            .map_err(map_redb_error)?
+            .map(|raw| raw.value().to_vec());
+
+        let (config, should_write) = match classify_config_record(raw.as_deref()) {
+            StoredConfig::Ready(config) => (config, false),
+            StoredConfig::NeedsMigration(mut config) => {
                 apply_legacy_mainland_presets(&mut config);
-                insert_config_value(&config)?;
                 log::info!("Migrated legacy mainland acceleration to per-source settings");
+                (config, true)
             }
-            Ok(config)
+            StoredConfig::Corrupted(error) => {
+                log::warn!(
+                    "Config record is corrupted JSON, resetting to default value: {}",
+                    error
+                );
+                (AppConfig::default(), true)
+            }
+            StoredConfig::Missing => (AppConfig::default(), true),
+        };
+
+        if should_write {
+            let payload = serialize_value(&config)?;
+            table
+                .insert(&ROOT_ROW_KEY, payload.as_slice())
+                .map_err(map_redb_error)?;
         }
-        Some(Err(error)) => {
-            log::warn!(
-                "Config record is corrupted JSON, resetting to default value: {}",
-                error
-            );
-            let default = AppConfig::default();
-            insert_config_value(&default)?;
-            Ok(default)
-        }
-        None => {
-            let default = AppConfig::default();
-            insert_config_value(&default)?;
-            Ok(default)
+
+        config
+    };
+
+    write_txn.commit().map_err(map_redb_error)?;
+    Ok(config)
+}
+
+fn load_or_init_config_value() -> Result<AppConfig> {
+    let db = config_db()?;
+
+    match classify_config_record(read_config_record(db)?.as_deref()) {
+        StoredConfig::Ready(config) => Ok(config),
+        StoredConfig::NeedsMigration(_) | StoredConfig::Corrupted(_) | StoredConfig::Missing => {
+            rewrite_config_record(db)
         }
     }
 }
@@ -276,19 +312,22 @@ where
     let mut config = {
         let table = write_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
         let existing = table.get(&ROOT_ROW_KEY).map_err(map_redb_error)?;
-        if let Some(raw) = existing {
-            match deserialize_value::<AppConfig>(raw.value()) {
-                Ok(config) => config,
-                Err(error) => {
-                    log::warn!(
-                        "Config record is corrupted JSON, replacing with default before update: {}",
-                        error
-                    );
-                    AppConfig::default()
-                }
+        let raw = existing.as_ref().map(|raw| raw.value());
+        match classify_config_record(raw) {
+            StoredConfig::Ready(config) => config,
+            StoredConfig::NeedsMigration(mut config) => {
+                apply_legacy_mainland_presets(&mut config);
+                log::info!("Migrated legacy mainland acceleration to per-source settings");
+                config
             }
-        } else {
-            AppConfig::default()
+            StoredConfig::Corrupted(error) => {
+                log::warn!(
+                    "Config record is corrupted JSON, replacing with default before update: {}",
+                    error
+                );
+                AppConfig::default()
+            }
+            StoredConfig::Missing => AppConfig::default(),
         }
     };
 
@@ -559,6 +598,7 @@ version = "v4.0.0"
         let config: AppConfig = serde_json::from_str("{}")?;
         assert!(config.python_mirror.is_empty());
         assert!(config.uv_mirror.is_empty());
+        assert!(!config.allow_local_dns_probe);
         Ok(())
     }
 
@@ -568,6 +608,34 @@ version = "v4.0.0"
             serde_json::from_str(r#"{"mainland_acceleration":true}"#)?;
         assert!(legacy.mainland_acceleration);
         Ok(())
+    }
+
+    #[test]
+    fn stored_config_is_classified_for_migration() {
+        let legacy = br#"{"mainland_acceleration":true,"nodejs_mirror":"https://custom.example/"}"#;
+        let needs_migration = classify_config_record(Some(legacy));
+        assert!(matches!(needs_migration, StoredConfig::NeedsMigration(_)));
+        if let StoredConfig::NeedsMigration(config) = needs_migration {
+            assert!(config.github_proxy.is_empty());
+            assert_eq!(config.nodejs_mirror, "https://custom.example/");
+        }
+
+        let migrated =
+            br#"{"mainland_acceleration":false,"nodejs_mirror":"https://custom.example/"}"#;
+        let ready = classify_config_record(Some(migrated));
+        assert!(matches!(ready, StoredConfig::Ready(_)));
+        if let StoredConfig::Ready(config) = ready {
+            assert_eq!(config.nodejs_mirror, "https://custom.example/");
+        }
+
+        assert!(matches!(
+            classify_config_record(None),
+            StoredConfig::Missing
+        ));
+        assert!(matches!(
+            classify_config_record(Some(b"not json")),
+            StoredConfig::Corrupted(_)
+        ));
     }
 
     #[test]

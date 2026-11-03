@@ -278,6 +278,14 @@ pub async fn save_uv_mirror(uv_mirror: String) -> Result<()> {
 }
 
 #[tauri::command]
+pub async fn save_allow_local_dns_probe(allow_local_dns_probe: bool) -> Result<()> {
+    with_config_mut(move |config| {
+        config.allow_local_dns_probe = allow_local_dns_probe;
+        Ok(())
+    })
+}
+
+#[tauri::command]
 pub async fn test_network_source(
     kind: NetworkSourceKind,
     value: String,
@@ -285,13 +293,16 @@ pub async fn test_network_source(
     state: State<'_, AppState>,
 ) -> Result<ProbeResult> {
     let config = load_config()?;
-    let url = network_config::source_probe_url(kind, &value, config.as_ref())?;
+    let allow_local_dns = config.allow_local_dns_probe;
     let client = state.client();
+    let url =
+        network_config::source_probe_url(kind, &value, config.as_ref(), &client, allow_local_dns)
+            .await?;
 
     if kind == NetworkSourceKind::Pypi {
-        probe_pypi(&client, &url, stage).await
+        probe_pypi(&client, &url, stage, allow_local_dns).await
     } else {
-        probe_endpoint(&client, &url, stage).await
+        probe_endpoint(&client, &url, stage, allow_local_dns).await
     }
 }
 
@@ -311,11 +322,12 @@ pub async fn test_http_proxy(
     let client = build_http_client_with_proxy(proxy)?;
     const SPEED_URL: &str = "https://speed.cloudflare.com/__down?bytes=1048576";
 
-    match probe_endpoint(&client, SPEED_URL, ProbeStage::Both).await {
+    match probe_endpoint(&client, SPEED_URL, ProbeStage::Both, false).await {
         Ok(result) => Ok(result),
         Err(_) => {
             let mut latency =
-                probe_endpoint(&client, "https://www.baidu.com", ProbeStage::Latency).await?;
+                probe_endpoint(&client, "https://www.baidu.com", ProbeStage::Latency, false)
+                    .await?;
             latency.speed_bps = None;
             Ok(latency)
         }

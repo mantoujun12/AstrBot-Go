@@ -85,6 +85,9 @@ const ruRU = {
       npmRegistry: "npm registry",
       pythonMirror: "Зеркало среды выполнения Python",
       uvMirror: "Зеркало uv",
+      allowLocalDnsProbe: "Разрешить локальные DNS-перенаправления при проверке",
+      allowLocalDnsProbeHint:
+        "Влияет только на проверку доступности сетевых источников. Разрешает домены, указывающие на локальные или частные адреса; прямые локальные адреса и localhost по-прежнему блокируются.",
       sources: {
         default: "Источник по умолчанию",
         followGithub: "Через прокси GitHub",

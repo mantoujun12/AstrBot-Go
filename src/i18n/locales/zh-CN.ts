@@ -82,6 +82,8 @@ const zhCN = {
       "npmRegistry": "npm registry",
       "pythonMirror": "Python 运行时镜像",
       "uvMirror": "uv 镜像",
+      "allowLocalDnsProbe": "允许本地 DNS 重定向探测",
+      "allowLocalDnsProbeHint": "仅影响网络源连通性测试，允许解析到本地或私有地址的域名；直连本地地址和 localhost 仍会被拒绝。",
       "sources": {
         "default": "默认源",
         "followGithub": "跟随 GitHub 代理",

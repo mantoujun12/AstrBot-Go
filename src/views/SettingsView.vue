@@ -24,6 +24,7 @@ import {
 } from "../services/app";
 import { clearUvCache } from "../services/components";
 import {
+  saveAllowLocalDnsProbe,
   saveAutostartMinimizeToTray,
   saveCheckInstanceUpdate,
   saveCloseToTray,
@@ -408,6 +409,8 @@ const proxySaving = ref(false);
 const proxyTesting = ref(false);
 const proxyTestResult = ref<NetworkProbeResult | null>(null);
 const proxyTestError = ref("");
+const allowLocalDnsProbe = ref(false);
+const allowLocalDnsProbeSaving = ref(false);
 
 const networkDrafts = reactive<Record<NetworkSourceKey, string>>({
   github: "",
@@ -470,6 +473,8 @@ const proxyChanged = computed(() => {
 
 function markProxyDirty(): void {
   proxyDirty.value = true;
+  proxyTestResult.value = null;
+  proxyTestError.value = "";
 }
 
 function setNetworkDraft(key: NetworkSourceKey, value: string): void {
@@ -485,14 +490,18 @@ async function saveNetworkSource(key: NetworkSourceKey): Promise<void> {
   }
 
   networkSaving[key] = true;
+  const snapshot = networkDrafts[key];
   try {
-    await networkSaveHandlers[key](networkDrafts[key]);
-    networkDirty[key] = false;
+    await networkSaveHandlers[key](snapshot);
     await refresh();
-    const saved = config.value?.[networkFields[key]];
-    if (typeof saved === "string") {
+    const current = config.value;
+    const saved = current?.[networkFields[key]];
+    // Only adopt the saved value if the draft was not edited while saving.
+    if (networkDrafts[key] === snapshot && typeof saved === "string") {
       networkDrafts[key] = saved;
     }
+    networkDirty[key] =
+      current !== null && networkDrafts[key] !== current[networkFields[key]];
     showToast(t("settings.saved"));
   } catch (cause) {
     showErrorToast(cause);
@@ -546,9 +555,31 @@ async function runProxyTest(): Promise<void> {
   }
 }
 
+async function changeAllowLocalDnsProbe(value: unknown): Promise<void> {
+  if (typeof value !== "boolean" || allowLocalDnsProbeSaving.value) {
+    return;
+  }
+
+  const previous = allowLocalDnsProbe.value;
+  allowLocalDnsProbe.value = value;
+  allowLocalDnsProbeSaving.value = true;
+  try {
+    await saveAllowLocalDnsProbe(value);
+    await refresh();
+  } catch (cause) {
+    allowLocalDnsProbe.value = previous;
+    showErrorToast(cause);
+  } finally {
+    allowLocalDnsProbeSaving.value = false;
+  }
+}
+
 function syncNetworkForms(value: AppConfig | null): void {
   if (!value) {
     return;
+  }
+  if (!allowLocalDnsProbeSaving.value) {
+    allowLocalDnsProbe.value = value.allow_local_dns_probe;
   }
   if (!proxyDirty.value) {
     proxyForm.url = value.proxy_url;
@@ -911,6 +942,25 @@ onMounted(() => {
           <h2 id="settings-network-title" class="settings-section__title">
             {{ t("settings.nav.network") }}
           </h2>
+
+          <div class="settings-list-card">
+            <SettingsItem
+              :title="t('settings.network.allowLocalDnsProbe')"
+              :subtitle="t('settings.network.allowLocalDnsProbeHint')"
+              label-for="setting-allow-local-dns-probe"
+            >
+              <v-switch
+                id="setting-allow-local-dns-probe"
+                :model-value="allowLocalDnsProbe"
+                :loading="allowLocalDnsProbeSaving"
+                :disabled="allowLocalDnsProbeSaving"
+                color="primary"
+                density="compact"
+                hide-details
+                @update:model-value="changeAllowLocalDnsProbe"
+              />
+            </SettingsItem>
+          </div>
 
           <div
             v-for="definition in NETWORK_SOURCES"

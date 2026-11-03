@@ -84,6 +84,9 @@ const jaJP = {
       npmRegistry: "npm registry",
       pythonMirror: "Python ランタイムミラー",
       uvMirror: "uv ミラー",
+      allowLocalDnsProbe: "ローカル DNS リダイレクトのプローブを許可",
+      allowLocalDnsProbeHint:
+        "ネットワークソースの接続テストにのみ影響します。ローカルまたはプライベートアドレスに解決されるドメイン名を許可しますが、直接指定されたローカルアドレスと localhost は引き続き拒否されます。",
       sources: {
         default: "デフォルトソース",
         followGithub: "GitHub プロキシに従う",

@@ -84,6 +84,9 @@ const enUS = {
       npmRegistry: "npm registry",
       pythonMirror: "Python runtime mirror",
       uvMirror: "uv mirror",
+      allowLocalDnsProbe: "Allow local DNS redirect probes",
+      allowLocalDnsProbeHint:
+        "Only affects network source connectivity tests. Allows hostnames that resolve to local or private addresses; literal local addresses and localhost remain blocked.",
       sources: {
         default: "Default source",
         followGithub: "Follow GitHub proxy",

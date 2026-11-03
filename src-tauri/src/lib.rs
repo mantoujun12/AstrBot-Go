@@ -213,6 +213,7 @@ pub fn run() {
             commands::save_npm_registry,
             commands::save_python_mirror,
             commands::save_uv_mirror,
+            commands::save_allow_local_dns_probe,
             commands::save_use_uv_for_deps,
             commands::save_close_to_tray,
             commands::save_autostart_minimize_to_tray,

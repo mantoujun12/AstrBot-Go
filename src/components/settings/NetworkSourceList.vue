@@ -30,8 +30,9 @@ const CUSTOM_KEY = "__custom__";
 interface ProbeState {
   pending: boolean;
   latency?: number;
+  latencyError?: string;
   speed?: number | null;
-  error?: string;
+  speedError?: string;
 }
 
 interface TestTarget {
@@ -106,7 +107,7 @@ function onSelectionUpdate(value: unknown): void {
 function selectSource(key: string): void {
   selection.value = key;
   if (key === CUSTOM_KEY) {
-    const value = customValue.value.trim();
+    const value = customText();
     if (value !== "") {
       emit("update:modelValue", value);
     }
@@ -116,13 +117,18 @@ function selectSource(key: string): void {
   emit("update:modelValue", option?.value ?? "");
 }
 
-function onCustomInput(value: string): void {
-  customValue.value = value;
+function customText(): string {
+  return customValue.value.trim();
+}
+
+function onCustomInput(value: string | null | undefined): void {
+  const next = value ?? "";
+  customValue.value = next;
   delete probeStates[CUSTOM_KEY];
   if (selection.value !== CUSTOM_KEY) {
     return;
   }
-  const trimmed = value.trim();
+  const trimmed = next.trim();
   if (trimmed !== "") {
     emit("update:modelValue", trimmed);
   }
@@ -154,7 +160,7 @@ function presetTargets(): TestTarget[] {
 }
 
 function customTarget(): TestTarget | null {
-  const value = customValue.value.trim();
+  const value = customText();
   if (!isValidHttpUrl(value)) {
     return null;
   }
@@ -208,24 +214,40 @@ function applyResult(
   result: NetworkProbeResult,
 ): void {
   const state = probeStates[target.key] ?? { pending: false };
-  probeStates[target.key] = {
-    ...state,
-    pending: false,
-    ...(stage === "both" || stage === "latency"
-      ? { latency: result.latency_ms }
-      : {}),
-    ...(stage === "both" || stage === "speed"
-      ? { speed: result.speed_bps }
-      : {}),
-    error: undefined,
-  };
+  const next: ProbeState = { ...state, pending: false };
+  if (stage === "both" || stage === "latency") {
+    next.latency = result.latency_ms;
+    next.latencyError = undefined;
+  }
+  if (stage === "both" || stage === "speed") {
+    next.speed = result.speed_bps;
+    next.speedError = undefined;
+  }
+  probeStates[target.key] = next;
 }
 
-function applyError(target: TestTarget, cause: unknown): void {
-  probeStates[target.key] = {
-    pending: false,
-    error: toUserMessage(cause),
-  };
+function applyError(
+  target: TestTarget,
+  stage: NetworkProbeStage,
+  cause: unknown,
+): void {
+  const state = probeStates[target.key] ?? { pending: false };
+  const message = toUserMessage(cause);
+  const next: ProbeState = { ...state, pending: false };
+  if (stage === "both" || stage === "latency") {
+    next.latency = undefined;
+    next.latencyError = message;
+  }
+  if (stage === "both" || stage === "speed") {
+    next.speed = undefined;
+    next.speedError = message;
+  }
+  probeStates[target.key] = next;
+}
+
+function probeError(key: string): string | undefined {
+  const state = probeFor(key);
+  return state?.latencyError ?? state?.speedError;
 }
 
 async function runSerial(targets: TestTarget[]): Promise<void> {
@@ -241,7 +263,7 @@ async function runSerial(targets: TestTarget[]): Promise<void> {
       );
       applyResult(target, "both", result);
     } catch (cause) {
-      applyError(target, cause);
+      applyError(target, "both", cause);
     } finally {
       testDone.value += 1;
     }
@@ -265,7 +287,7 @@ async function runParallel(targets: TestTarget[]): Promise<void> {
         );
         applyResult(target, "latency", result);
       } catch (cause) {
-        applyError(target, cause);
+        applyError(target, "latency", cause);
       } finally {
         testDone.value += 1;
       }
@@ -285,9 +307,10 @@ async function runParallel(targets: TestTarget[]): Promise<void> {
         );
         applyResult(target, "speed", result);
       } catch (cause) {
-        applyError(target, cause);
+        applyError(target, "speed", cause);
       } finally {
         setPending(target, false);
+        testDone.value += 1;
       }
     }),
   );
@@ -426,11 +449,11 @@ async function runTest(event: MouseEvent): Promise<void> {
                 {{ formatSpeed(probeFor(source.key)?.speed ?? null) }}
               </v-chip>
               <v-chip
-                v-if="probeFor(source.key)?.error"
+                v-if="probeError(source.key)"
                 size="x-small"
                 color="error"
                 variant="tonal"
-                :title="probeFor(source.key)?.error"
+                :title="probeError(source.key)"
               >
                 {{ t("settings.network.sources.failed") }}
               </v-chip>
@@ -442,7 +465,7 @@ async function runTest(event: MouseEvent): Promise<void> {
 
     <div class="network-source__custom">
       <v-text-field
-        v-model="customValue"
+        :model-value="customValue"
         :label="t('settings.network.sources.custom')"
         :placeholder="t('settings.network.sources.customPlaceholder')"
         variant="outlined"

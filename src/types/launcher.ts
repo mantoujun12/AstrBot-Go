@@ -48,6 +48,7 @@ export interface AppConfig {
   npm_registry: string;
   python_mirror: string;
   uv_mirror: string;
+  allow_local_dns_probe: boolean;
   use_uv_for_deps: boolean;
   close_to_tray: boolean;
   autostart_minimize_to_tray: boolean;
