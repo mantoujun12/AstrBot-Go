@@ -17,6 +17,7 @@
 - Prevented legacy migration from overwriting newer per-source network settings.
 - Made Node.js, npm, and Python speed tests download real archives instead of metadata.
 - Kept newly edited source selections and proxy test results accurate while a save or test is pending.
+- Removed the white flash when the main window opens at startup by waiting for the first frontend paint and matching the window background to the active theme.
 
 ### Removed
 
@@ -41,6 +42,7 @@
 - 避免旧版大陆加速迁移覆盖较新的逐项网络源设置。
 - 将 Node.js、npm 和 Python 测速改为下载真实归档，不再测量元数据。
 - 保存或测试进行期间，保留用户新编辑的源选择和代理测试结果。
+- 修复启动时主窗口短暂白屏的问题：首屏渲染完成后再显示窗口，并让窗口底色跟随当前主题。
 
 ### 移除
 

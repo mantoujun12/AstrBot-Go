@@ -151,6 +151,20 @@ pub struct AppSnapshot {
     pub data_dir: String,
 }
 
+// === Window ===
+
+#[tauri::command]
+pub fn show_main_window(app: AppHandle) -> Result<()> {
+    let revealed = crate::setup::reveal_main_window(&app)
+        .map_err(|error| AppError::other(format!("Failed to show main window: {}", error)));
+
+    if revealed.is_ok() {
+        crate::setup::mark_frontend_ready(&app);
+    }
+
+    revealed
+}
+
 // === Config ===
 
 #[tauri::command]

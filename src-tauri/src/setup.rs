@@ -1,12 +1,40 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
 use tauri::Emitter as _;
 use tauri::Manager as _;
 #[cfg(target_os = "linux")]
 use webkit2gtk::{HardwareAccelerationPolicy, SettingsExt as _, WebViewExt as _};
 
 use crate::commands::{self, AppState};
-use crate::config::{load_config, load_manifest, with_manifest_mut};
+use crate::config::{load_config, load_manifest, with_manifest_mut, ThemePreference};
 use crate::tray;
 use crate::utils::log_bus as log_channel;
+
+const WINDOW_SHOW_FALLBACK_DELAY: Duration = Duration::from_secs(5);
+
+const LIGHT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(255, 255, 255, 255);
+const DARK_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(36, 36, 36, 255);
+
+pub(crate) struct StartupWindowState {
+    frontend_ready: AtomicBool,
+}
+
+impl StartupWindowState {
+    pub(crate) fn new() -> Self {
+        Self {
+            frontend_ready: AtomicBool::new(false),
+        }
+    }
+
+    fn mark_frontend_ready(&self) {
+        self.frontend_ready.store(true, Ordering::Release);
+    }
+
+    fn is_frontend_ready(&self) -> bool {
+        self.frontend_ready.load(Ordering::Acquire)
+    }
+}
 
 pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     hide_window_for_autostart(app);
@@ -14,6 +42,8 @@ pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error:
     if let Some(main_window) = app.get_webview_window("main") {
         configure_main_window(&main_window);
     }
+
+    spawn_window_show_fallback(app);
 
     let state: tauri::State<'_, AppState> = app.state();
     state.process_manager.start_monitor();
@@ -27,6 +57,8 @@ pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error:
 }
 
 pub fn configure_main_window(window: &tauri::WebviewWindow) {
+    apply_initial_background(window);
+
     #[cfg(target_os = "linux")]
     let _ = window.with_webview(|webview| {
         if let Some(settings) = webview.inner().settings() {
@@ -43,22 +75,91 @@ pub fn configure_main_window(window: &tauri::WebviewWindow) {
     )));
 }
 
-fn hide_window_for_autostart(app: &tauri::App) {
-    let launched_from_autostart = std::env::args_os().any(|arg| arg == "--autostart");
-    if !launched_from_autostart {
-        return;
-    }
+fn apply_initial_background(window: &tauri::WebviewWindow) {
+    let preference = load_config()
+        .map(|config| config.theme_preference)
+        .unwrap_or_default();
+    let dark = match preference {
+        ThemePreference::Dark => true,
+        ThemePreference::Light => false,
+        ThemePreference::System => window
+            .theme()
+            .map(|theme| theme == tauri::Theme::Dark)
+            .unwrap_or(false),
+    };
+    let color = if dark {
+        DARK_WINDOW_BACKGROUND
+    } else {
+        LIGHT_WINDOW_BACKGROUND
+    };
 
-    if !load_config()
-        .map(|config| config.autostart_minimize_to_tray)
-        .unwrap_or(false)
-    {
+    if let Err(error) = window.set_background_color(Some(color)) {
+        log::warn!(
+            "Failed to set the initial window background color: {}",
+            error
+        );
+    }
+}
+
+pub(crate) fn should_start_hidden() -> bool {
+    let launched_from_autostart = std::env::args_os().any(|arg| arg == "--autostart");
+    launched_from_autostart
+        && load_config()
+            .map(|config| config.autostart_minimize_to_tray)
+            .unwrap_or(false)
+}
+
+fn hide_window_for_autostart(app: &tauri::App) {
+    if !should_start_hidden() {
         return;
     }
 
     if let Some(main_window) = app.get_webview_window("main") {
         let _ = main_window.hide();
     }
+}
+
+pub(crate) fn reveal_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+    if should_start_hidden() {
+        return Ok(());
+    }
+
+    let Some(window) = app.get_webview_window("main") else {
+        log::warn!("Main window is unavailable while revealing the application");
+        return Ok(());
+    };
+
+    window.show()?;
+    if let Err(error) = window.set_focus() {
+        log::warn!("Failed to focus the main window: {}", error);
+    }
+
+    Ok(())
+}
+
+pub(crate) fn mark_frontend_ready(app: &tauri::AppHandle) {
+    app.state::<StartupWindowState>().mark_frontend_ready();
+}
+
+fn spawn_window_show_fallback(app: &tauri::App) {
+    let app_handle = app.handle().clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(WINDOW_SHOW_FALLBACK_DELAY).await;
+
+        let state = app_handle.state::<StartupWindowState>();
+        if state.is_frontend_ready() {
+            return;
+        }
+
+        log::warn!(
+            "Frontend did not signal readiness within {:?}; showing the main window",
+            WINDOW_SHOW_FALLBACK_DELAY
+        );
+        if let Err(error) = reveal_main_window(&app_handle) {
+            log::error!("Failed to show the main window during fallback: {}", error);
+        }
+        state.mark_frontend_ready();
+    });
 }
 
 fn spawn_event_forwarder(app: &tauri::App) {
