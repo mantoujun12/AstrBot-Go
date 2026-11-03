@@ -8,6 +8,7 @@ use crate::config::{
     has_config_record, has_manifest_record, with_config_mut, with_manifest_mut, AppConfig,
     AppManifest, InstalledVersion, InstanceConfig, LanguagePreference, ThemePreference,
 };
+use crate::network_config::apply_legacy_mainland_presets;
 use crate::utils::paths::{config_path, manifest_path};
 
 const MANIFEST_FIELDS: [&str; 3] = [
@@ -22,8 +23,6 @@ fn default_true() -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct LegacyAppConfig {
-    #[serde(default)]
-    mainland_acceleration: bool,
     #[serde(default)]
     instances: HashMap<String, InstanceConfig>,
     #[serde(default)]
@@ -65,7 +64,6 @@ struct LegacyAppConfig {
 impl LegacyAppConfig {
     fn into_config(self) -> AppConfig {
         AppConfig {
-            mainland_acceleration: self.mainland_acceleration,
             github_proxy: self.github_proxy,
             proxy_url: self.proxy_url,
             proxy_port: self.proxy_port,
@@ -74,6 +72,8 @@ impl LegacyAppConfig {
             pypi_mirror: self.pypi_mirror,
             nodejs_mirror: self.nodejs_mirror,
             npm_registry: self.npm_registry,
+            python_mirror: String::new(),
+            uv_mirror: String::new(),
             use_uv_for_deps: self.use_uv_for_deps,
             close_to_tray: self.close_to_tray,
             autostart_minimize_to_tray: self.autostart_minimize_to_tray,
@@ -149,32 +149,51 @@ fn merge_manifest(target: &mut AppManifest, source: &AppManifest) {
     }
 }
 
+fn legacy_mainland_acceleration(content: &str) -> bool {
+    toml::from_str::<toml::Value>(content)
+        .ok()
+        .and_then(|value| value.as_table().cloned())
+        .and_then(|table| {
+            table
+                .get("mainland_acceleration")
+                .and_then(toml::Value::as_bool)
+        })
+        .unwrap_or(false)
+}
+
 fn load_legacy_state(
     config_toml: Option<String>,
     manifest_toml: Option<String>,
 ) -> (Option<AppConfig>, Option<AppManifest>) {
-    let parsed_config =
-        config_toml
-            .as_deref()
-            .and_then(|content| match toml::from_str::<AppConfig>(content) {
-                Ok(config) => Some(config),
-                Err(error) => {
-                    log::warn!(
-                        "Migration: failed to parse config.toml as AppConfig: {}",
-                        error
-                    );
-                    toml::from_str::<LegacyAppConfig>(content)
-                        .map(LegacyAppConfig::into_config)
-                        .map_err(|legacy_error| {
-                            log::warn!(
-                                "Migration: failed to parse config.toml as LegacyAppConfig: {}",
-                                legacy_error
-                            );
+    let parsed_config = config_toml.as_deref().and_then(|content| {
+        let legacy_mainland = legacy_mainland_acceleration(content);
+        let parsed = match toml::from_str::<AppConfig>(content) {
+            Ok(config) => Some(config),
+            Err(error) => {
+                log::warn!(
+                    "Migration: failed to parse config.toml as AppConfig: {}",
+                    error
+                );
+                toml::from_str::<LegacyAppConfig>(content)
+                    .map(LegacyAppConfig::into_config)
+                    .map_err(|legacy_error| {
+                        log::warn!(
+                            "Migration: failed to parse config.toml as LegacyAppConfig: {}",
                             legacy_error
-                        })
-                        .ok()
-                }
-            });
+                        );
+                        legacy_error
+                    })
+                    .ok()
+            }
+        };
+
+        parsed.map(|mut config| {
+            if legacy_mainland {
+                apply_legacy_mainland_presets(&mut config);
+            }
+            config
+        })
+    });
 
     let manifest_from_file = manifest_toml.as_deref().and_then(|content| {
         toml::from_str::<AppManifest>(content)

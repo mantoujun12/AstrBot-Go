@@ -38,7 +38,6 @@ export type RepairPreserveScope =
   | "database_only";
 
 export interface AppConfig {
-  mainland_acceleration: boolean;
   github_proxy: string;
   proxy_url: string;
   proxy_port: string;
@@ -47,6 +46,8 @@ export interface AppConfig {
   pypi_mirror: string;
   nodejs_mirror: string;
   npm_registry: string;
+  python_mirror: string;
+  uv_mirror: string;
   use_uv_for_deps: boolean;
   close_to_tray: boolean;
   autostart_minimize_to_tray: boolean;

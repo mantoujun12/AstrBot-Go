@@ -6,6 +6,7 @@ use redb::{Database, ReadableDatabase as _, ReadableTable as _, TableDefinition}
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
+use crate::network_config::apply_legacy_mainland_presets;
 use crate::utils::paths::{data_db_path, ensure_data_dirs};
 
 static CONFIG_DB: OnceCell<Database> = OnceCell::new();
@@ -50,8 +51,6 @@ pub enum LanguagePreference {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     #[serde(default)]
-    pub mainland_acceleration: bool,
-    #[serde(default)]
     pub github_proxy: String,
     #[serde(default)]
     pub proxy_url: String,
@@ -67,6 +66,10 @@ pub struct AppConfig {
     pub nodejs_mirror: String,
     #[serde(default)]
     pub npm_registry: String,
+    #[serde(default)]
+    pub python_mirror: String,
+    #[serde(default)]
+    pub uv_mirror: String,
     #[serde(default)]
     pub use_uv_for_deps: bool,
     #[serde(default = "default_true")]
@@ -92,7 +95,6 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            mainland_acceleration: false,
             github_proxy: String::new(),
             proxy_url: String::new(),
             proxy_port: String::new(),
@@ -101,6 +103,8 @@ impl Default for AppConfig {
             pypi_mirror: String::new(),
             nodejs_mirror: String::new(),
             npm_registry: String::new(),
+            python_mirror: String::new(),
+            uv_mirror: String::new(),
             use_uv_for_deps: false,
             close_to_tray: true,
             autostart_minimize_to_tray: false,
@@ -185,6 +189,12 @@ fn insert_manifest_value(value: &AppManifest) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct LegacyNetworkConfig {
+    #[serde(default)]
+    mainland_acceleration: bool,
+}
+
 fn load_or_init_config_value() -> Result<AppConfig> {
     let stored = {
         let db = config_db()?;
@@ -193,23 +203,38 @@ fn load_or_init_config_value() -> Result<AppConfig> {
         table
             .get(&ROOT_ROW_KEY)
             .map_err(map_redb_error)?
-            .map(|raw| deserialize_value::<AppConfig>(raw.value()))
+            .map(|raw| -> Result<(AppConfig, bool)> {
+                let config = deserialize_value::<AppConfig>(raw.value())?;
+                let legacy =
+                    serde_json::from_slice::<LegacyNetworkConfig>(raw.value()).unwrap_or_default();
+                Ok((config, legacy.mainland_acceleration))
+            })
     };
 
-    if let Some(Ok(config)) = stored {
-        return Ok(config);
+    match stored {
+        Some(Ok((mut config, legacy_mainland))) => {
+            if legacy_mainland {
+                apply_legacy_mainland_presets(&mut config);
+                insert_config_value(&config)?;
+                log::info!("Migrated legacy mainland acceleration to per-source settings");
+            }
+            Ok(config)
+        }
+        Some(Err(error)) => {
+            log::warn!(
+                "Config record is corrupted JSON, resetting to default value: {}",
+                error
+            );
+            let default = AppConfig::default();
+            insert_config_value(&default)?;
+            Ok(default)
+        }
+        None => {
+            let default = AppConfig::default();
+            insert_config_value(&default)?;
+            Ok(default)
+        }
     }
-
-    if let Some(Err(error)) = stored {
-        log::warn!(
-            "Config record is corrupted JSON, resetting to default value: {}",
-            error
-        );
-    }
-
-    let default = AppConfig::default();
-    insert_config_value(&default)?;
-    Ok(default)
 }
 
 fn load_or_init_manifest_value() -> Result<AppManifest> {
@@ -526,6 +551,22 @@ version = "v4.0.0"
         assert_eq!(decoded.arch_target, metadata.arch_target);
         assert_eq!(decoded.auto_generated, metadata.auto_generated);
         assert_eq!(decoded.note, metadata.note);
+        Ok(())
+    }
+
+    #[test]
+    fn network_source_fields_default_to_empty() -> Result<()> {
+        let config: AppConfig = serde_json::from_str("{}")?;
+        assert!(config.python_mirror.is_empty());
+        assert!(config.uv_mirror.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_mainland_flag_is_detected_from_json() -> Result<()> {
+        let legacy: LegacyNetworkConfig =
+            serde_json::from_str(r#"{"mainland_acceleration":true}"#)?;
+        assert!(legacy.mainland_acceleration);
         Ok(())
     }
 

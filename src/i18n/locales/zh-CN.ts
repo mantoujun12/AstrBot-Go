@@ -68,11 +68,8 @@ const zhCN = {
       }
     },
     "network": {
-      "mainlandAcceleration": "大陆加速",
       "githubProxy": "GitHub 代理",
-      "saveGithubProxy": "保存 GitHub 代理",
       "httpProxy": "HTTP 代理",
-      "proxyDisabled": "大陆加速开启时不可用",
       "fields": {
         "url": "地址",
         "port": "端口",
@@ -81,11 +78,34 @@ const zhCN = {
       },
       "saveHttpProxy": "保存 HTTP 代理",
       "pypiMirror": "PyPI 镜像",
-      "savePypiMirror": "保存 PyPI 镜像",
       "nodejsMirror": "Node.js 镜像",
-      "saveNodejsMirror": "保存 Node.js 镜像",
       "npmRegistry": "npm registry",
-      "saveNpmRegistry": "保存 npm registry"
+      "pythonMirror": "Python 运行时镜像",
+      "uvMirror": "uv 镜像",
+      "sources": {
+        "default": "默认源",
+        "followGithub": "跟随 GitHub 代理",
+        "custom": "自定义源",
+        "customPlaceholder": "https://example.com/",
+        "test": "测速",
+        "testing": "测试中 {done}/{total}",
+        "testHint": "点击：串行测试全部源。\nCtrl+点击：仅测试当前选中源；Shift+点击：并行测试全部源。",
+        "testHttp": "测试代理",
+        "httpTestHint": "使用当前表单内容测试 HTTP 代理的延迟和下载速度",
+        "latency": "延迟",
+        "speed": "速度",
+        "unavailable": "不可用",
+        "failed": "失败",
+        "invalidUrl": "请输入有效的 http(s) 地址",
+        "tuna": "清华大学 TUNA",
+        "ustc": "中国科学技术大学",
+        "aliyun": "阿里云",
+        "cernet": "CERNET",
+        "nju": "南京大学",
+        "npmmirror": "npmmirror",
+        "tencent": "腾讯云",
+        "huawei": "华为云"
+      }
     },
     "data": {
       "dataDirectory": "数据目录",

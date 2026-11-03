@@ -12,7 +12,6 @@ use crate::error::{AppError, Result};
 use crate::github::fetch_python_releases;
 use crate::network_config;
 use crate::platform::{find_python_asset_for_version, get_python310_asset};
-use crate::utils::index_url::wrap_with_proxy;
 use crate::utils::log_redact;
 use crate::utils::net::{ensure_success_status, send_get};
 use crate::utils::paths::{get_python_exe_path, get_python_runtime_dir, get_venv_python};
@@ -287,20 +286,20 @@ async fn install_python_version(
     app_handle: Option<&AppHandle>,
 ) -> Result<String> {
     let (url, python_version) = match load_config() {
-        Ok(config) if network_config::mainland_acceleration(config.as_ref()) => {
-            find_mainland_python_asset(client, major_version).await?
-        }
         Ok(config) => {
-            let (github_url, python_version) =
-                find_github_python_asset(client, major_version).await?;
-
-            (
-                network_config::build_github_python_asset_download_url(
-                    config.as_ref(),
-                    &github_url,
-                ),
-                python_version,
-            )
+            if let Some(base) = network_config::python_mirror(config.as_ref()) {
+                find_mirror_python_asset(client, base, major_version, config.as_ref()).await?
+            } else {
+                let (github_url, python_version) =
+                    find_github_python_asset(client, major_version).await?;
+                (
+                    network_config::build_github_python_asset_download_url(
+                        config.as_ref(),
+                        &github_url,
+                    ),
+                    python_version,
+                )
+            }
         }
         Err(_) => find_github_python_asset(client, major_version).await?,
     };
@@ -328,24 +327,25 @@ async fn install_python_version(
     Ok(python_version)
 }
 
-async fn find_mainland_python_asset(
+async fn find_mirror_python_asset(
     client: &Client,
+    base: &str,
     major_version: &str,
+    config: &AppConfig,
 ) -> Result<(String, String)> {
     // The latest-only mirror no longer carries Python 3.10. Download its final
-    // build through the existing mainland GitHub acceleration service instead.
+    // build from GitHub instead, still honoring the configured GitHub proxy.
     if major_version == "3.10" {
         let (url, version) = get_python310_asset().map_err(AppError::python)?;
         return Ok((
-            wrap_with_proxy(network_config::MAINLAND_ASTRBOT_DOWNLOAD_PROXY, &url),
+            network_config::build_github_python_asset_download_url(config, &url),
             version,
         ));
     }
 
-    let asset_names = fetch_mainland_python_asset_names(client).await?;
-    let (asset_name, version) =
-        find_mainland_python_asset_for_version(&asset_names, major_version)?;
-    let url = network_config::build_mainland_python_asset_download_url(&asset_name);
+    let asset_names = fetch_python_asset_names(client, base).await?;
+    let (asset_name, version) = find_python_asset_in_mirror(&asset_names, major_version)?;
+    let url = network_config::build_mirror_python_asset_download_url(base, &asset_name);
     Ok((url, version))
 }
 
@@ -371,9 +371,8 @@ async fn find_github_python_asset(
     )))
 }
 
-async fn fetch_mainland_python_asset_names(client: &Client) -> Result<Vec<String>> {
-    let url = network_config::MAINLAND_PYTHON_BUILD_STANDALONE_BASE;
-    let resp = send_get(client, url, false)
+async fn fetch_python_asset_names(client: &Client, base: &str) -> Result<Vec<String>> {
+    let resp = send_get(client, base, false)
         .await
         .map_err(|e| AppError::network(e.to_string()))?;
     ensure_success_status(&resp, AppError::network)?;
@@ -433,7 +432,7 @@ fn push_python_asset_candidate(asset_names: &mut Vec<String>, candidate: &str) {
     asset_names.push(decoded_name);
 }
 
-fn find_mainland_python_asset_for_version(
+fn find_python_asset_in_mirror(
     asset_names: &[String],
     major_version: &str,
 ) -> Result<(String, String)> {
@@ -452,7 +451,7 @@ fn find_mainland_python_asset_for_version(
     }
 
     Err(AppError::python(format!(
-        "No Python {} asset found in mainland mirror for current platform",
+        "No Python {} asset found in mirror for current platform",
         major_version
     )))
 }

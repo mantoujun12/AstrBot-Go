@@ -85,6 +85,19 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   --astrbot-menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
 }
 
+// Tooltips: Vuetify defaults use surface-variant, which clashes with the app's
+// custom on-surface-variant and renders low-contrast text in both themes.
+.v-tooltip > .v-overlay__content {
+  max-width: min(360px, calc(100vw - 24px));
+  padding: 8px 12px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 8px;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+  white-space: pre-line;
+}
+
 .v-overlay.v-menu {
   .v-overlay__content > .v-card,
   .v-overlay__content > .v-list {
