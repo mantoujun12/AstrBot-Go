@@ -13,6 +13,7 @@ import StatusChip from "../components/common/StatusChip.vue";
 import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import InstanceFormDialog from "../components/instances/InstanceFormDialog.vue";
 import RepairDialog from "../components/instances/RepairDialog.vue";
+import ResourceMonitorDialog from "../components/instances/ResourceMonitorDialog.vue";
 import { useOperation } from "../composables/useOperation";
 import { translateDynamicKey } from "../i18n/dynamic";
 import { openExternalUrl } from "../services/app";
@@ -111,6 +112,8 @@ const formBusy = computed(() => {
 
 const repairOpen = ref(false);
 const repairTarget = ref<InstanceStatus | null>(null);
+const resourceOpen = ref(false);
+const resourceTarget = ref<InstanceStatus | null>(null);
 
 type ConfirmKind =
   | "delete"
@@ -703,6 +706,11 @@ function openLogs(instance: InstanceStatus): void {
   void router.push({ path: "/logs", query: { source: instance.id } });
 }
 
+function openResourceMonitor(instance: InstanceStatus): void {
+  resourceTarget.value = instance;
+  resourceOpen.value = true;
+}
+
 function openWebui(instance: InstanceStatus): void {
   openInstanceTab(instance.id);
 }
@@ -870,6 +878,15 @@ function openWebui(instance: InstanceStatus): void {
               {{ t("common.actions.open") }}
             </v-btn>
 
+            <v-btn
+              v-if="item.state === 'running'"
+              icon="mdi-chart-timeline-variant"
+              variant="text"
+              size="small"
+              :aria-label="t('resources.open')"
+              @click="openResourceMonitor(item)"
+            />
+
             <v-menu location="bottom end">
               <template #activator="{ props }">
                 <v-btn
@@ -908,6 +925,11 @@ function openWebui(instance: InstanceStatus): void {
                   prepend-icon="mdi-text-box-outline"
                   :title="t('instances.actions.viewLogs')"
                   @click="openLogs(item)"
+                />
+                <v-list-item
+                  prepend-icon="mdi-chart-timeline-variant"
+                  :title="t('resources.title')"
+                  @click="openResourceMonitor(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-open-in-new"
@@ -961,6 +983,11 @@ function openWebui(instance: InstanceStatus): void {
     />
 
     <RepairDialog v-model="repairOpen" @submit="handleRepair" />
+
+    <ResourceMonitorDialog
+      v-model="resourceOpen"
+      :instance="resourceTarget"
+    />
 
     <ConfirmDialog
       v-model="confirmOpen"

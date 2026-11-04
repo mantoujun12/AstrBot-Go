@@ -11,8 +11,12 @@ use tokio::sync::{broadcast, watch};
 
 use super::control::graceful_shutdown;
 use super::monitor;
-use super::{InstanceProcess, InstanceRuntimeInfo, InstanceState, RuntimeEvent};
+use super::{
+    InstanceProcess, InstanceRuntimeInfo, InstanceState, ResourceAlertEvent,
+    ResourceAlertThreshold, ResourceSample, RuntimeEvent,
+};
 use crate::backup::find_pending_auto_backup;
+use crate::config::load_manifest;
 use crate::error::{AppError, ErrorKind, Result};
 use crate::instance::lifecycle;
 use crate::utils::sync::lock_mutex_recover;
@@ -43,6 +47,21 @@ pub(super) struct InstanceEntry {
 pub(super) struct ProcessState {
     pub(super) slots: HashMap<String, InstanceEntry>,
     pub(super) shutting_down: bool,
+}
+
+fn configured_resource_thresholds(instance_id: &str) -> ResourceAlertThreshold {
+    let Ok(manifest) = load_manifest() else {
+        return ResourceAlertThreshold::default();
+    };
+    let Some(instance) = manifest.instances.get(instance_id) else {
+        return ResourceAlertThreshold::default();
+    };
+
+    ResourceAlertThreshold {
+        cpu_percent: instance.resource_alert_cpu_percent,
+        memory_bytes: instance.resource_alert_memory_bytes,
+        disk_bytes: instance.resource_alert_disk_bytes,
+    }
 }
 
 impl ProcessState {
@@ -146,12 +165,14 @@ impl ProcessState {
 pub struct ProcessManager {
     state: Arc<Mutex<ProcessState>>,
     runtime_events: broadcast::Sender<RuntimeEvent>,
+    resource_alerts: broadcast::Sender<ResourceAlertEvent>,
     shutdown_signal: watch::Sender<bool>,
 }
 
 impl ProcessManager {
     pub fn new() -> Self {
         let (runtime_events, _) = broadcast::channel(128);
+        let (resource_alerts, _) = broadcast::channel(64);
         let (shutdown_signal, _) = watch::channel(false);
         let state = Arc::new(Mutex::new(ProcessState {
             slots: HashMap::new(),
@@ -161,6 +182,7 @@ impl ProcessManager {
         Self {
             state,
             runtime_events,
+            resource_alerts,
             shutdown_signal,
         }
     }
@@ -171,17 +193,22 @@ impl ProcessManager {
     pub fn start_monitor(&self) {
         let monitor_state = Arc::clone(&self.state);
         let monitor_events = self.runtime_events.clone();
+        let monitor_alerts = self.resource_alerts.clone();
         tauri::async_runtime::spawn(async move {
             let mut interval = tokio::time::interval(super::MONITOR_INTERVAL);
             loop {
                 interval.tick().await;
-                monitor::poll_instances(&monitor_state, &monitor_events);
+                monitor::poll_instances(&monitor_state, &monitor_events, &monitor_alerts).await;
             }
         });
     }
 
     pub fn subscribe_runtime_events(&self) -> broadcast::Receiver<RuntimeEvent> {
         self.runtime_events.subscribe()
+    }
+
+    pub fn subscribe_resource_alerts(&self) -> broadcast::Receiver<ResourceAlertEvent> {
+        self.resource_alerts.subscribe()
     }
 
     // -- Sync methods (direct lock → read/write → unlock) ---------------------
@@ -236,6 +263,66 @@ impl ProcessManager {
             .filter(|(_, entry)| matches!(&entry.slot, Some(Slot::Live(_)) | Some(Slot::Starting)))
             .map(|(id, _)| id.clone())
             .collect()
+    }
+
+    /// Return the full resource history for a live instance.
+    pub fn get_resource_history(&self, id: &str) -> Vec<ResourceSample> {
+        let state = lock_mutex_recover(&self.state, "ProcessState");
+        match state.slots.get(id) {
+            Some(InstanceEntry {
+                slot: Some(Slot::Live(process)),
+                ..
+            }) => process.resource_history.samples().iter().cloned().collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Return the latest resource sample for every live instance.
+    pub fn get_all_latest_resources(&self) -> HashMap<String, ResourceSample> {
+        let state = lock_mutex_recover(&self.state, "ProcessState");
+        state
+            .slots
+            .iter()
+            .filter_map(|(id, entry)| match &entry.slot {
+                Some(Slot::Live(process)) => process
+                    .resource_history
+                    .latest()
+                    .map(|sample| (id.clone(), sample.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Apply alert thresholds to a live instance.
+    pub fn set_resource_thresholds(
+        &self,
+        id: &str,
+        thresholds: ResourceAlertThreshold,
+    ) -> Result<()> {
+        let mut state = lock_mutex_recover(&self.state, "ProcessState");
+        match state.slots.get_mut(id) {
+            Some(InstanceEntry {
+                slot: Some(Slot::Live(process)),
+                ..
+            }) => {
+                process.resource_thresholds = thresholds;
+                process.active_alerts.clear();
+                Ok(())
+            }
+            _ => Err(AppError::instance_not_running()),
+        }
+    }
+
+    /// Return the active threshold configuration for a live instance.
+    pub fn get_resource_thresholds(&self, id: &str) -> Option<ResourceAlertThreshold> {
+        let state = lock_mutex_recover(&self.state, "ProcessState");
+        match state.slots.get(id) {
+            Some(InstanceEntry {
+                slot: Some(Slot::Live(process)),
+                ..
+            }) => Some(process.resource_thresholds.clone()),
+            _ => None,
+        }
     }
 
     /// Acquire a guard that prevents lifecycle operations on the instance.
@@ -406,19 +493,22 @@ impl ProcessManager {
             )));
         }
 
+        let thresholds = configured_resource_thresholds(id);
         let mut state = lock_mutex_recover(&self.state, "ProcessState");
         match result {
             Ok(launch) => {
                 let port = launch.port;
                 if let Some(entry) = state.slots.get_mut(id) {
-                    entry.slot = Some(Slot::Live(InstanceProcess::new(
+                    let mut process = InstanceProcess::new(
                         launch.pid,
                         launch.executable_path,
                         launch.port,
                         launch.dashboard_enabled,
                         #[cfg(target_os = "windows")]
                         launch.job_object,
-                    )));
+                    );
+                    process.resource_thresholds = thresholds;
+                    entry.slot = Some(Slot::Live(process));
                 }
                 drop(state);
                 self.emit(id, InstanceState::Running);

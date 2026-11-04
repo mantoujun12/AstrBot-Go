@@ -141,6 +141,9 @@ fn scan_instances() -> Result<HashMap<String, InstanceConfig>> {
             port: 0,
             created_at: chrono::Utc::now().to_rfc3339(),
             check_update_enabled: true,
+            resource_alert_cpu_percent: None,
+            resource_alert_memory_bytes: None,
+            resource_alert_disk_bytes: None,
         };
 
         instances.insert(instance_id, instance);

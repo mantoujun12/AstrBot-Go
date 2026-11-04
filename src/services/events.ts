@@ -6,6 +6,7 @@ import type {
   DownloadProgress,
   LogEntry,
   LogLevel,
+  ResourceAlertEvent,
 } from "../types/launcher";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -116,6 +117,27 @@ function toDefaultCredentials(value: unknown): DefaultCredentials | null {
   };
 }
 
+function toResourceAlert(value: unknown): ResourceAlertEvent | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const metric = value.metric;
+  if (
+    typeof value.instance_id !== "string" ||
+    (metric !== "cpu" && metric !== "memory" && metric !== "disk") ||
+    typeof value.value !== "number" ||
+    typeof value.threshold !== "number"
+  ) {
+    return null;
+  }
+  return {
+    instance_id: value.instance_id,
+    metric,
+    value: value.value,
+    threshold: value.threshold,
+  };
+}
+
 export function listenAppSnapshot(
   handler: (snapshot: AppSnapshot) => void,
 ): Promise<UnlistenFn> {
@@ -166,6 +188,17 @@ export function listenDefaultCredentials(
     const credentials = toDefaultCredentials(event.payload);
     if (credentials) {
       handler(credentials);
+    }
+  });
+}
+
+export function listenResourceAlert(
+  handler: (alert: ResourceAlertEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<unknown>("resource-alert", (event) => {
+    const alert = toResourceAlert(event.payload);
+    if (alert) {
+      handler(alert);
     }
   });
 }

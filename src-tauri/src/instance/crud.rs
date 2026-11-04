@@ -158,6 +158,9 @@ pub fn create_instance(name: &str, version: &str, port: u16) -> Result<()> {
             port,
             created_at: chrono::Utc::now().to_rfc3339(),
             check_update_enabled: true,
+            resource_alert_cpu_percent: None,
+            resource_alert_memory_bytes: None,
+            resource_alert_disk_bytes: None,
         };
 
         manifest.instances.insert(key, instance);

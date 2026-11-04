@@ -497,6 +497,39 @@ const zhCN = {
       "notRunning": "实例未运行"
     }
   },
+  "resources": {
+    "title": "资源监控",
+    "open": "查看资源监控",
+    "stoppedHint": "实例运行后可采集资源数据。",
+    "metrics": {
+      "cpu": "CPU",
+      "memory": "内存",
+      "disk": "磁盘"
+    },
+    "charts": {
+      "cpu": "CPU 趋势",
+      "storage": "内存与磁盘趋势",
+      "empty": "暂无采样"
+    },
+    "thresholds": {
+      "title": "阈值告警",
+      "cpu": "CPU 上限",
+      "memory": "内存上限",
+      "disk": "磁盘上限",
+      "invalid": "请输入大于 0 的数值，留空表示不限制。",
+      "saved": "阈值已保存"
+    },
+    "alerts": {
+      "breached": "资源告警：{name} 的{metric}达到 {value}",
+      "current": "当前超过阈值：{metrics}",
+      "separator": "，"
+    },
+    "units": {
+      "percent": "%",
+      "mib": "MB",
+      "gib": "GB"
+    }
+  },
   "backups": {
     "title": "备份",
     "createBackup": "创建备份",

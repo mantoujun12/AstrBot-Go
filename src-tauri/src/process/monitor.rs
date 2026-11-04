@@ -1,4 +1,4 @@
-//! Runtime monitoring: liveness probes and state reconciliation.
+//! Runtime monitoring: liveness probes, resource sampling, and state reconciliation.
 //!
 //! All evaluation functions are standalone — they take snapshot data and return results.
 //! The monitor task (spawned by ProcessManager) calls `poll_instances` on a timer.
@@ -9,7 +9,11 @@ use std::time::Instant;
 
 use super::control::is_expected_process_alive;
 use super::manager::{InstanceEntry, ProcessState, Slot};
-use super::{InstanceState, RuntimeEvent};
+use super::{
+    compute_disk_usage, sample_metric, sample_process_resources, unix_secs_now, CpuMeter,
+    InstanceState, ResourceAlertEvent, ResourceSample, RuntimeEvent,
+};
+use crate::utils::paths::get_instance_dir;
 use crate::utils::sync::lock_mutex_recover;
 
 #[cfg(target_os = "windows")]
@@ -20,6 +24,7 @@ use super::win_api::get_pid_on_port;
 use super::ALIVE_EXIT_THRESHOLD;
 
 /// Snapshot of a single live instance for evaluation.
+#[derive(Clone)]
 struct LiveSnapshot {
     id: String,
     port: u16,
@@ -28,6 +33,13 @@ struct LiveSnapshot {
     dashboard_enabled: bool,
     alive_failure_count: u32,
     next_alive_check_at: Option<Instant>,
+    /// Flag indicating whether a disk sample should be taken on this tick
+    /// (carried over from the previous state to maintain throttling cadence).
+    disk_sample_tick: u32,
+    /// Last measured disk usage, reused between throttled disk probes.
+    last_disk_bytes: Option<u64>,
+    /// Cumulative CPU usage meter from the previous monitor tick.
+    cpu_meter: CpuMeter,
 }
 
 /// Outcome of evaluating a single instance during monitoring.
@@ -44,13 +56,26 @@ enum MonitorOutcome {
     },
 }
 
+/// Resource sampling result for a live instance.
+struct ResourceOutcome {
+    id: String,
+    sample: ResourceSample,
+    /// Current tick counter for disk sampling throttling.
+    disk_sample_tick: u32,
+    /// Updated CPU meter to apply back to the live process.
+    cpu_meter: CpuMeter,
+}
+
 /// Entry point called by the monitor task on each tick.
 ///
 /// Snap-then-apply: locks briefly to snapshot, evaluates with no
 /// lock held, then locks again to apply results.
-pub(super) fn poll_instances(
+///
+/// Emits state changes and resource alert events outside the state lock.
+pub(super) async fn poll_instances(
     state: &Mutex<ProcessState>,
     runtime_events: &tokio::sync::broadcast::Sender<RuntimeEvent>,
+    resource_alerts: &tokio::sync::broadcast::Sender<ResourceAlertEvent>,
 ) {
     // Phase 1: lock → snapshot Live slots → unlock
     let entries: Vec<LiveSnapshot> = {
@@ -71,6 +96,9 @@ pub(super) fn poll_instances(
                         dashboard_enabled: p.dashboard_enabled,
                         alive_failure_count: p.alive_failure_count,
                         next_alive_check_at: p.next_alive_check_at,
+                        disk_sample_tick: p.resource_history.disk_sample_tick,
+                        last_disk_bytes: p.resource_history.last_disk_bytes,
+                        cpu_meter: p.resource_history.cpu_meter.clone(),
                     })
                 } else {
                     None
@@ -86,18 +114,49 @@ pub(super) fn poll_instances(
     // Phase 2: evaluate liveness
     let outcomes = evaluate_instances(&entries);
 
+    // Phase 2b: sample resources in a blocking task. Disk traversal can be
+    // expensive and must not stall the async monitor loop.
+    let alive_ids: std::collections::HashSet<String> = outcomes
+        .iter()
+        .filter_map(|outcome| match outcome {
+            MonitorOutcome::Alive { id, .. } => Some(id.clone()),
+            MonitorOutcome::Dead { .. } => None,
+        })
+        .collect();
+    let resource_outcomes = if alive_ids.is_empty() {
+        Vec::new()
+    } else {
+        let sample_entries = entries.clone();
+        match tokio::task::spawn_blocking(move || sample_resources(&sample_entries, &alive_ids))
+            .await
+        {
+            Ok(results) => results,
+            Err(error) => {
+                log::warn!("Resource sampling task failed: {}", error);
+                Vec::new()
+            }
+        }
+    };
+
     // Phase 3: lock → apply outcomes → unlock → collect events
-    let events = {
+    let (runtime_events_vec, alert_events_vec) = {
         let mut state = lock_mutex_recover(state, "ProcessState");
-        apply_outcomes(&mut state, &outcomes)
+        let runtime = apply_outcomes(&mut state, &outcomes);
+        let alerts = apply_resource_samples(&mut state, &resource_outcomes);
+        drop(state);
+        (runtime, alerts)
     };
 
     // Phase 4: emit events (outside lock)
-    for (id, new_state) in events {
+    for (id, new_state) in runtime_events_vec {
         let _ = runtime_events.send(RuntimeEvent {
             instance_id: id,
             state: new_state,
         });
+    }
+
+    for alert in alert_events_vec {
+        let _ = resource_alerts.send(alert);
     }
 }
 
@@ -120,7 +179,8 @@ fn evaluate_instances(entries: &[LiveSnapshot]) -> Vec<MonitorOutcome> {
     outcomes
 }
 
-/// Apply monitor outcomes to the live process state. Returns events to emit.
+/// Apply monitor outcomes to the live process state. Returns runtime state
+/// change events to emit.
 fn apply_outcomes(
     state: &mut ProcessState,
     outcomes: &[MonitorOutcome],
@@ -150,22 +210,20 @@ fn apply_outcomes(
                 next_alive_check_at,
                 new_pid,
             } => {
-                if let Some(InstanceEntry {
-                    slot: Some(Slot::Live(p)),
-                    ..
-                }) = state.slots.get_mut(id)
-                {
-                    p.alive_failure_count = *alive_failure_count;
-                    p.next_alive_check_at = *next_alive_check_at;
-                    if let Some(new_pid) = new_pid {
-                        log::info!(
-                            "Instance {} PID updated: {} -> {} (port {})",
-                            id,
-                            p.pid,
-                            new_pid,
-                            p.port
-                        );
-                        p.pid = *new_pid;
+                if let Some(entry) = state.slots.get_mut(id) {
+                    if let Some(Slot::Live(p)) = &mut entry.slot {
+                        p.alive_failure_count = *alive_failure_count;
+                        p.next_alive_check_at = *next_alive_check_at;
+                        if let Some(new_pid) = new_pid {
+                            log::info!(
+                                "Instance {} PID updated: {} -> {} (port {})",
+                                id,
+                                p.pid,
+                                new_pid,
+                                p.port
+                            );
+                            p.pid = *new_pid;
+                        }
                     }
                 }
             }
@@ -175,14 +233,111 @@ fn apply_outcomes(
     events
 }
 
+// -- Resource sampling -------------------------------------------------------
+
+/// Sample CPU/memory/disk for instances that remain alive after liveness evaluation.
+fn sample_resources(
+    entries: &[LiveSnapshot],
+    alive_ids: &std::collections::HashSet<String>,
+) -> Vec<ResourceOutcome> {
+    let mut results = Vec::new();
+
+    for entry in entries {
+        if !alive_ids.contains(&entry.id) {
+            continue;
+        }
+
+        let timestamp = unix_secs_now();
+        let mut cpu_meter = entry.cpu_meter.clone();
+        let (cpu_percent, memory_bytes) = sample_process_resources(entry.pid, &mut cpu_meter);
+
+        // Disk sampling is throttled, but the last measured value is carried
+        // into every sample so charts show a continuous disk line.
+        let next_tick = entry.disk_sample_tick.wrapping_add(1);
+        let should_sample_disk = super::resource::is_disk_sample_due(next_tick);
+
+        let disk_bytes = if should_sample_disk {
+            compute_disk_usage(&get_instance_dir(&entry.id)).or(entry.last_disk_bytes)
+        } else {
+            entry.last_disk_bytes
+        };
+
+        let sample = ResourceSample {
+            timestamp,
+            cpu_percent,
+            memory_bytes,
+            disk_bytes,
+        };
+
+        results.push(ResourceOutcome {
+            id: entry.id.clone(),
+            sample,
+            disk_sample_tick: next_tick,
+            cpu_meter,
+        });
+    }
+
+    results
+}
+
+/// Apply resource samples to live slots and detect alert transitions.
+/// Returns alert events that should be emitted.
+fn apply_resource_samples(
+    state: &mut ProcessState,
+    outcomes: &[ResourceOutcome],
+) -> Vec<ResourceAlertEvent> {
+    let mut alerts = Vec::new();
+
+    for outcome in outcomes {
+        let Some(entry) = state.slots.get_mut(&outcome.id) else {
+            continue;
+        };
+        let Some(Slot::Live(p)) = &mut entry.slot else {
+            continue;
+        };
+
+        p.resource_history.disk_sample_tick = outcome.disk_sample_tick;
+        p.resource_history.cpu_meter = outcome.cpu_meter.clone();
+        p.resource_history.push(outcome.sample.clone());
+
+        let threshold = p.resource_thresholds.clone();
+        if threshold.is_empty() {
+            p.active_alerts.clear();
+            continue;
+        }
+
+        let breached = threshold.breached_metrics(&outcome.sample);
+        let breached_set: std::collections::HashSet<&str> = breached.iter().copied().collect();
+
+        for metric in breached {
+            if !p.active_alerts.insert(metric.to_string()) {
+                continue;
+            }
+            let Some(value) = sample_metric(&outcome.sample, metric) else {
+                continue;
+            };
+            let Some(threshold_value) = threshold.threshold_for(metric) else {
+                continue;
+            };
+            alerts.push(ResourceAlertEvent {
+                instance_id: outcome.id.clone(),
+                metric: metric.to_string(),
+                value,
+                threshold: threshold_value,
+            });
+        }
+
+        p.active_alerts
+            .retain(|metric| breached_set.contains(metric.as_str()));
+    }
+
+    alerts
+}
+
 // -- Liveness evaluation ------------------------------------------------------
 
 /// Evaluate liveness for a single instance. Returns `None` if the process is
 /// dead (slot should be removed), `Some(MonitorOutcome::Alive { .. })` if alive.
-///
-/// Platform-specific probing is delegated to [`probe_liveness`], which returns
-/// `None` for terminal death or `Some((alive_failure_count, next_alive_check_at,
-/// new_pid))` when the process is alive or retriable.
 fn evaluate_liveness(entry: &LiveSnapshot, now: Instant) -> Option<MonitorOutcome> {
     // Backoff: not yet time to probe — preserve previous counters.
     // On non-Windows this is always a no-op (next_alive_check_at is always None).

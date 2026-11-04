@@ -502,6 +502,39 @@ const enUS = {
       notRunning: "Instance is not running",
     },
   },
+  resources: {
+    title: "Resource Monitor",
+    open: "View resource monitor",
+    stoppedHint: "Resource data is collected while the instance is running.",
+    metrics: {
+      cpu: "CPU",
+      memory: "Memory",
+      disk: "Disk",
+    },
+    charts: {
+      cpu: "CPU trend",
+      storage: "Memory and disk trend",
+      empty: "No samples yet",
+    },
+    thresholds: {
+      title: "Threshold alerts",
+      cpu: "CPU limit",
+      memory: "Memory limit",
+      disk: "Disk limit",
+      invalid: "Enter a value greater than 0, or leave it empty for no limit.",
+      saved: "Thresholds saved",
+    },
+    alerts: {
+      breached: "Resource alert: {name} {metric} reached {value}",
+      current: "Currently above threshold: {metrics}",
+      separator: ", ",
+    },
+    units: {
+      percent: "%",
+      mib: "MB",
+      gib: "GB",
+    },
+  },
   backups: {
     title: "Backups",
     createBackup: "Create Backup",

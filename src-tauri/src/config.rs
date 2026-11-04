@@ -435,6 +435,12 @@ pub struct InstanceConfig {
     pub created_at: String,
     #[serde(default = "default_true")]
     pub check_update_enabled: bool,
+    #[serde(default)]
+    pub resource_alert_cpu_percent: Option<f32>,
+    #[serde(default)]
+    pub resource_alert_memory_bytes: Option<u64>,
+    #[serde(default)]
+    pub resource_alert_disk_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

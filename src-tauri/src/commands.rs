@@ -9,12 +9,12 @@ use crate::backup;
 use crate::component;
 use crate::component::{ComponentActionResult, ComponentsSnapshot};
 use crate::config::{
-    load_config, load_manifest, reload_config, reload_manifest, with_config_mut, AppConfig,
-    AppManifest, BackupInfo, InstalledVersion, LanguagePreference, ThemePreference,
+    load_config, load_manifest, reload_config, reload_manifest, with_config_mut, with_manifest_mut,
+    AppConfig, AppManifest, BackupInfo, InstalledVersion, LanguagePreference, ThemePreference,
 };
 use crate::download;
 use crate::download_control;
-use crate::error::{AppError, Result};
+use crate::error::{AppError, ErrorKind, Result};
 use crate::github::{self, GitHubRelease};
 use crate::instance::{self, InstanceStatus};
 use crate::network_config::{self, NetworkSourceKind};
@@ -801,6 +801,101 @@ pub async fn get_instance_port(instance_id: String, state: State<'_, AppState>) 
         .process_manager
         .get_port(&instance_id)
         .ok_or_else(AppError::instance_not_running)
+}
+
+// === Resource Monitoring ===
+
+#[tauri::command]
+pub async fn get_instance_resource_history(
+    instance_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::process::ResourceSample>> {
+    Ok(state.process_manager.get_resource_history(&instance_id))
+}
+
+#[tauri::command]
+pub async fn get_resources_snapshot(
+    state: State<'_, AppState>,
+) -> Result<std::collections::HashMap<String, crate::process::ResourceSample>> {
+    Ok(state.process_manager.get_all_latest_resources())
+}
+
+fn validate_resource_thresholds(thresholds: &crate::process::ResourceAlertThreshold) -> Result<()> {
+    if thresholds
+        .cpu_percent
+        .is_some_and(|value| !value.is_finite() || value <= 0.0)
+    {
+        return Err(AppError::config(
+            "CPU threshold must be a positive finite number",
+        ));
+    }
+    if thresholds.memory_bytes == Some(0) {
+        return Err(AppError::config(
+            "Memory threshold must be greater than zero",
+        ));
+    }
+    if thresholds.disk_bytes == Some(0) {
+        return Err(AppError::config("Disk threshold must be greater than zero"));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_resource_alert_threshold(
+    instance_id: String,
+    thresholds: crate::process::ResourceAlertThreshold,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    validate_instance_id(&instance_id)?;
+    validate_resource_thresholds(&thresholds)?;
+
+    let stored = thresholds.clone();
+    let id = instance_id.clone();
+    with_manifest_mut(move |manifest| {
+        let instance = manifest
+            .instances
+            .get_mut(&id)
+            .ok_or_else(|| AppError::instance_not_found(&id))?;
+        instance.resource_alert_cpu_percent = stored.cpu_percent;
+        instance.resource_alert_memory_bytes = stored.memory_bytes;
+        instance.resource_alert_disk_bytes = stored.disk_bytes;
+        Ok(())
+    })?;
+
+    if state
+        .process_manager
+        .get_resource_thresholds(&instance_id)
+        .is_some()
+    {
+        match state
+            .process_manager
+            .set_resource_thresholds(&instance_id, thresholds)
+        {
+            Ok(()) => {}
+            Err(error) if error.kind() == ErrorKind::InstanceNotRunning => {}
+            Err(error) => return Err(error),
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_resource_alert_threshold(
+    instance_id: String,
+) -> Result<crate::process::ResourceAlertThreshold> {
+    validate_instance_id(&instance_id)?;
+    let manifest = load_manifest()?;
+    let instance = manifest
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| AppError::instance_not_found(&instance_id))?;
+
+    Ok(crate::process::ResourceAlertThreshold {
+        cpu_percent: instance.resource_alert_cpu_percent,
+        memory_bytes: instance.resource_alert_memory_bytes,
+        disk_bytes: instance.resource_alert_disk_bytes,
+    })
 }
 
 // === Backup ===
