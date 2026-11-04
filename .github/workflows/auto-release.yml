@@ -56,10 +56,16 @@
 #    合并前先变基到最新 main，并把并发新增的条目移到新的 changelogs/unreleased.md，留到下一轮发布。
 # 3. Merge the version update pull request into main. The workflow builds Windows NSIS/MSI installers
 #    in a read-only job, then creates a GitHub Release in a separate job with write access.
-#    Build failures are retried 2 times (3 attempts total); release creation and asset upload are
-#    retried up to 3 times.
+#    The release body shows changelogs/v<version>.md first, then GitHub's auto-generated release notes
+#    (the same content as the "Generate release notes" button), separated by a horizontal rule.
+#    Build failures are retried 2 times (3 attempts total); release note generation, release creation,
+#    asset upload, and publishing are retried up to 3 times. If note generation still fails, the
+#    release is published with the changelog only.
 #    合入 main 后，工作流先在只读任务中构建 Windows NSIS/MSI 安装包，再在拥有写权限的独立任务中创建 GitHub Release；
-#    构建失败自动重试 2 次（共 3 次尝试），Release 创建与安装包上传最多重试 3 次。
+#    Release 说明先展示 changelogs/v<版本号>.md 的内容，再附上 GitHub 自动生成的发布说明
+#    （与“生成 release notes”按钮一致），两者以分隔线隔开。
+#    构建失败自动重试 2 次（共 3 次尝试），说明生成、Release 创建、安装包上传与发布最多重试 3 次；
+#    说明生成仍然失败时，仅使用 changelog 发布。
 # 4. After a release, continue development; the new changelogs/unreleased.md is ready for the next cycle.
 #    发版后继续开发，新的 changelogs/unreleased.md 已准备好记录下一轮改动。
 #
@@ -304,7 +310,61 @@ jobs:
             fi
           fi
 
-          printf '%s\n' "${CHANGELOG_BODY}" > release-notes.md
+          # Compose the release body: the project changelog first, then GitHub's
+          # auto-generated release notes. Warnings must stay outside the redirect
+          # so they are not written into the release body.
+          # 组合 Release 说明：项目 changelog 在前，GitHub 自动生成的说明在后。
+          # 警告必须写在重定向之外，避免被写入 Release 正文。
+          previous_tag=""
+          previous_tag=$(gh release list --repo "${repo}" --exclude-drafts --limit 1 \
+            --json tagName --jq '.[0].tagName // ""' 2>/dev/null | tr -d '\r') || previous_tag=""
+          if [ "${previous_tag}" = "${tag}" ]; then
+            previous_tag=""
+          fi
+
+          generate_args=(-f "tag_name=${tag}" -f "target_commitish=${TARGET_SHA}")
+          if [ -n "${previous_tag}" ]; then
+            generate_args+=(-f "previous_tag_name=${previous_tag}")
+          fi
+
+          generated_notes=""
+          generated_ok=false
+          for attempt in 1 2 3; do
+            if generated_notes=$(gh api --method POST \
+              "repos/${repo}/releases/generate-notes" \
+              "${generate_args[@]}" --jq '.body // ""'); then
+              generated_ok=true
+              break
+            fi
+            generated_notes=""
+            echo "::warning::生成自动 Release 说明失败（第 ${attempt} 次），准备重试"
+            if [ "${attempt}" -eq 2 ] && [ -n "${previous_tag}" ]; then
+              # The base tag may no longer exist or be comparable; let GitHub
+              # pick the base itself for the last attempt.
+              # 基线 tag 可能已不存在或不可比较，最后一次尝试交由 GitHub 自动选择。
+              generate_args=(-f "tag_name=${tag}" -f "target_commitish=${TARGET_SHA}")
+            fi
+            sleep $((attempt * 10))
+          done
+
+          if [ "${generated_ok}" = "true" ] && [ -n "${generated_notes}" ]; then
+            {
+              printf '%s\n' "${CHANGELOG_BODY}"
+              printf '\n---\n\n%s\n' "${generated_notes}"
+            } > release-notes.md
+          else
+            printf '%s\n' "${CHANGELOG_BODY}" > release-notes.md
+            echo "::warning::自动 Release 说明生成失败，Release 只包含项目 changelog"
+          fi
+
+          # GitHub caps release bodies at 125000 characters. Count bytes as a
+          # conservative limit and drop the generated part instead of failing.
+          # 发布说明上限为 125000 字符，按字节保守校验；超限时丢弃自动生成部分而不是中断发布。
+          body_size=$(wc -c < release-notes.md | tr -d '[:space:]')
+          if [ "${body_size}" -gt 120000 ]; then
+            echo "::warning::Release 说明过长，仅保留项目 changelog"
+            printf '%s\n' "${CHANGELOG_BODY}" > release-notes.md
+          fi
 
           created=false
           for attempt in 1 2 3; do
@@ -345,4 +405,20 @@ jobs:
             exit 1
           fi
 
-          gh release edit "${tag}" --repo "${repo}" --draft=false
+          # Publish last and re-apply the notes, so a rerun can never publish a
+          # draft that carries stale notes.
+          # 最后发布并重新写入说明，确保重跑不会发布使用旧说明的草稿。
+          published=false
+          for attempt in 1 2 3; do
+            if gh release edit "${tag}" --repo "${repo}" \
+              --notes-file release-notes.md --draft=false; then
+              published=true
+              break
+            fi
+            echo "发布 Release 失败（第 ${attempt} 次），准备重试"
+            sleep $((attempt * 10))
+          done
+          if [ "${published}" != "true" ]; then
+            echo "::error::发布 GitHub Release ${tag} 失败"
+            exit 1
+          fi
