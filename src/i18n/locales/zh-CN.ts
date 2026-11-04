@@ -134,7 +134,19 @@ const zhCN = {
       "openCurrentRepo": "打开 astrbot-launcher-vue 当前仓库",
       "openAstrbotRepo": "打开 AstrBot 仓库",
       "openRepository": "打开仓库",
-      "openLinkFailed": "无法打开链接：{detail}"
+      "openLinkFailed": "无法打开链接：{detail}",
+      "updater": {
+        "title": "自动更新",
+        "check": "检查更新",
+        "checking": "正在检查更新…",
+        "upToDate": "已是最新版本",
+        "available": "发现新版本 {version}",
+        "download": "下载更新",
+        "downloading": "正在下载更新…",
+        "downloaded": "更新已下载完成",
+        "installAndRestart": "重启安装",
+        "installing": "正在准备安装…"
+      },
     }
   },
   "errors": {
@@ -164,6 +176,7 @@ const zhCN = {
     "backupFailed": "备份操作失败",
     "backupFailedWithDetail": "备份操作失败：{detail}",
     "githubFailed": "GitHub 请求失败",
+    "updateFailed": "启动器更新失败，请稍后重试",
     "operationFailed": "操作失败",
     "operationFailedWithDetail": "操作失败：{detail}",
     "lock": {

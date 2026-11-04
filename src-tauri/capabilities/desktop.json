@@ -11,8 +11,6 @@
   "permissions": [
     "log:allow-log",
     "window-state:default",
-    "autostart:default",
-    "updater:default",
-    "process:default"
+    "autostart:default"
   ]
 }

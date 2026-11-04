@@ -35,8 +35,11 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
-      "endpoints": []
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg5RUM5MEMzRkNGRTc2RDEKUldUUmR2Nzh3NURzaVMwaGR6bG91ZnV1Rm9LZlVuY24ydWhkL1ZTbmE5eTNMVHR0am9qODNNVjMK",
+      "requireSignedVersion": true,
+      "endpoints": [
+        "https://github.com/mantoujun12/astrbot-launcher-vue/releases/latest/download/latest.json"
+      ]
     }
   },
   "bundle": {
@@ -48,6 +51,7 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
   }
 }

@@ -140,6 +140,18 @@ const jaJP = {
       openAstrbotRepo: "AstrBot リポジトリを開く",
       openRepository: "リポジトリを開く",
       openLinkFailed: "リンクを開けません：{detail}",
+      updater: {
+        title: "自動更新",
+        check: "更新を確認",
+        checking: "更新を確認しています…",
+        upToDate: "最新バージョンです",
+        available: "新しいバージョン {version} が利用可能です",
+        download: "更新をダウンロード",
+        downloading: "更新をダウンロード中…",
+        downloaded: "更新をインストールできます",
+        installAndRestart: "再起動してインストール",
+        installing: "インストーラーを準備中…",
+      },
     },
   },
   errors: {
@@ -169,6 +181,7 @@ const jaJP = {
     backupFailed: "バックアップ操作に失敗しました",
     backupFailedWithDetail: "バックアップ操作に失敗しました：{detail}",
     githubFailed: "GitHub リクエストに失敗しました",
+    updateFailed: "ランチャーの更新に失敗しました。後でもう一度お試しください。",
     operationFailed: "操作に失敗しました",
     operationFailedWithDetail: "操作に失敗しました：{detail}",
     lock: {
