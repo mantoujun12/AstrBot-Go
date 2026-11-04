@@ -439,9 +439,7 @@ const jaJP = {
       venvCleared: "仮想環境を消去しました",
       pycacheCleared: "Python キャッシュを消去しました",
       repairComplete: "修復が完了しました",
-      started: "インスタンスを起動しました",
       stopped: "インスタンスを停止しました",
-      restarted: "インスタンスを再起動しました",
     },
     deploy: {
       title: "インスタンスのデプロイ",
@@ -501,6 +499,10 @@ const jaJP = {
       loadTimeout: "WebUI の読み込みがタイムアウトしました",
       disabled: "WebUI が有効ではありません",
       notRunning: "インスタンスは実行されていません",
+    },
+    webuiReady: {
+      toast: "インスタンス「{name}」の WebUI の準備ができました",
+      toastStarted: "インスタンス「{name}」を起動しました",
     },
   },
   backups: {

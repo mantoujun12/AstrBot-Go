@@ -462,9 +462,7 @@ const ruRU = {
       venvCleared: "Виртуальное окружение очищено",
       pycacheCleared: "Кэш Python очищен",
       repairComplete: "Восстановление завершено",
-      started: "Экземпляр запущен",
       stopped: "Экземпляр остановлен",
-      restarted: "Экземпляр перезапущен",
     },
     deploy: {
       title: "Развёртывание экземпляра",
@@ -525,6 +523,10 @@ const ruRU = {
       loadTimeout: "Время загрузки WebUI истекло",
       disabled: "WebUI не включён",
       notRunning: "Экземпляр не запущен",
+    },
+    webuiReady: {
+      toast: "WebUI экземпляра «{name}» готов",
+      toastStarted: "Экземпляр «{name}» запущен",
     },
   },
   backups: {

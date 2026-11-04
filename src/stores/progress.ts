@@ -41,7 +41,10 @@ function scheduleClear(key: string, kind: "deploy" | "download"): void {
 
 function handleDeploy(progress: DeployProgress): void {
   deploys.value = { ...deploys.value, [progress.instance_id]: progress };
-  if (progress.step === "done") {
+  if (progress.step === "done" || progress.step === "error") {
+    if (activeDeployId.value === progress.instance_id) {
+      activeDeployId.value = null;
+    }
     scheduleClear(progress.instance_id, "deploy");
   }
 }

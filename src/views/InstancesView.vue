@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import type { DataTableHeader } from "vuetify";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
@@ -364,6 +364,12 @@ function instanceWebuiUrl(instance: InstanceStatus): string {
   return `http://${host}:${port}/`;
 }
 
+function instanceReadyMessage(instance: InstanceStatus): string {
+  return instance.dashboard_enabled
+    ? t("instances.webuiReady.toast", { name: instance.name })
+    : t("instances.webuiReady.toastStarted", { name: instance.name });
+}
+
 function dismissDeployIfActive(instanceId: string): void {
   if (activeDeployId.value === instanceId) {
     dismissDeploy();
@@ -662,13 +668,10 @@ async function handleStart(instance: InstanceStatus): Promise<void> {
   if (isInstanceBusy(instance.id)) {
     return;
   }
-  beginDeploy(instance.id);
-  const ok = await run(
-    startKey(instance.id),
-    () => startInstance(instance.id),
-    { success: t("instances.toasts.started") },
-  );
-  finishDeployIfNeeded(instance.id, ok);
+
+  await run(startKey(instance.id), () => startInstance(instance.id), {
+    success: instanceReadyMessage(instance),
+  });
 }
 
 async function handleStop(instance: InstanceStatus): Promise<void> {
@@ -681,13 +684,10 @@ async function handleRestart(instance: InstanceStatus): Promise<void> {
   if (isInstanceBusy(instance.id)) {
     return;
   }
-  beginDeploy(instance.id);
-  const ok = await run(
-    restartKey(instance.id),
-    () => restartInstance(instance.id),
-    { success: t("instances.toasts.restarted") },
-  );
-  finishDeployIfNeeded(instance.id, ok);
+
+  await run(restartKey(instance.id), () => restartInstance(instance.id), {
+    success: instanceReadyMessage(instance),
+  });
 }
 
 async function handleOpenCoreFolder(instance: InstanceStatus): Promise<void> {
@@ -714,11 +714,6 @@ function openWebui(instance: InstanceStatus): void {
   openInstanceTab(instance.id);
 }
 
-watch(activeDeploy, (progress) => {
-  if (progress && (progress.step === "done" || progress.step === "error")) {
-    dismissDeploy();
-  }
-});
 </script>
 
 <template>

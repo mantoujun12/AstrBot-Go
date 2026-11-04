@@ -24,8 +24,7 @@ const { t } = useI18n();
 const { instances } = useLauncherStore();
 const { isBusy, run } = useOperation();
 const { activeTab } = useTabsStore();
-const { deploys, activeDeployId, beginDeploy, dismissDeploy } =
-  useProgressStore();
+const { deploys, activeDeployId } = useProgressStore();
 
 const instance = computed<InstanceStatus | null>(
   () => instances.value.find((item) => item.id === props.instanceId) ?? null,
@@ -112,30 +111,23 @@ const deployDialogOpen = computed(
     activeDeployId.value === props.instanceId,
 );
 
-const deployActive = computed(
+const maintenanceActive = computed(
   () => activeDeployId.value === props.instanceId,
 );
 
-function dismissDeployIfActive(instanceId: string): void {
-  if (activeDeployId.value === instanceId) {
-    dismissDeploy();
-  }
-}
-
 async function startFromEmpty(): Promise<void> {
   const target = instance.value;
-  if (!target || isBusy(startKey.value) || deployActive.value) {
+  if (!target || isBusy(startKey.value) || maintenanceActive.value) {
     return;
   }
 
-  beginDeploy(target.id);
-  const ok = await run(startKey.value, () => startInstance(target.id), {
-    success: t("instances.toasts.started"),
-  });
+  const message = target.dashboard_enabled
+    ? t("instances.webuiReady.toast", { name: target.name })
+    : t("instances.webuiReady.toastStarted", { name: target.name });
 
-  if (!ok || !deploys.value[target.id]) {
-    dismissDeployIfActive(target.id);
-  }
+  await run(startKey.value, () => startInstance(target.id), {
+    success: message,
+  });
 }
 
 async function openCoreFolder(): Promise<void> {
@@ -169,12 +161,6 @@ watch(
   },
   { immediate: true },
 );
-
-watch(activeDeploy, (progress) => {
-  if (progress && (progress.step === "done" || progress.step === "error")) {
-    dismissDeploy();
-  }
-});
 
 onBeforeUnmount(() => {
   clearLoadTimer();
@@ -288,7 +274,7 @@ onBeforeUnmount(() => {
             color="primary"
             variant="flat"
             prepend-icon="mdi-play"
-            :disabled="deployActive"
+            :disabled="maintenanceActive"
             :loading="startBusy"
             @click="startFromEmpty"
           >

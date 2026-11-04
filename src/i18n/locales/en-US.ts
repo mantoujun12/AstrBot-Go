@@ -439,9 +439,7 @@ const enUS = {
       venvCleared: "Virtual environment cleared",
       pycacheCleared: "Python cache cleared",
       repairComplete: "Repair complete",
-      started: "Instance started",
       stopped: "Instance stopped",
-      restarted: "Instance restarted",
     },
     deploy: {
       title: "Instance Deployment",
@@ -501,6 +499,10 @@ const enUS = {
       loadTimeout: "WebUI load timed out",
       disabled: "WebUI is not enabled",
       notRunning: "Instance is not running",
+    },
+    webuiReady: {
+      toast: "WebUI ready for \"{name}\"",
+      toastStarted: "Instance \"{name}\" started",
     },
   },
   backups: {
