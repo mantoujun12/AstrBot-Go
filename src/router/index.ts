@@ -4,6 +4,7 @@ import InstancesView from "../views/InstancesView.vue";
 import LogsView from "../views/LogsView.vue";
 import OverviewView from "../views/OverviewView.vue";
 import SettingsView from "../views/SettingsView.vue";
+import TasksView from "../views/TasksView.vue";
 import VersionsView from "../views/VersionsView.vue";
 
 const routes: RouteRecordRaw[] = [
@@ -26,6 +27,11 @@ const routes: RouteRecordRaw[] = [
     path: "/backups",
     name: "backups",
     component: BackupsView,
+  },
+  {
+    path: "/tasks",
+    name: "tasks",
+    component: TasksView,
   },
   {
     path: "/logs",

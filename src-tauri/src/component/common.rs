@@ -36,6 +36,7 @@ pub(super) async fn install_from_archive_with_progress(
         app_handle: ah,
         id: progress_id,
         control: None,
+        task_id: None,
     });
 
     download_file(client, download_url, archive_path, opts.as_ref()).await?;
@@ -49,7 +50,7 @@ pub(super) async fn install_from_archive_with_progress(
             None,
             "extracting",
             DownloadMessage::Extracting,
-        );
+        )?;
     }
 
     match archive_format {
@@ -74,7 +75,7 @@ pub(super) async fn install_from_archive_with_progress(
             None,
             "done",
             DownloadMessage::Installed,
-        );
+        )?;
     }
 
     Ok(())

@@ -12,6 +12,7 @@ use crate::config::{load_config, load_manifest, with_config_mut};
 use crate::download::download_file;
 use crate::error::{AppError, Result};
 use crate::network_config;
+use crate::tasks;
 use crate::utils::log_redact;
 use crate::utils::paths::{get_instance_core_dir, get_instance_venv_dir, get_venv_python};
 use crate::utils::validation::validate_instance_id;
@@ -32,7 +33,7 @@ pub fn emit_progress(
     step: &str,
     message: ProgressMessage,
     progress: u8,
-) {
+) -> Result<()> {
     let _ = app_handle.emit(
         "deploy-progress",
         DeployProgress {
@@ -43,6 +44,14 @@ pub fn emit_progress(
             progress,
         },
     );
+    tasks::handle_instance_progress(
+        app_handle,
+        instance_id,
+        step,
+        message.key(),
+        message.fallback(),
+        progress,
+    )
 }
 
 /// Deploy an instance by extracting the version zip and setting up venv.
@@ -117,7 +126,7 @@ async fn deploy_instance_with_version_impl(
             "extract",
             ProgressMessage::ExtractingCode,
             10,
-        );
+        )?;
 
         fs::create_dir_all(&core_dir)
             .map_err(|e| AppError::io(format!("Failed to create core dir: {}", e)))?;
@@ -130,7 +139,7 @@ async fn deploy_instance_with_version_impl(
             "extract",
             ProgressMessage::CodeExtracted,
             30,
-        );
+        )?;
     }
 
     let venv_python = get_venv_python(&venv_dir);
@@ -141,7 +150,7 @@ async fn deploy_instance_with_version_impl(
             "venv",
             ProgressMessage::CreatingVenv,
             40,
-        );
+        )?;
         component::create_venv(&venv_dir, version).await?;
         emit_progress(
             app_handle,
@@ -149,7 +158,7 @@ async fn deploy_instance_with_version_impl(
             "venv",
             ProgressMessage::VenvCreated,
             50,
-        );
+        )?;
     }
 
     emit_progress(
@@ -158,7 +167,7 @@ async fn deploy_instance_with_version_impl(
         "deps",
         ProgressMessage::InstallingDeps,
         60,
-    );
+    )?;
     sync_dependencies(instance_id, &venv_python, &core_dir).await?;
     emit_progress(
         app_handle,
@@ -166,7 +175,7 @@ async fn deploy_instance_with_version_impl(
         "deps",
         ProgressMessage::DepsInstalled,
         90,
-    );
+    )?;
     if ensure_webui {
         ensure_webui_for_version(instance_id, version, app_handle).await?;
     }
@@ -208,7 +217,7 @@ pub async fn repair_instance(
         "extract",
         ProgressMessage::PreparingRepair,
         5,
-    );
+    )?;
 
     let core_dir = get_instance_core_dir(instance_id);
     let venv_dir = get_instance_venv_dir(instance_id);
@@ -251,7 +260,7 @@ pub async fn repair_instance(
             "restore",
             ProgressMessage::RestoringPreservedData,
             92,
-        );
+        )?;
         restore_preserved_data(&core_dir, &preserved)?;
         remove_preserve_dir(&preserved.temp_dir);
         emit_progress(
@@ -260,7 +269,7 @@ pub async fn repair_instance(
             "restore",
             ProgressMessage::PreservedDataRestored,
             95,
-        );
+        )?;
     }
 
     ensure_webui_for_version_after_restore(instance_id, &version, app_handle).await?;
@@ -271,7 +280,7 @@ pub async fn repair_instance(
         "done",
         ProgressMessage::RepairDone,
         100,
-    );
+    )?;
 
     Ok(())
 }
@@ -619,7 +628,7 @@ async fn ensure_webui_for_version_with_progress(
         "webui",
         ProgressMessage::DownloadingWebui,
         progress.0,
-    );
+    )?;
 
     fs::create_dir_all(&data_dir)
         .map_err(|e| AppError::io(format!("Failed to create data dir: {}", e)))?;
@@ -661,7 +670,7 @@ async fn ensure_webui_for_version_with_progress(
             "webui",
             ProgressMessage::ExtractingWebui,
             progress.1,
-        );
+        )?;
 
         match extract_webui_archive(&zip_path, &temp_dist_dir, version) {
             Ok(()) => {
@@ -677,7 +686,7 @@ async fn ensure_webui_for_version_with_progress(
                     "webui",
                     ProgressMessage::WebuiReplaced,
                     progress.2,
-                );
+                )?;
                 install_result = Ok(());
                 break;
             }

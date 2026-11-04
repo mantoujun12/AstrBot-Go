@@ -14,6 +14,7 @@ import { listenDefaultCredentials } from "./services/events";
 import { useLauncherStore } from "./stores/launcher";
 import { useLogStore } from "./stores/logs";
 import { useProgressStore } from "./stores/progress";
+import { useTaskStore } from "./stores/tasks";
 import { HOME_TAB, useTabsStore } from "./stores/tabs";
 import type { DefaultCredentials } from "./types/launcher";
 import { cacheTheme } from "./utils/themeCache";
@@ -26,6 +27,7 @@ const { config, instances, init: initLauncher } = useLauncherStore();
 const { activeTab, isHomeActive, activateHome, pruneTabs } = useTabsStore();
 const { init: initLogs } = useLogStore();
 const { init: initProgress } = useProgressStore();
+const { init: initTasks } = useTaskStore();
 
 useTabShortcuts();
 
@@ -113,6 +115,7 @@ watch(
 onMounted(() => {
   void initLogs();
   void initProgress();
+  void initTasks();
   void initLauncher();
   void listenDefaultCredentials((payload) => {
     credentials.value = payload;

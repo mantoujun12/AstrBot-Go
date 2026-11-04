@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::sync::RwLock;
 
 use reqwest::Client;
@@ -20,6 +21,7 @@ use crate::instance::{self, InstanceStatus};
 use crate::network_config::{self, NetworkSourceKind};
 use crate::platform;
 use crate::process::ProcessManager;
+use crate::tasks::{self, TaskKind, TaskRecord, TaskSpec};
 use crate::utils::index_url::normalize_default_index;
 use crate::utils::lock_check::{collect_files_for_lock_check, ensure_target_not_locked};
 use crate::utils::net::{
@@ -71,6 +73,46 @@ impl AppState {
         let config = load_config()?;
         network_config::build_download_client_from_config(config.as_ref())
     }
+}
+
+fn task_args(pairs: [(&str, String); 1]) -> BTreeMap<String, String> {
+    pairs
+        .into_iter()
+        .map(|(key, value)| (key.to_string(), value))
+        .collect()
+}
+
+fn download_task_spec(release: &GitHubRelease) -> TaskSpec {
+    let mut spec = TaskSpec::new(TaskKind::Download, "tasks.titles.downloadVersion");
+    spec.title_args = task_args([("version", release.tag_name.clone())]);
+    spec.target_id = Some(release.tag_name.clone());
+    spec.cancellable = true;
+    spec.pausable = true;
+    spec.dedupe_target = true;
+    spec.control_ref = Some(release.tag_name.clone());
+    spec.initial_message_key = "progress.download.starting".to_string();
+    spec.initial_message = "开始下载".to_string();
+    spec
+}
+
+fn instance_task_spec(kind: TaskKind, title_key: &'static str, instance_id: &str) -> TaskSpec {
+    let mut spec = TaskSpec::new(kind, title_key);
+    let instance_name = load_manifest()
+        .ok()
+        .and_then(|manifest| {
+            manifest
+                .instances
+                .get(instance_id)
+                .map(|instance| instance.name.clone())
+        })
+        .unwrap_or_else(|| instance_id.to_string());
+    spec.title_args = task_args([("instance", instance_name)]);
+    spec.target_id = Some(instance_id.to_string());
+    spec.dedupe_target = true;
+    spec.cancellable = matches!(kind, TaskKind::Deploy | TaskKind::Repair);
+    spec.initial_message_key = "tasks.status.running".to_string();
+    spec.initial_message = "运行中".to_string();
+    spec
 }
 
 macro_rules! define_save_config_command {
@@ -587,7 +629,17 @@ pub async fn install_version(
     release: GitHubRelease,
 ) -> Result<()> {
     let client = state.download_client()?;
-    download::download_version(&client, &release, Some(&app_handle)).await
+    let spec = download_task_spec(&release);
+    tasks::execute(app_handle, spec, move |context| async move {
+        download::download_version(
+            &client,
+            &release,
+            Some(&context.app_handle),
+            Some(&context.id),
+        )
+        .await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -689,8 +741,20 @@ pub async fn repair_instance(
     preserve_scope: instance::RepairPreserveScope,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    let _guard = state.process_manager.acquire_guard(&instance_id)?;
-    instance::repair_instance(&instance_id, preserve_scope, &app_handle).await
+    let guard = state.process_manager.acquire_guard(&instance_id)?;
+    let spec = instance_task_spec(
+        TaskKind::Repair,
+        "tasks.titles.repairInstance",
+        &instance_id,
+    );
+    tasks::execute(app_handle, spec, move |context| async move {
+        context.check_cancelled()?;
+        let outcome =
+            instance::repair_instance(&instance_id, preserve_scope, &context.app_handle).await;
+        drop(guard);
+        outcome
+    })
+    .await
 }
 
 #[tauri::command]
@@ -753,16 +817,52 @@ pub async fn update_instance(
     request: UpdateInstanceRequest,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    let _guard = state.process_manager.acquire_guard(&instance_id)?;
-    instance::update_instance(
+    let guard = state.process_manager.acquire_guard(&instance_id)?;
+    let version_change = request.version.as_deref().is_some_and(|version| {
+        load_manifest()
+            .ok()
+            .and_then(|manifest| {
+                manifest
+                    .instances
+                    .get(&instance_id)
+                    .map(|instance| instance.version != version)
+            })
+            .unwrap_or(false)
+    });
+
+    if !version_change {
+        return instance::update_instance(
+            &instance_id,
+            request.name.as_deref(),
+            request.version.as_deref(),
+            request.host.as_deref(),
+            request.port,
+            request.check_update_enabled,
+            &app_handle,
+        )
+        .await;
+    }
+
+    let spec = instance_task_spec(
+        TaskKind::Deploy,
+        "tasks.titles.deployInstance",
         &instance_id,
-        request.name.as_deref(),
-        request.version.as_deref(),
-        request.host.as_deref(),
-        request.port,
-        request.check_update_enabled,
-        &app_handle,
-    )
+    );
+    tasks::execute(app_handle, spec, move |context| async move {
+        context.check_cancelled()?;
+        let outcome = instance::update_instance(
+            &instance_id,
+            request.name.as_deref(),
+            request.version.as_deref(),
+            request.host.as_deref(),
+            request.port,
+            request.check_update_enabled,
+            &context.app_handle,
+        )
+        .await;
+        drop(guard);
+        outcome
+    })
     .await
 }
 
@@ -772,10 +872,19 @@ pub async fn start_instance(
     instance_id: String,
     state: State<'_, AppState>,
 ) -> Result<u16> {
-    state
-        .process_manager
-        .start_instance(&instance_id, app_handle)
-        .await
+    let mut spec = instance_task_spec(
+        TaskKind::Deploy,
+        "tasks.titles.deployInstance",
+        &instance_id,
+    );
+    spec.cancellable = false;
+    tasks::execute(app_handle, spec, move |context| async move {
+        state
+            .process_manager
+            .start_instance(&instance_id, context.app_handle)
+            .await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -789,10 +898,19 @@ pub async fn restart_instance(
     instance_id: String,
     state: State<'_, AppState>,
 ) -> Result<u16> {
-    state
-        .process_manager
-        .restart_instance(&instance_id, app_handle)
-        .await
+    let mut spec = instance_task_spec(
+        TaskKind::Deploy,
+        "tasks.titles.deployInstance",
+        &instance_id,
+    );
+    spec.cancellable = false;
+    tasks::execute(app_handle, spec, move |context| async move {
+        state
+            .process_manager
+            .restart_instance(&instance_id, context.app_handle)
+            .await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -807,31 +925,65 @@ pub async fn get_instance_port(instance_id: String, state: State<'_, AppState>) 
 
 #[tauri::command]
 pub async fn create_backup(
+    app_handle: AppHandle,
     instance_id: String,
     note: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
     let guard = state.process_manager.acquire_guard(&instance_id)?;
-    tokio::task::spawn_blocking(move || {
+    let spec = instance_task_spec(TaskKind::Backup, "tasks.titles.createBackup", &instance_id);
+    tasks::execute_blocking(app_handle, spec, move |context| {
+        context.progress(
+            Some(0),
+            "backup",
+            "progress.deploy.backingUpData",
+            "正在备份数据…",
+        )?;
         let result = backup::create_backup(&instance_id, false, note.as_deref());
+        if result.is_ok() {
+            context.progress(
+                Some(100),
+                "done",
+                "progress.deploy.dataBackupDone",
+                "数据备份完成",
+            )?;
+        }
         drop(guard);
         result
     })
     .await
-    .map_err(|e| AppError::process(format!("Create backup task panicked: {}", e)))?
 }
 
 #[tauri::command]
-pub async fn restore_backup(backup_path: String, state: State<'_, AppState>) -> Result<()> {
+pub async fn restore_backup(
+    app_handle: AppHandle,
+    backup_path: String,
+    state: State<'_, AppState>,
+) -> Result<()> {
     let (resolved_path, metadata) = backup::resolve_restore_backup_input(&backup_path)?;
-    let guard = state.process_manager.acquire_guard(&metadata.instance_id)?;
-    tokio::task::spawn_blocking(move || {
+    let instance_id = metadata.instance_id.clone();
+    let guard = state.process_manager.acquire_guard(&instance_id)?;
+    let spec = instance_task_spec(TaskKind::Backup, "tasks.titles.restoreBackup", &instance_id);
+    tasks::execute_blocking(app_handle, spec, move |context| {
+        context.progress(
+            Some(0),
+            "restore",
+            "progress.deploy.restoringData",
+            "正在还原数据…",
+        )?;
         let result = backup::restore_backup_with_input(resolved_path, metadata);
+        if result.is_ok() {
+            context.progress(
+                Some(100),
+                "done",
+                "progress.deploy.dataRestored",
+                "数据还原完成",
+            )?;
+        }
         drop(guard);
         result
     })
     .await
-    .map_err(|e| AppError::process(format!("Restore backup task panicked: {}", e)))?
 }
 
 #[tauri::command]
@@ -841,6 +993,38 @@ pub async fn delete_backup(backup_path: String) -> Result<()> {
         .map_err(|e| AppError::process(format!("Delete backup task panicked: {}", e)))?
 }
 
+// === Unified task center ===
+
+#[tauri::command]
+pub async fn list_tasks() -> Result<Vec<TaskRecord>> {
+    Ok(tasks::list_tasks())
+}
+
+#[tauri::command]
+pub async fn cancel_task(task_id: String) -> Result<()> {
+    tasks::request_cancel(&task_id)
+}
+
+#[tauri::command]
+pub async fn pause_task(task_id: String) -> Result<()> {
+    tasks::request_pause(&task_id)
+}
+
+#[tauri::command]
+pub async fn resume_task(task_id: String) -> Result<()> {
+    tasks::request_resume(&task_id)
+}
+
+#[tauri::command]
+pub async fn remove_task(app_handle: AppHandle, task_id: String) -> Result<()> {
+    tasks::remove_task(&app_handle, &task_id)
+}
+
+#[tauri::command]
+pub async fn clear_finished_tasks(app_handle: AppHandle) -> Result<()> {
+    tasks::clear_finished_tasks(&app_handle);
+    Ok(())
+}
 #[cfg(test)]
 mod tests {
     use super::*;

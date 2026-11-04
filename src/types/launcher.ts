@@ -155,6 +155,42 @@ export interface DeployProgress {
   progress: number;
 }
 
+export type TaskKind = "download" | "deploy" | "backup" | "repair";
+
+export type TaskStatus =
+  | "queued"
+  | "running"
+  | "paused"
+  | "cancelling"
+  | "cancelled"
+  | "succeeded"
+  | "failed"
+  | "interrupted";
+
+export interface TaskError {
+  code: number;
+  kind: string;
+}
+
+export interface TaskRecord {
+  id: string;
+  kind: TaskKind;
+  title_key: string;
+  title_args: Record<string, string>;
+  target_id: string | null;
+  status: TaskStatus;
+  progress: number | null;
+  step: string;
+  message_key: string;
+  message: string;
+  cancellable: boolean;
+  pausable: boolean;
+  error: TaskError | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
 export interface ComponentActionResult {
   key: string;
   versions: string[];

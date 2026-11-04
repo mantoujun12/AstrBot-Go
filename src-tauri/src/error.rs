@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Application error that can be serialized for Tauri commands.
 #[derive(Debug)]
@@ -12,7 +12,7 @@ pub struct AppError {
     kind: ErrorKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorKind {
     /// Instance not found
