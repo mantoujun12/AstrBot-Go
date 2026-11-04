@@ -28,6 +28,7 @@ fn ensure_version_installed(manifest: &AppManifest, version: &str) -> Result<()>
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_instance_config(
     instance_id: &str,
     name: Option<&str>,
@@ -35,6 +36,9 @@ fn update_instance_config(
     host: Option<&str>,
     port: Option<u16>,
     check_update_enabled: Option<bool>,
+    auto_restart_enabled: Option<bool>,
+    auto_restart_max_retries: Option<u32>,
+    auto_restart_notify: Option<bool>,
 ) -> Result<()> {
     let id = instance_id.to_string();
     let name_owned = name.map(ToOwned::to_owned);
@@ -61,6 +65,15 @@ fn update_instance_config(
         }
         if let Some(c) = check_update_enabled {
             instance.check_update_enabled = c;
+        }
+        if let Some(v) = auto_restart_enabled {
+            instance.auto_restart_enabled = v;
+        }
+        if let Some(v) = auto_restart_max_retries {
+            instance.auto_restart_max_retries = v.clamp(1, 20);
+        }
+        if let Some(v) = auto_restart_notify {
+            instance.auto_restart_notify = v;
         }
         Ok(())
     })
@@ -161,6 +174,9 @@ pub fn create_instance(name: &str, version: &str, port: u16) -> Result<()> {
             resource_alert_cpu_percent: None,
             resource_alert_memory_bytes: None,
             resource_alert_disk_bytes: None,
+            auto_restart_enabled: false,
+            auto_restart_max_retries: 3,
+            auto_restart_notify: true,
         };
 
         manifest.instances.insert(key, instance);
@@ -200,6 +216,7 @@ pub fn delete_instance(instance_id: &str) -> Result<()> {
 /// If version changes, performs the full upgrade/downgrade pipeline:
 /// backup → clear → deploy → restore data → update config → cleanup → done.
 /// Does NOT auto-start the instance.
+#[allow(clippy::too_many_arguments)]
 pub async fn update_instance(
     instance_id: &str,
     name: Option<&str>,
@@ -207,6 +224,9 @@ pub async fn update_instance(
     host: Option<&str>,
     port: Option<u16>,
     check_update_enabled: Option<bool>,
+    auto_restart_enabled: Option<bool>,
+    auto_restart_max_retries: Option<u32>,
+    auto_restart_notify: Option<bool>,
     app_handle: &AppHandle,
 ) -> Result<()> {
     validate_instance_id(instance_id)?;
@@ -330,6 +350,9 @@ pub async fn update_instance(
             host,
             port,
             check_update_enabled,
+            auto_restart_enabled,
+            auto_restart_max_retries,
+            auto_restart_notify,
         )?;
 
         emit_progress(
@@ -342,7 +365,17 @@ pub async fn update_instance(
         Ok(())
     } else {
         // No version change
-        update_instance_config(instance_id, name, version, host, port, check_update_enabled)
+        update_instance_config(
+            instance_id,
+            name,
+            version,
+            host,
+            port,
+            check_update_enabled,
+            auto_restart_enabled,
+            auto_restart_max_retries,
+            auto_restart_notify,
+        )
     }
 }
 
@@ -352,6 +385,7 @@ pub fn list_instances(
     manifest: &AppManifest,
 ) -> Vec<InstanceStatus> {
     let runtime_info = process_manager.get_runtime_info();
+    let restart_info = process_manager.get_restart_info();
 
     let mut instances: Vec<InstanceStatus> = manifest
         .instances
@@ -373,6 +407,10 @@ pub fn list_instances(
             };
 
             let pid_tracker_not_available = !dashboard_enabled && std::env::consts::OS == "windows";
+            let (last_exit_reason, restart_attempts) = restart_info
+                .get(id)
+                .cloned()
+                .unwrap_or_else(|| (String::new(), 0));
 
             InstanceStatus {
                 id: id.clone(),
@@ -385,6 +423,11 @@ pub fn list_instances(
                 configured_host: normalize_instance_host(&inst.host),
                 configured_port: inst.port,
                 check_update_enabled: inst.check_update_enabled,
+                auto_restart_enabled: inst.auto_restart_enabled,
+                auto_restart_max_retries: inst.auto_restart_max_retries,
+                auto_restart_notify: inst.auto_restart_notify,
+                last_exit_reason,
+                restart_attempts,
             }
         })
         .collect();

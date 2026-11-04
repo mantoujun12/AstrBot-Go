@@ -390,6 +390,8 @@ const enUS = {
       clearVenv: "Clear Virtual Environment",
       clearPycache: "Clear Python Cache",
       deleteInstance: "Delete Instance",
+      upgrade: "Upgrade",
+      upgradeAll: "Upgrade All",
     },
     list: {
       columns: {
@@ -404,6 +406,34 @@ const enUS = {
       aria: {
         moreActions: "More actions",
         pidUnreliable: "Process status may be inaccurate",
+      },
+    },
+    updates: {
+      latest: "Latest stable {version}",
+      availableCount: "Available updates: {count}",
+      allUpToDate: "All instances are current",
+      notStopped: "Not stopped: {count}",
+      loading: "Checking for updates",
+      noRelease: "No stable release found",
+      disabled: "Instance update checks are disabled.",
+      openSettings: "Settings",
+      stopFirst: "Stop the instance before upgrading.",
+      batchPaused: "Batch upgrade paused. Resolve the issue and retry.",
+      batchComplete: "Upgraded {count} instances",
+      status: {
+        available: "Update to {version}",
+        upToDate: "Up to date",
+        disabled: "Not checked",
+        unknown: "Unknown",
+      },
+      tooltips: {
+        disabled: "Update checks are disabled for this instance.",
+        unknown: "The current and latest versions cannot be compared.",
+      },
+      confirm: {
+        title: "Upgrade all instances",
+        message: "Upgrade {count} instances to {version}. Instance data will be backed up automatically.",
+        skipped: "Skipped {count} instances because they are not stopped.",
       },
     },
     confirm: {
@@ -432,6 +462,7 @@ const enUS = {
       deleted: "Instance deleted",
       backupCreated: "Backup created",
       updated: "Instance updated",
+      upgraded: "Instance upgraded to {version}",
       busy: "An operation is in progress. Please wait.",
       created: "Instance created",
       missing: "Instance not found",
@@ -445,6 +476,10 @@ const enUS = {
     deploy: {
       title: "Instance Deployment",
     },
+    restart: {
+      scheduled: "Instance \"{name}\" exited unexpectedly; auto-restarting in {seconds}s (attempt {attempt}/{max})",
+      exhausted: "Instance \"{name}\" kept crashing; auto-restart stopped",
+    },
     form: {
       titles: {
         edit: "Edit Instance",
@@ -456,6 +491,9 @@ const enUS = {
         host: "Host",
         port: "Port",
         checkUpdate: "Check for updates",
+        autoRestart: "Auto-restart after abnormal exit",
+        autoRestartMaxRetries: "Max retries",
+        autoRestartNotify: "Notify on restart",
       },
       emptyVersions: "No installed versions",
       goVersions: "Go to Versions",

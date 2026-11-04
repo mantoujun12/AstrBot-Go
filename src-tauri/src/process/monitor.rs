@@ -45,7 +45,7 @@ struct LiveSnapshot {
 /// Outcome of evaluating a single instance during monitoring.
 enum MonitorOutcome {
     /// The process is dead — its slot should be removed.
-    Dead { id: String },
+    Dead { id: String, reason: String },
     /// The process is alive — update its fields.
     Alive {
         id: String,
@@ -71,17 +71,19 @@ struct ResourceOutcome {
 /// Snap-then-apply: locks briefly to snapshot, evaluates with no
 /// lock held, then locks again to apply results.
 ///
-/// Emits state changes and resource alert events outside the state lock.
+/// Emits state changes and resource alert events outside the state lock, and
+/// returns the IDs (with exit reasons) of instances whose processes died
+/// during this poll, so the manager can apply auto-restart policy.
 pub(super) async fn poll_instances(
     state: &Mutex<ProcessState>,
     runtime_events: &tokio::sync::broadcast::Sender<RuntimeEvent>,
     resource_alerts: &tokio::sync::broadcast::Sender<ResourceAlertEvent>,
-) {
+) -> Vec<(String, String)> {
     // Phase 1: lock → snapshot Live slots → unlock
     let entries: Vec<LiveSnapshot> = {
         let state = lock_mutex_recover(state, "ProcessState");
         if state.shutting_down {
-            return;
+            return Vec::new();
         }
         state
             .slots
@@ -108,7 +110,7 @@ pub(super) async fn poll_instances(
     };
 
     if entries.is_empty() {
-        return;
+        return Vec::new();
     }
 
     // Phase 2: evaluate liveness
@@ -139,24 +141,41 @@ pub(super) async fn poll_instances(
     };
 
     // Phase 3: lock → apply outcomes → unlock → collect events
-    let (runtime_events_vec, alert_events_vec) = {
+    let (events, dead, alert_events) = {
         let mut state = lock_mutex_recover(state, "ProcessState");
-        let runtime = apply_outcomes(&mut state, &outcomes);
+        let (runtime, dead) = apply_outcomes(&mut state, &outcomes);
         let alerts = apply_resource_samples(&mut state, &resource_outcomes);
         drop(state);
-        (runtime, alerts)
+        (runtime, dead, alerts)
     };
 
     // Phase 4: emit events (outside lock)
-    for (id, new_state) in runtime_events_vec {
+    for (id, new_state) in events {
         let _ = runtime_events.send(RuntimeEvent {
             instance_id: id,
             state: new_state,
         });
     }
 
-    for alert in alert_events_vec {
+    for alert in alert_events {
         let _ = resource_alerts.send(alert);
+    }
+
+    dead
+}
+
+/// Diagnostic exit reason recorded when a live instance is declared dead.
+fn exit_reason(entry: &LiveSnapshot) -> String {
+    #[cfg(target_os = "windows")]
+    {
+        format!(
+            "liveness probe failed {} consecutive times; process no longer running (pid {})",
+            entry.alive_failure_count, entry.pid
+        )
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        format!("process exited (pid {})", entry.pid)
     }
 }
 
@@ -169,6 +188,7 @@ fn evaluate_instances(entries: &[LiveSnapshot]) -> Vec<MonitorOutcome> {
         let Some(outcome) = evaluate_liveness(entry, now) else {
             outcomes.push(MonitorOutcome::Dead {
                 id: entry.id.clone(),
+                reason: exit_reason(entry),
             });
             continue;
         };
@@ -179,17 +199,18 @@ fn evaluate_instances(entries: &[LiveSnapshot]) -> Vec<MonitorOutcome> {
     outcomes
 }
 
-/// Apply monitor outcomes to the live process state. Returns runtime state
-/// change events to emit.
-fn apply_outcomes(
-    state: &mut ProcessState,
-    outcomes: &[MonitorOutcome],
-) -> Vec<(String, InstanceState)> {
+/// `apply_outcomes` result: (state-change events, dead IDs with reasons).
+type ApplyResult = (Vec<(String, InstanceState)>, Vec<(String, String)>);
+
+/// Apply monitor outcomes to the live process state. Returns (events to
+/// emit, dead instance IDs with their recorded exit reasons).
+fn apply_outcomes(state: &mut ProcessState, outcomes: &[MonitorOutcome]) -> ApplyResult {
     let mut events = Vec::new();
+    let mut dead = Vec::new();
 
     for outcome in outcomes {
         match outcome {
-            MonitorOutcome::Dead { id } => {
+            MonitorOutcome::Dead { id, reason } => {
                 // Only remove slots still in Live state — another lifecycle
                 // method may have transitioned the slot in the meantime.
                 if matches!(
@@ -202,6 +223,7 @@ fn apply_outcomes(
                     state.slots.remove(id);
                     log::info!("Removed dead process tracking entry for instance {}", id);
                     events.push((id.clone(), InstanceState::Stopped));
+                    dead.push((id.clone(), reason.clone()));
                 }
             }
             MonitorOutcome::Alive {
@@ -230,7 +252,7 @@ fn apply_outcomes(
         }
     }
 
-    events
+    (events, dead)
 }
 
 // -- Resource sampling -------------------------------------------------------

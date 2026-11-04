@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import type { DataTableHeader } from "vuetify";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
@@ -12,13 +12,18 @@ import PageHeader from "../components/common/PageHeader.vue";
 import StatusChip from "../components/common/StatusChip.vue";
 import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import InstanceFormDialog from "../components/instances/InstanceFormDialog.vue";
+import InstanceVersionBadge from "../components/instances/InstanceVersionBadge.vue";
 import RepairDialog from "../components/instances/RepairDialog.vue";
 import ResourceMonitorDialog from "../components/instances/ResourceMonitorDialog.vue";
 import { useOperation } from "../composables/useOperation";
 import { translateDynamicKey } from "../i18n/dynamic";
 import { openExternalUrl } from "../services/app";
 import { createBackup } from "../services/backups";
-import { parseBackendError, type LockFailure } from "../services/errors";
+import {
+  parseBackendError,
+  toUserMessage,
+  type LockFailure,
+} from "../services/errors";
 import {
   checkLock,
   clearInstanceData,
@@ -34,12 +39,17 @@ import {
   updateInstance,
   type LockCheckInput,
 } from "../services/instances";
+import { checkInstanceUpdates } from "../services/updates";
+import { installVersion } from "../services/versions";
 import { useLauncherStore } from "../stores/launcher";
 import { useProgressStore } from "../stores/progress";
 import { useTabsStore } from "../stores/tabs";
 import { showErrorToast, showToast } from "../stores/toast";
 import type {
+  GitHubRelease,
   InstanceStatus,
+  InstanceUpdateCheckResult,
+  InstanceUpdateInfo,
   RepairPreserveScope,
   UpdateInstanceRequest,
 } from "../types/launcher";
@@ -55,12 +65,23 @@ const { snapshot, instances, versions, loading, error, refresh } =
 const { isBusy, run } = useOperation();
 const {
   deploys,
+  downloads,
   activeDeployId,
   beginDeploy,
   dismissDeploy,
 } = useProgressStore();
 const { isHomeActive, openInstanceTab } = useTabsStore();
 const { t } = useI18n();
+
+const updateCheck = ref<InstanceUpdateCheckResult | null>(null);
+const updatesLoading = ref(false);
+const updatesError = ref<string | null>(null);
+const upgradeDownloadId = ref<string | null>(null);
+const batchUpgradeRunning = ref(false);
+const upgradeAllOpen = ref(false);
+const upgradeAllTargets = ref<InstanceStatus[]>([]);
+const upgradeAllRelease = ref<GitHubRelease | null>(null);
+let updatesRequest = 0;
 
 const headers = computed<DataTableHeader[]>(() => [
   {
@@ -79,7 +100,7 @@ const headers = computed<DataTableHeader[]>(() => [
     title: t("instances.list.columns.version"),
     key: "version",
     sortable: false,
-    width: 120,
+    minWidth: 200,
   },
   {
     title: t("instances.list.columns.port"),
@@ -99,6 +120,98 @@ const headers = computed<DataTableHeader[]>(() => [
 const portsInUse = computed(() =>
   instances.value.map((instance) => instance.configured_port),
 );
+
+const updatesById = computed(() => {
+  const byId = new Map<string, InstanceUpdateInfo>();
+  for (const update of updateCheck.value?.instances ?? []) {
+    byId.set(update.instance_id, update);
+  }
+  return byId;
+});
+
+function updateInfoFor(instanceId: string): InstanceUpdateInfo | null {
+  return updatesById.value.get(instanceId) ?? null;
+}
+
+const latestRelease = computed(
+  () => updateCheck.value?.latest_release ?? null,
+);
+
+const updatesEnabled = computed(
+  () => snapshot.value?.config.check_instance_update ?? false,
+);
+
+const updateAvailableInstances = computed(() =>
+  instances.value.filter(
+    (instance) => updateInfoFor(instance.id)?.state === "available",
+  ),
+);
+
+const batchUpgradeTargets = computed(() =>
+  updateAvailableInstances.value.filter(
+    (instance) => instance.state === "stopped" && !isInstanceBusy(instance.id),
+  ),
+);
+
+const skippedUpgradeCount = computed(
+  () => updateAvailableInstances.value.length - batchUpgradeTargets.value.length,
+);
+
+async function loadUpdateCheck(forceRefresh = false): Promise<void> {
+  const request = ++updatesRequest;
+  updatesLoading.value = true;
+  updatesError.value = null;
+
+  try {
+    const result = await checkInstanceUpdates(forceRefresh);
+    if (request === updatesRequest) {
+      updateCheck.value = result;
+    }
+  } catch (cause) {
+    if (request === updatesRequest) {
+      updateCheck.value = null;
+      updatesError.value = toUserMessage(cause);
+    }
+  } finally {
+    if (request === updatesRequest) {
+      updatesLoading.value = false;
+    }
+  }
+}
+
+const updateFingerprint = computed(() => {
+  const enabled = snapshot.value?.config.check_instance_update ? "1" : "0";
+  const instanceState = instances.value
+    .map(
+      (instance) =>
+        `${instance.id}:${instance.version}:${instance.check_update_enabled ? "1" : "0"}`,
+    )
+    .join("|");
+  return `${enabled}|${instanceState}`;
+});
+
+watch(
+  updateFingerprint,
+  () => {
+    if (snapshot.value !== null) {
+      void loadUpdateCheck();
+    }
+  },
+  { immediate: true },
+);
+
+function handleRefresh(): void {
+  void refresh();
+  void loadUpdateCheck(true);
+}
+
+function retryUpdateCheck(): void {
+  void loadUpdateCheck(true);
+}
+
+function openSettings(): void {
+  void router.push("/settings");
+}
 
 const formOpen = ref(false);
 const formInstance = ref<InstanceStatus | null>(null);
@@ -128,6 +241,7 @@ interface ConfirmState {
   instance: InstanceStatus;
   request?: UpdateInstanceRequest;
   version?: string;
+  release?: GitHubRelease;
 }
 
 const confirmState = ref<ConfirmState | null>(null);
@@ -229,6 +343,7 @@ type LockableAction =
       kind: "upgrade";
       instance: InstanceStatus;
       request: UpdateInstanceRequest;
+      release?: GitHubRelease;
     };
 
 const lockOpen = ref(false);
@@ -283,6 +398,10 @@ function repairKey(instanceId: string): string {
   return `instance:${instanceId}:repair`;
 }
 
+function isVersionInstalled(version: string): boolean {
+  return versions.value.some((installed) => installed.version === version);
+}
+
 function isInstanceBusy(instanceId: string): boolean {
   return [
     startKey(instanceId),
@@ -297,6 +416,10 @@ function isInstanceBusy(instanceId: string): boolean {
     repairKey(instanceId),
     `instance:${instanceId}:edit`,
   ].some((key) => isBusy(key));
+}
+
+function isInstanceInteractionDisabled(instanceId: string): boolean {
+  return batchUpgradeRunning.value || isInstanceBusy(instanceId);
 }
 
 function actionKey(action: LockableAction): string {
@@ -328,7 +451,9 @@ function actionSuccessMessage(action: LockableAction): string {
     case "backup":
       return t("instances.toasts.backupCreated");
     case "upgrade":
-      return t("instances.toasts.updated");
+      return t("instances.toasts.upgraded", {
+        version: action.request.version ?? "",
+      });
   }
 }
 
@@ -338,6 +463,29 @@ function activeDeployProgress() {
 }
 
 const activeDeploy = computed(activeDeployProgress);
+
+const activeUpgradeDownload = computed(() => {
+  const id = upgradeDownloadId.value;
+  return id ? downloads.value[id] ?? null : null;
+});
+
+const activeTaskMessage = computed(() => {
+  const deploy = activeDeploy.value;
+  if (deploy) {
+    return translateDynamicKey(deploy.message_key, deploy.message);
+  }
+  const download = activeUpgradeDownload.value;
+  return download
+    ? translateDynamicKey(
+        download.message_key,
+        download.message || download.step,
+      )
+    : "";
+});
+
+const activeTaskProgress = computed(
+  () => activeDeploy.value?.progress ?? activeUpgradeDownload.value?.progress ?? null,
+);
 
 const deployDialogOpen = computed(
   () => isHomeActive.value && activeDeployId.value !== null,
@@ -389,6 +537,15 @@ async function executeLockableAction(
       await createBackup(action.instance.id, action.note);
       break;
     case "upgrade":
+      if (action.release && !isVersionInstalled(action.release.tag_name)) {
+        beginDeploy(action.instance.id);
+        upgradeDownloadId.value = action.release.tag_name;
+        try {
+          await installVersion(action.release);
+        } finally {
+          upgradeDownloadId.value = null;
+        }
+      }
       beginDeploy(action.instance.id);
       await updateInstance(action.instance.id, action.request);
       break;
@@ -433,7 +590,10 @@ async function preflightLock(action: LockableAction): Promise<boolean> {
   }
 }
 
-async function runLockable(action: LockableAction): Promise<boolean> {
+async function runLockable(
+  action: LockableAction,
+  showSuccess = true,
+): Promise<boolean> {
   if (isInstanceBusy(action.instance.id)) {
     showToast(t("instances.toasts.busy"), "info");
     return false;
@@ -448,7 +608,7 @@ async function runLockable(action: LockableAction): Promise<boolean> {
       await executeLockableAction(action);
     },
     {
-      success: actionSuccessMessage(action),
+      success: showSuccess ? actionSuccessMessage(action) : undefined,
       onError: handleOperationError(action),
     },
   );
@@ -591,6 +751,7 @@ async function handleConfirm(): Promise<void> {
           kind: "upgrade",
           instance: current.instance,
           request: current.request,
+          release: current.release,
         });
       }
       break;
@@ -632,6 +793,113 @@ function askClear(
   kind: "clear-data" | "clear-venv" | "clear-pycache",
 ): void {
   confirmState.value = { kind, instance };
+}
+
+function askUpgrade(instance: InstanceStatus): void {
+  const release = latestRelease.value;
+  if (
+    !release ||
+    batchUpgradeRunning.value ||
+    instance.state !== "stopped" ||
+    isInstanceBusy(instance.id) ||
+    updateInfoFor(instance.id)?.state !== "available"
+  ) {
+    return;
+  }
+
+  confirmState.value = {
+    kind: "upgrade",
+    instance,
+    request: { version: release.tag_name },
+    version: release.tag_name,
+    release,
+  };
+}
+
+function askUpgradeAll(): void {
+  const release = latestRelease.value;
+  if (
+    !release ||
+    batchUpgradeRunning.value ||
+    batchUpgradeTargets.value.length === 0
+  ) {
+    return;
+  }
+
+  upgradeAllTargets.value = [...batchUpgradeTargets.value];
+  upgradeAllRelease.value = release;
+  upgradeAllOpen.value = true;
+}
+
+const upgradeAllMessage = computed(() => {
+  const release = upgradeAllRelease.value;
+  if (!release) {
+    return "";
+  }
+
+  const message = t("instances.updates.confirm.message", {
+    count: upgradeAllTargets.value.length,
+    version: release.tag_name,
+  });
+  const skipped = skippedUpgradeCount.value;
+  return skipped > 0
+    ? `${message}
+${t("instances.updates.confirm.skipped", { count: skipped })}`
+    : message;
+});
+
+async function handleUpgradeAll(): Promise<void> {
+  const release = upgradeAllRelease.value;
+  const targets = [...upgradeAllTargets.value];
+  upgradeAllOpen.value = false;
+
+  if (!release || targets.length === 0) {
+    return;
+  }
+
+  batchUpgradeRunning.value = true;
+  let completed = 0;
+
+  try {
+    for (const target of targets) {
+      const current = instances.value.find((instance) => instance.id === target.id);
+      if (
+        !current ||
+        current.state !== "stopped" ||
+        updateInfoFor(current.id)?.state !== "available"
+      ) {
+        continue;
+      }
+
+      const ok = await runLockable(
+        {
+          kind: "upgrade",
+          instance: current,
+          request: { version: release.tag_name },
+          release,
+        },
+        false,
+      );
+      if (!ok) {
+        showToast(t("instances.updates.batchPaused"), "info");
+        break;
+      }
+      completed += 1;
+    }
+
+    if (completed === targets.length) {
+      showToast(
+        t("instances.updates.batchComplete", { count: completed }),
+        "success",
+      );
+    }
+  } finally {
+    batchUpgradeRunning.value = false;
+    upgradeDownloadId.value = null;
+    upgradeAllRelease.value = null;
+    upgradeAllTargets.value = [];
+    void loadUpdateCheck();
+  }
 }
 
 function openRepair(instance: InstanceStatus): void {
@@ -724,16 +992,27 @@ function openWebui(instance: InstanceStatus): void {
         <v-btn
           variant="text"
           prepend-icon="mdi-refresh"
-          :loading="loading"
-          @click="refresh()"
+          :loading="loading || updatesLoading"
+          :disabled="batchUpgradeRunning"
+          @click="handleRefresh"
         >
           {{ t("common.actions.refresh") }}
         </v-btn>
         <v-btn
           color="primary"
+          variant="tonal"
+          prepend-icon="mdi-update"
+          :loading="batchUpgradeRunning"
+          :disabled="snapshot === null || batchUpgradeTargets.length === 0"
+          @click="askUpgradeAll"
+        >
+          {{ t("instances.actions.upgradeAll") }}
+        </v-btn>
+        <v-btn
+          color="primary"
           variant="flat"
           prepend-icon="mdi-plus"
-          :disabled="snapshot === null"
+          :disabled="snapshot === null || batchUpgradeRunning"
           @click="openCreate"
         >
           {{ t("instances.actions.create") }}
@@ -760,6 +1039,104 @@ function openWebui(instance: InstanceStatus): void {
         </v-btn>
       </div>
     </v-alert>
+
+    <template v-if="snapshot !== null">
+      <v-alert
+        v-if="updatesError"
+        type="warning"
+        variant="tonal"
+        density="comfortable"
+        class="instances-alert"
+      >
+        <div class="instances-alert__body">
+          <span>{{ updatesError }}</span>
+          <v-btn
+            size="small"
+            variant="text"
+            :loading="updatesLoading"
+            @click="retryUpdateCheck"
+          >
+            {{ t("common.actions.retry") }}
+          </v-btn>
+        </div>
+      </v-alert>
+
+      <v-alert
+        v-else-if="!updatesEnabled"
+        type="info"
+        variant="tonal"
+        density="comfortable"
+        class="instances-alert"
+      >
+        <div class="instances-alert__body">
+          <span>{{ t("instances.updates.disabled") }}</span>
+          <v-btn size="small" variant="text" @click="openSettings">
+            {{ t("instances.updates.openSettings") }}
+          </v-btn>
+        </div>
+      </v-alert>
+
+      <div v-else class="instance-update-summary">
+        <div class="instance-update-summary__main">
+          <v-icon icon="mdi-update" size="20" aria-hidden="true" />
+          <span v-if="latestRelease">
+            {{
+              t("instances.updates.latest", {
+                version: latestRelease.tag_name,
+              })
+            }}
+          </span>
+          <span v-else-if="updatesLoading">
+            {{ t("instances.updates.loading") }}
+          </span>
+          <span v-else>{{ t("instances.updates.noRelease") }}</span>
+
+          <v-chip
+            v-if="latestRelease && updateAvailableInstances.length > 0"
+            color="warning"
+            variant="tonal"
+            size="small"
+            label
+          >
+            {{
+              t("instances.updates.availableCount", {
+                count: updateAvailableInstances.length,
+              })
+            }}
+          </v-chip>
+          <v-chip
+            v-else-if="latestRelease && !updatesLoading"
+            color="success"
+            variant="tonal"
+            size="small"
+            label
+          >
+            {{ t("instances.updates.allUpToDate") }}
+          </v-chip>
+          <v-chip
+            v-if="skippedUpgradeCount > 0"
+            color="secondary"
+            variant="tonal"
+            size="small"
+            label
+          >
+            {{
+              t("instances.updates.notStopped", {
+                count: skippedUpgradeCount,
+              })
+            }}
+          </v-chip>
+        </div>
+        <v-progress-circular
+          v-if="updatesLoading"
+          indeterminate
+          size="16"
+          width="2"
+          color="primary"
+          :aria-label="t('instances.updates.loading')"
+        />
+      </div>
+    </template>
 
     <div v-if="snapshot === null && !error" class="instances-state">
       <v-progress-circular
@@ -826,6 +1203,14 @@ function openWebui(instance: InstanceStatus): void {
           {{ item.state === "running" ? item.port : item.configured_port }}
         </template>
 
+        <template #item.version="{ item }">
+          <InstanceVersionBadge
+            :version="item.version"
+            :update="updateInfoFor(item.id)"
+            :loading="updatesLoading"
+          />
+        </template>
+
         <template #item.actions="{ item }">
           <div class="instance-actions">
             <template v-if="item.state === 'stopped'">
@@ -833,7 +1218,7 @@ function openWebui(instance: InstanceStatus): void {
                 size="small"
                 color="success"
                 variant="tonal"
-                :disabled="isInstanceBusy(item.id)"
+                :disabled="isInstanceInteractionDisabled(item.id)"
                 :loading="isBusy(startKey(item.id))"
                 @click="handleStart(item)"
               >
@@ -845,7 +1230,7 @@ function openWebui(instance: InstanceStatus): void {
                 size="small"
                 color="warning"
                 variant="text"
-                :disabled="isInstanceBusy(item.id)"
+                :disabled="isInstanceInteractionDisabled(item.id)"
                 :loading="isBusy(stopKey(item.id))"
                 @click="handleStop(item)"
               >
@@ -854,7 +1239,7 @@ function openWebui(instance: InstanceStatus): void {
               <v-btn
                 size="small"
                 variant="text"
-                :disabled="isInstanceBusy(item.id)"
+                :disabled="isInstanceInteractionDisabled(item.id)"
                 :loading="isBusy(restartKey(item.id))"
                 @click="handleRestart(item)"
               >
@@ -867,6 +1252,26 @@ function openWebui(instance: InstanceStatus): void {
                   ? t("common.instanceState.starting")
                   : t("common.instanceState.stopping")
               }}
+            </v-btn>
+
+            <v-btn
+              v-if="updateInfoFor(item.id)?.state === 'available'"
+              size="small"
+              color="primary"
+              variant="tonal"
+              :disabled="
+                item.state !== 'stopped' ||
+                isInstanceInteractionDisabled(item.id)
+              "
+              :loading="isBusy(upgradeKey(item.id))"
+              :title="
+                item.state !== 'stopped'
+                  ? t('instances.updates.stopFirst')
+                  : undefined
+              "
+              @click="askUpgrade(item)"
+            >
+              {{ t("instances.actions.upgrade") }}
             </v-btn>
 
             <v-btn
@@ -887,7 +1292,7 @@ function openWebui(instance: InstanceStatus): void {
               @click="openResourceMonitor(item)"
             />
 
-            <v-menu location="bottom end">
+            <v-menu location="bottom end" :disabled="batchUpgradeRunning">
               <template #activator="{ props }">
                 <v-btn
                   v-bind="props"
@@ -906,19 +1311,28 @@ function openWebui(instance: InstanceStatus): void {
                 <v-list-item
                   prepend-icon="mdi-pencil-outline"
                   :title="t('common.actions.edit')"
-                  :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
+                  :disabled="
+                    item.state !== 'stopped' ||
+                    isInstanceInteractionDisabled(item.id)
+                  "
                   @click="openEdit(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-archive-arrow-down-outline"
                   :title="t('instances.actions.createBackup')"
-                  :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
+                  :disabled="
+                    item.state !== 'stopped' ||
+                    isInstanceInteractionDisabled(item.id)
+                  "
                   @click="askBackup(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-lifebuoy"
                   :title="t('instances.actions.repair')"
-                  :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
+                  :disabled="
+                    item.state !== 'stopped' ||
+                    isInstanceInteractionDisabled(item.id)
+                  "
                   @click="openRepair(item)"
                 />
                 <v-list-item
@@ -941,19 +1355,28 @@ function openWebui(instance: InstanceStatus): void {
                 <v-list-item
                   prepend-icon="mdi-database-remove-outline"
                   :title="t('instances.actions.clearData')"
-                  :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
+                  :disabled="
+                    item.state !== 'stopped' ||
+                    isInstanceInteractionDisabled(item.id)
+                  "
                   @click="askClear(item, 'clear-data')"
                 />
                 <v-list-item
                   prepend-icon="mdi-delete-sweep-outline"
                   :title="t('instances.actions.clearVenv')"
-                  :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
+                  :disabled="
+                    item.state !== 'stopped' ||
+                    isInstanceInteractionDisabled(item.id)
+                  "
                   @click="askClear(item, 'clear-venv')"
                 />
                 <v-list-item
                   prepend-icon="mdi-broom"
                   :title="t('instances.actions.clearPycache')"
-                  :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
+                  :disabled="
+                    item.state !== 'stopped' ||
+                    isInstanceInteractionDisabled(item.id)
+                  "
                   @click="askClear(item, 'clear-pycache')"
                 />
                 <v-divider />
@@ -961,7 +1384,10 @@ function openWebui(instance: InstanceStatus): void {
                   prepend-icon="mdi-delete-outline"
                   :title="t('instances.actions.deleteInstance')"
                   base-color="error"
-                  :disabled="item.state !== 'stopped' || isInstanceBusy(item.id)"
+                  :disabled="
+                    item.state !== 'stopped' ||
+                    isInstanceInteractionDisabled(item.id)
+                  "
                   @click="askDelete(item)"
                 />
               </v-list>
@@ -1007,6 +1433,17 @@ function openWebui(instance: InstanceStatus): void {
       />
     </ConfirmDialog>
 
+    <ConfirmDialog
+      v-model="upgradeAllOpen"
+      :title="t('instances.updates.confirm.title')"
+      :message="upgradeAllMessage"
+      :confirm-label="t('instances.actions.upgradeAll')"
+      :cancel-label="t('common.actions.cancel')"
+      color="warning"
+      :loading="batchUpgradeRunning"
+      @confirm="handleUpgradeAll"
+    />
+
     <LockCheckDialog
       :model-value="lockOpen"
       :failure="lockFailure"
@@ -1018,13 +1455,8 @@ function openWebui(instance: InstanceStatus): void {
     <TaskProgressDialog
       :model-value="deployDialogOpen"
       :title="t('instances.deploy.title')"
-      :message="
-        translateDynamicKey(
-          activeDeploy?.message_key,
-          activeDeploy?.message ?? '',
-        )
-      "
-      :progress="activeDeploy?.progress ?? null"
+      :message="activeTaskMessage"
+      :progress="activeTaskProgress"
     />
   </div>
 </template>
@@ -1039,6 +1471,28 @@ function openWebui(instance: InstanceStatus): void {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.instance-update-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.18);
+  border-radius: 10px;
+  background: rgba(var(--v-theme-primary), 0.06);
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 0.85rem;
+}
+
+.instance-update-summary__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .instances-state {

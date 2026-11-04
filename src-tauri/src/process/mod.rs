@@ -43,6 +43,26 @@ const LIVENESS_PROBE_INTERVAL_SECS: u64 = 5;
 /// Runtime monitor tick interval (also the fixed liveness probe interval).
 const MONITOR_INTERVAL: Duration = Duration::from_secs(LIVENESS_PROBE_INTERVAL_SECS);
 
+/// Base backoff delay for the first auto-restart attempt.
+pub const AUTO_RESTART_BASE_DELAY_SECS: u64 = 5;
+
+/// Upper bound for auto-restart backoff delays.
+pub const AUTO_RESTART_MAX_DELAY_SECS: u64 = 300;
+
+/// Continuous runtime after which consecutive crash attempts are reset,
+/// treating the instance as stably running.
+pub const AUTO_RESTART_STABLE_RUN_SECS: u64 = 300;
+
+/// Backoff delay (in seconds) for the given 1-based restart attempt.
+///
+/// Exponential: 5s, 10s, 20s, 40s, 80s, 160s, capped at 300s.
+pub fn auto_restart_delay_secs(attempt: u32) -> u64 {
+    let shift = attempt.saturating_sub(1).min(10);
+    AUTO_RESTART_BASE_DELAY_SECS
+        .saturating_mul(1u64 << shift)
+        .min(AUTO_RESTART_MAX_DELAY_SECS)
+}
+
 /// Timeout for graceful shutdown before force killing.
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -79,6 +99,23 @@ pub struct ResourceAlertEvent {
     pub threshold: f64,
 }
 
+/// Payload emitted to the frontend when an instance exits unexpectedly and
+/// the auto-restart machinery reacts to it.
+#[derive(Debug, Clone, Serialize)]
+pub struct InstanceRestartEvent {
+    pub instance_id: String,
+    pub instance_name: String,
+    /// Consecutive crash count that triggered this reaction (1-based).
+    pub attempt: u32,
+    pub max_retries: u32,
+    /// Whether another restart is still scheduled.
+    pub will_retry: bool,
+    /// Delay before the next restart attempt, in seconds.
+    pub delay_secs: u64,
+    /// Diagnostic reason for the exit.
+    pub reason: String,
+}
+
 /// Information about a running instance.
 #[derive(Debug, Clone)]
 pub struct InstanceProcess {
@@ -104,6 +141,9 @@ pub struct InstanceProcess {
     /// Metrics currently above their configured threshold, used to avoid
     /// repeating the same alert on every monitor tick.
     pub(crate) active_alerts: HashSet<String>,
+    /// When the process transitioned into `Live`. Used to reset the
+    /// auto-restart budget after a stable runtime.
+    pub(crate) started_at: Option<std::time::Instant>,
 }
 
 /// Typed runtime info returned by the process manager.
@@ -142,6 +182,27 @@ impl InstanceProcess {
             resource_history: ResourceHistory::new(),
             resource_thresholds: ResourceAlertThreshold::default(),
             active_alerts: HashSet::new(),
+            started_at: Some(std::time::Instant::now()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        auto_restart_delay_secs, AUTO_RESTART_BASE_DELAY_SECS, AUTO_RESTART_MAX_DELAY_SECS,
+    };
+
+    #[test]
+    fn backoff_is_exponential_and_capped() {
+        assert_eq!(auto_restart_delay_secs(0), AUTO_RESTART_BASE_DELAY_SECS);
+        assert_eq!(auto_restart_delay_secs(1), 5);
+        assert_eq!(auto_restart_delay_secs(2), 10);
+        assert_eq!(auto_restart_delay_secs(3), 20);
+        assert_eq!(auto_restart_delay_secs(4), 40);
+        assert_eq!(auto_restart_delay_secs(5), 80);
+        assert_eq!(auto_restart_delay_secs(6), 160);
+        assert_eq!(auto_restart_delay_secs(7), AUTO_RESTART_MAX_DELAY_SECS);
+        assert_eq!(auto_restart_delay_secs(99), AUTO_RESTART_MAX_DELAY_SECS);
     }
 }

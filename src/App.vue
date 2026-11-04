@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useDisplay, useLocale as useVuetifyLocale, useTheme } from "vuetify";
 import AppSnackbar from "./components/common/AppSnackbar.vue";
@@ -10,12 +11,16 @@ import LauncherSidebar from "./components/LauncherSidebar.vue";
 import { useTabShortcuts } from "./composables/useTabShortcuts";
 import { applyLanguagePreference, i18n } from "./i18n";
 import { isSupportedLocale } from "./i18n/locale";
-import { listenDefaultCredentials, listenResourceAlert } from "./services/events";
+import {
+  listenDefaultCredentials,
+  listenInstanceRestart,
+  listenResourceAlert,
+} from "./services/events";
 import { useLauncherStore } from "./stores/launcher";
+import { showToast } from "./stores/toast";
 import { useLogStore } from "./stores/logs";
 import { useProgressStore } from "./stores/progress";
 import { HOME_TAB, useTabsStore } from "./stores/tabs";
-import { showToast } from "./stores/toast";
 import type {
   DefaultCredentials,
   ResourceAlertEvent,
@@ -26,6 +31,7 @@ import { cacheTheme } from "./utils/themeCache";
 const { mdAndUp } = useDisplay();
 const theme = useTheme();
 const { current: vuetifyLocale } = useVuetifyLocale();
+const { t } = useI18n();
 
 const { config, instances, init: initLauncher } = useLauncherStore();
 const { activeTab, isHomeActive, activateHome, pruneTabs } = useTabsStore();
@@ -40,6 +46,7 @@ const credentials = ref<DefaultCredentials | null>(null);
 const credentialsOpen = ref(false);
 let unlistenCredentials: UnlistenFn | null = null;
 let unlistenResourceAlert: UnlistenFn | null = null;
+let unlistenRestart: UnlistenFn | null = null;
 
 const drawerOpen = computed({
   get: () => mdAndUp.value || mobileDrawerOpen.value,
@@ -157,6 +164,30 @@ onMounted(() => {
     .catch(() => {
       // Resource charts remain available when event subscription fails.
     });
+  void listenInstanceRestart((payload) => {
+    if (payload.will_retry) {
+      showToast(
+        t("instances.restart.scheduled", {
+          name: payload.instance_name,
+          seconds: payload.delay_secs,
+          attempt: payload.attempt,
+          max: payload.max_retries,
+        }),
+        "info",
+      );
+    } else {
+      showToast(
+        t("instances.restart.exhausted", { name: payload.instance_name }),
+        "error",
+      );
+    }
+  })
+    .then((unlisten) => {
+      unlistenRestart = unlisten;
+    })
+    .catch(() => {
+      // Restart notifications are best-effort diagnostics only.
+    });
 });
 
 onBeforeUnmount(() => {
@@ -164,6 +195,8 @@ onBeforeUnmount(() => {
   unlistenCredentials = null;
   unlistenResourceAlert?.();
   unlistenResourceAlert = null;
+  unlistenRestart?.();
+  unlistenRestart = null;
 });
 </script>
 
