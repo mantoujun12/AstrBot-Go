@@ -240,6 +240,7 @@ pub fn run() {
             // GitHub
             commands::fetch_releases,
             commands::check_instance_updates,
+            commands::fetch_launcher_release_notes,
             // Version Management
             commands::install_version,
             commands::pause_download,
