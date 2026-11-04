@@ -140,6 +140,19 @@ const enUS = {
       openAstrbotRepo: "Open AstrBot repository",
       openRepository: "Open repository",
       openLinkFailed: "Unable to open link: {detail}",
+      updater: {
+        title: "Automatic updates",
+        check: "Check for updates",
+        checking: "Checking for updates...",
+        unsupported: "Automatic updates are not available on this platform",
+        upToDate: "You're using the latest version",
+        available: "Version {version} is available",
+        download: "Download update",
+        downloading: "Downloading update...",
+        downloaded: "Update ready to install",
+        installAndRestart: "Restart and install",
+        installing: "Preparing installer...",
+      },
     },
   },
   errors: {
@@ -169,6 +182,7 @@ const enUS = {
     backupFailed: "Backup operation failed",
     backupFailedWithDetail: "Backup operation failed: {detail}",
     githubFailed: "GitHub request failed",
+    updateFailed: "Launcher update failed. Try again later.",
     operationFailed: "Operation failed",
     operationFailedWithDetail: "Operation failed: {detail}",
     lock: {

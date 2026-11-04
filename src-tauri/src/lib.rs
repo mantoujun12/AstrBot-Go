@@ -16,6 +16,7 @@ mod process;
 mod setup;
 mod tray;
 mod update_check;
+mod updater;
 mod utils;
 mod validation;
 mod webview_shortcuts;
@@ -169,6 +170,7 @@ pub fn run() {
         .plugin(tauri_plugin_decorum::init())
         .plugin(webview_shortcuts::plugin())
         .manage(setup::StartupWindowState::new())
+        .manage(updater::LauncherUpdateState::default())
         .manage({
             let startup_client = (|| {
                 let config = load_config()?;
@@ -240,6 +242,11 @@ pub fn run() {
             // GitHub
             commands::fetch_releases,
             commands::check_instance_updates,
+            // Launcher updater
+            updater::check_launcher_update,
+            updater::download_launcher_update,
+            updater::install_launcher_update,
+            updater::restart_launcher,
             commands::fetch_launcher_release_notes,
             // Version Management
             commands::install_version,

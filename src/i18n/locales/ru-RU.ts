@@ -145,6 +145,19 @@ const ruRU = {
       openAstrbotRepo: "Открыть репозиторий AstrBot",
       openRepository: "Открыть репозиторий",
       openLinkFailed: "Не удалось открыть ссылку: {detail}",
+      updater: {
+        title: "Автообновление",
+        check: "Проверить обновления",
+        checking: "Проверка обновлений…",
+        unsupported: "Автоматические обновления недоступны на этой платформе",
+        upToDate: "Установлена последняя версия",
+        available: "Доступна версия {version}",
+        download: "Скачать обновление",
+        downloading: "Скачивание обновления…",
+        downloaded: "Обновление готово к установке",
+        installAndRestart: "Перезапустить и установить",
+        installing: "Подготовка установщика…",
+      },
     },
   },
   errors: {
@@ -178,6 +191,7 @@ const ruRU = {
     backupFailedWithDetail:
       "Ошибка операции резервного копирования: {detail}",
     githubFailed: "Ошибка запроса к GitHub",
+    updateFailed: "Не удалось обновить лаунчер. Повторите попытку позже.",
     operationFailed: "Операция не выполнена",
     operationFailedWithDetail: "Операция не выполнена: {detail}",
     lock: {
