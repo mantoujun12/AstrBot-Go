@@ -33,6 +33,9 @@ const version = ref("");
 const host = ref("");
 const portText = ref("");
 const checkUpdate = ref(true);
+const autoRestart = ref(false);
+const maxRetriesText = ref("3");
+const autoRestartNotify = ref(true);
 
 const isEditing = computed(() => props.instance !== null);
 
@@ -84,6 +87,9 @@ function initialize(): void {
     target ? target.configured_port : firstFreePort(props.usedPorts),
   );
   checkUpdate.value = target?.check_update_enabled ?? true;
+  autoRestart.value = target?.auto_restart_enabled ?? false;
+  maxRetriesText.value = String(target?.auto_restart_max_retries ?? 3);
+  autoRestartNotify.value = target?.auto_restart_notify ?? true;
 }
 
 function validateName(value: unknown): true | string {
@@ -141,12 +147,18 @@ async function submit(): Promise<void> {
   const hostValue = typeof host.value === "string" ? host.value.trim() : "";
   const target = props.instance;
   if (target) {
+    const maxRetries = Number(maxRetriesText.value.trim());
     const request: UpdateInstanceRequest = {
       name: nameValue,
       version: selectedVersion.value,
       host: hostValue,
       port,
       checkUpdateEnabled: checkUpdate.value,
+      autoRestartEnabled: autoRestart.value,
+      autoRestartMaxRetries: Number.isInteger(maxRetries)
+        ? Math.min(20, Math.max(1, maxRetries))
+        : 3,
+      autoRestartNotify: autoRestartNotify.value,
     };
     emit("update", target.id, request);
     return;
@@ -262,6 +274,38 @@ watch(
             v-if="isEditing"
             v-model="checkUpdate"
             :label="t('instances.form.fields.checkUpdate')"
+            color="primary"
+            inset
+            hide-details
+            :disabled="loading"
+          />
+
+          <v-switch
+            v-if="isEditing"
+            v-model="autoRestart"
+            :label="t('instances.form.fields.autoRestart')"
+            color="primary"
+            inset
+            hide-details
+            :disabled="loading"
+          />
+
+          <v-text-field
+            v-if="isEditing && autoRestart"
+            v-model="maxRetriesText"
+            :label="t('instances.form.fields.autoRestartMaxRetries')"
+            type="number"
+            min="1"
+            max="20"
+            variant="outlined"
+            density="comfortable"
+            :disabled="loading"
+          />
+
+          <v-switch
+            v-if="isEditing && autoRestart"
+            v-model="autoRestartNotify"
+            :label="t('instances.form.fields.autoRestartNotify')"
             color="primary"
             inset
             hide-details

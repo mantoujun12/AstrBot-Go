@@ -237,6 +237,8 @@ jobs:
       - name: Build installers
         if: steps.meta.outputs.should_release == 'true'
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           retryAttempts: 2
           args: --bundles nsis,msi
@@ -247,8 +249,8 @@ jobs:
         with:
           name: installers
           path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*
+            src-tauri/target/release/bundle/msi/*
           if-no-files-found: error
           retention-days: 3
 
@@ -283,6 +285,25 @@ jobs:
           # Every gh release command must pass --repo explicitly.
           # 本任务没有 checkout，gh 无法从 git 推断仓库，所有 gh release 命令必须显式指定 --repo。
 
+          release_created=false
+          publishing_finished=false
+          tag_created_here=false
+
+          cleanup_failed_release() {
+            local status=$?
+            if [ "${status}" -ne 0 ] && [ "${publishing_finished}" != "true" ]; then
+              if [ "${release_created}" = "true" ]; then
+                echo "::warning::发布失败，清理本次未完成的草稿 Release 和标签，允许后续重试"
+                gh release delete "${tag}" --repo "${repo}" --yes --cleanup-tag || true
+              elif [ "${tag_created_here}" = "true" ]; then
+                echo "::warning::发布失败，清理本次创建的标签 ${tag}，允许后续重试"
+                gh api --method DELETE "repos/${repo}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
+              fi
+            fi
+            exit "${status}"
+          }
+          trap cleanup_failed_release EXIT
+
           resolve_tag_sha() {
             local sha type
             sha=$(gh api "repos/${repo}/git/ref/tags/${tag}" --jq '.object.sha' 2>/dev/null) || return 1
@@ -307,6 +328,8 @@ jobs:
                 echo "::error::无法将标签 ${tag} 创建到 ${TARGET_SHA}，停止发布"
                 exit 1
               fi
+            else
+              tag_created_here=true
             fi
           fi
 
@@ -407,17 +430,17 @@ jobs:
           # Only reuse a draft. An already published release with this tag was not
           # created by this run, so its curated notes must not be overwritten.
           # 只复用草稿；同 tag 的已发布 Release 不是本次任务创建的，不能覆盖其说明。
-          created=false
+          release_created=false
           for attempt in 1 2 3; do
             if gh release create "${tag}" --repo "${repo}" --verify-tag --draft \
               --title "${tag}" --notes-file release-notes.md; then
-              created=true
+              release_created=true
               break
             fi
             if existing_draft=$(gh release view "${tag}" --repo "${repo}" \
               --json isDraft --jq '.isDraft' 2>/dev/null); then
               if [ "${existing_draft}" = "true" ]; then
-                created=true
+                release_created=true
                 break
               fi
               echo "::error::${tag} 已存在已发布的 Release，且不是本次任务创建，停止覆盖"
@@ -426,14 +449,21 @@ jobs:
             echo "创建 Release 失败（第 ${attempt} 次），准备重试"
             sleep $((attempt * 10))
           done
-          if [ "${created}" != "true" ]; then
+          if [ "${release_created}" != "true" ]; then
             echo "::error::创建 GitHub Release ${tag} 失败"
             exit 1
           fi
 
-          mapfile -t assets < <(find dist -type f \( -name '*.exe' -o -name '*.msi' \) -print)
+          mapfile -t assets < <(find dist -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.zip' -o -name '*.sig' \) -print)
           if [ "${#assets[@]}" -eq 0 ]; then
             echo "::error::下载的构建产物中没有安装包文件"
+            exit 1
+          fi
+
+          nsis_zip=$(find dist -type f -name '*-setup.nsis.zip' -print | sort | head -n 1)
+          msi_zip=$(find dist -type f -name '*.msi.zip' -print | sort | head -n 1)
+          if [ -z "${nsis_zip}" ] || [ ! -f "${nsis_zip}.sig" ] || [ -z "${msi_zip}" ] || [ ! -f "${msi_zip}.sig" ]; then
+            echo "::error::缺少 Tauri Updater 所需的签名压缩包"
             exit 1
           fi
 
@@ -448,6 +478,52 @@ jobs:
           done
           if [ "${uploaded}" != "true" ]; then
             echo "::error::上传 ${tag} 的安装包失败"
+            exit 1
+          fi
+
+          nsis_asset=$(basename "${nsis_zip}")
+          msi_asset=$(basename "${msi_zip}")
+          nsis_signature=$(cat "${nsis_zip}.sig")
+          msi_signature=$(cat "${msi_zip}.sig")
+          base_url="https://github.com/${repo}/releases/download/${tag}"
+          export NSIS_URL="${base_url}/${nsis_asset}"
+          export MSI_URL="${base_url}/${msi_asset}"
+          export NSIS_SIGNATURE="${nsis_signature}"
+          export MSI_SIGNATURE="${msi_signature}"
+          export VERSION
+          export CHANGELOG_BODY
+          node <<'NODE'
+          const fs = require("fs");
+          const platform = {
+            signature: process.env.NSIS_SIGNATURE,
+            url: process.env.NSIS_URL,
+          };
+          const manifest = {
+            version: process.env.VERSION,
+            notes: process.env.CHANGELOG_BODY,
+            pub_date: new Date().toISOString(),
+            platforms: {
+              "windows-x86_64-nsis": platform,
+              "windows-x86_64-msi": {
+                signature: process.env.MSI_SIGNATURE,
+                url: process.env.MSI_URL,
+              },
+            },
+          };
+          fs.writeFileSync("latest.json", JSON.stringify(manifest, null, 2));
+          NODE
+
+          manifest_uploaded=false
+          for attempt in 1 2 3; do
+            if gh release upload "${tag}" latest.json --repo "${repo}" --clobber; then
+              manifest_uploaded=true
+              break
+            fi
+            echo "上传 latest.json 失败（第 ${attempt} 次），准备重试"
+            sleep $((attempt * 10))
+          done
+          if [ "${manifest_uploaded}" != "true" ]; then
+            echo "::error::上传 ${tag} 的 latest.json 失败"
             exit 1
           fi
 
@@ -486,3 +562,4 @@ jobs:
             echo "::error::发布 GitHub Release ${tag} 失败"
             exit 1
           fi
+          publishing_finished=true

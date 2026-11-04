@@ -11,6 +11,7 @@ import ConfirmDialog from "../components/common/ConfirmDialog.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import PageHeader from "../components/common/PageHeader.vue";
 import SettingsItem from "../components/settings/SettingsItem.vue";
+import LauncherUpdateSection from "../components/settings/LauncherUpdateSection.vue";
 import NetworkSourceList from "../components/settings/NetworkSourceList.vue";
 import {
   NETWORK_SOURCES,
@@ -1168,6 +1169,9 @@ onMounted(() => {
           <h2 id="settings-about-title" class="settings-section__title">
             {{ t("settings.nav.about") }}
           </h2>
+          <div class="settings-list-card">
+            <LauncherUpdateSection />
+          </div>
           <div class="settings-list-card">
             <SettingsItem :title="t('settings.about.appName')">
               <span class="settings-value">AstrBot Launcher</span>

@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { toUserMessage } from "../services/errors";
 
-export type ToastType = "success" | "error" | "info";
+export type ToastType = "success" | "error" | "info" | "warning";
 
 const message = ref("");
 const type = ref<ToastType>("success");

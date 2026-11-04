@@ -140,6 +140,19 @@ const enUS = {
       openAstrbotRepo: "Open AstrBot repository",
       openRepository: "Open repository",
       openLinkFailed: "Unable to open link: {detail}",
+      updater: {
+        title: "Automatic updates",
+        check: "Check for updates",
+        checking: "Checking for updates...",
+        unsupported: "Automatic updates are not available on this platform",
+        upToDate: "You're using the latest version",
+        available: "Version {version} is available",
+        download: "Download update",
+        downloading: "Downloading update...",
+        downloaded: "Update ready to install",
+        installAndRestart: "Restart and install",
+        installing: "Preparing installer...",
+      },
     },
   },
   errors: {
@@ -169,6 +182,7 @@ const enUS = {
     backupFailed: "Backup operation failed",
     backupFailedWithDetail: "Backup operation failed: {detail}",
     githubFailed: "GitHub request failed",
+    updateFailed: "Launcher update failed. Try again later.",
     operationFailed: "Operation failed",
     operationFailedWithDetail: "Operation failed: {detail}",
     lock: {
@@ -449,6 +463,8 @@ const enUS = {
       clearVenv: "Clear Virtual Environment",
       clearPycache: "Clear Python Cache",
       deleteInstance: "Delete Instance",
+      upgrade: "Upgrade",
+      upgradeAll: "Upgrade All",
     },
     list: {
       columns: {
@@ -463,6 +479,34 @@ const enUS = {
       aria: {
         moreActions: "More actions",
         pidUnreliable: "Process status may be inaccurate",
+      },
+    },
+    updates: {
+      latest: "Latest stable {version}",
+      availableCount: "Available updates: {count}",
+      allUpToDate: "All instances are current",
+      notStopped: "Not stopped: {count}",
+      loading: "Checking for updates",
+      noRelease: "No stable release found",
+      disabled: "Instance update checks are disabled.",
+      openSettings: "Settings",
+      stopFirst: "Stop the instance before upgrading.",
+      batchPaused: "Batch upgrade paused. Resolve the issue and retry.",
+      batchComplete: "Upgraded {count} instances",
+      status: {
+        available: "Update to {version}",
+        upToDate: "Up to date",
+        disabled: "Not checked",
+        unknown: "Unknown",
+      },
+      tooltips: {
+        disabled: "Update checks are disabled for this instance.",
+        unknown: "The current and latest versions cannot be compared.",
+      },
+      confirm: {
+        title: "Upgrade all instances",
+        message: "Upgrade {count} instances to {version}. Instance data will be backed up automatically.",
+        skipped: "Skipped {count} instances because they are not stopped.",
       },
     },
     confirm: {
@@ -491,6 +535,7 @@ const enUS = {
       deleted: "Instance deleted",
       backupCreated: "Backup created",
       updated: "Instance updated",
+      upgraded: "Instance upgraded to {version}",
       busy: "An operation is in progress. Please wait.",
       created: "Instance created",
       missing: "Instance not found",
@@ -504,6 +549,10 @@ const enUS = {
     deploy: {
       title: "Instance Deployment",
     },
+    restart: {
+      scheduled: "Instance \"{name}\" exited unexpectedly; auto-restarting in {seconds}s (attempt {attempt}/{max})",
+      exhausted: "Instance \"{name}\" kept crashing; auto-restart stopped",
+    },
     form: {
       titles: {
         edit: "Edit Instance",
@@ -515,6 +564,9 @@ const enUS = {
         host: "Host",
         port: "Port",
         checkUpdate: "Check for updates",
+        autoRestart: "Auto-restart after abnormal exit",
+        autoRestartMaxRetries: "Max retries",
+        autoRestartNotify: "Notify on restart",
       },
       emptyVersions: "No installed versions",
       goVersions: "Go to Versions",
@@ -559,6 +611,39 @@ const enUS = {
       loadTimeout: "WebUI load timed out",
       disabled: "WebUI is not enabled",
       notRunning: "Instance is not running",
+    },
+  },
+  resources: {
+    title: "Resource Monitor",
+    open: "View resource monitor",
+    stoppedHint: "Resource data is collected while the instance is running.",
+    metrics: {
+      cpu: "CPU",
+      memory: "Memory",
+      disk: "Disk",
+    },
+    charts: {
+      cpu: "CPU trend",
+      storage: "Memory and disk trend",
+      empty: "No samples yet",
+    },
+    thresholds: {
+      title: "Threshold alerts",
+      cpu: "CPU limit",
+      memory: "Memory limit",
+      disk: "Disk limit",
+      invalid: "Enter a value greater than 0, or leave it empty for no limit.",
+      saved: "Thresholds saved",
+    },
+    alerts: {
+      breached: "Resource alert: {name} {metric} reached {value}",
+      current: "Currently above threshold: {metrics}",
+      separator: ", ",
+    },
+    units: {
+      percent: "%",
+      mib: "MB",
+      gib: "GB",
     },
   },
   backups: {

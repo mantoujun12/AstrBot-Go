@@ -51,6 +51,8 @@ pub enum ErrorKind {
     Backup,
     /// GitHub API error
     GitHub,
+    /// Launcher self-update error
+    LauncherUpdate,
     /// General error
     Other,
 }
@@ -76,6 +78,7 @@ impl ErrorKind {
             Self::InvalidHost => 3007,
             Self::Backup => 4001,
             Self::GitHub => 4002,
+            Self::LauncherUpdate => 5001,
             Self::Other => 9999,
         }
     }
@@ -205,6 +208,10 @@ impl AppError {
         Self::with_detail(ErrorKind::GitHub, message)
     }
 
+    pub fn launcher_update() -> Self {
+        Self::new(ErrorKind::LauncherUpdate, std::collections::HashMap::new())
+    }
+
     pub fn other(message: impl Into<String>) -> Self {
         Self::with_detail(ErrorKind::Other, message)
     }
@@ -319,6 +326,7 @@ mod tests {
             (ErrorKind::InvalidHost, 3007),
             (ErrorKind::Backup, 4001),
             (ErrorKind::GitHub, 4002),
+            (ErrorKind::LauncherUpdate, 5001),
             (ErrorKind::Other, 9999),
         ];
 

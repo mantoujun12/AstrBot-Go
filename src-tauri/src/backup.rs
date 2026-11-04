@@ -938,6 +938,12 @@ mod tests {
             port: 6185,
             created_at: "2026-01-01T00:00:00Z".to_string(),
             check_update_enabled: true,
+            resource_alert_cpu_percent: None,
+            resource_alert_memory_bytes: None,
+            resource_alert_disk_bytes: None,
+            auto_restart_enabled: false,
+            auto_restart_max_retries: 3,
+            auto_restart_notify: true,
         }
     }
 

@@ -151,6 +151,8 @@ function messageForCode(code: number, payload: Record<string, string>): string {
         : translate("errors.backupFailed");
     case 4002:
       return translate("errors.githubFailed");
+    case 5001:
+      return translate("errors.updateFailed");
     case 9999:
       return payload.detail
         ? translate("errors.operationFailedWithDetail", { detail: payload.detail })

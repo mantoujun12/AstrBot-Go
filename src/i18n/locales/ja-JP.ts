@@ -140,6 +140,19 @@ const jaJP = {
       openAstrbotRepo: "AstrBot リポジトリを開く",
       openRepository: "リポジトリを開く",
       openLinkFailed: "リンクを開けません：{detail}",
+      updater: {
+        title: "自動更新",
+        check: "更新を確認",
+        checking: "更新を確認しています…",
+        unsupported: "このプラットフォームでは自動更新を利用できません",
+        upToDate: "最新バージョンです",
+        available: "新しいバージョン {version} が利用可能です",
+        download: "更新をダウンロード",
+        downloading: "更新をダウンロード中…",
+        downloaded: "更新をインストールできます",
+        installAndRestart: "再起動してインストール",
+        installing: "インストーラーを準備中…",
+      },
     },
   },
   errors: {
@@ -169,6 +182,7 @@ const jaJP = {
     backupFailed: "バックアップ操作に失敗しました",
     backupFailedWithDetail: "バックアップ操作に失敗しました：{detail}",
     githubFailed: "GitHub リクエストに失敗しました",
+    updateFailed: "ランチャーの更新に失敗しました。後でもう一度お試しください。",
     operationFailed: "操作に失敗しました",
     operationFailedWithDetail: "操作に失敗しました：{detail}",
     lock: {
@@ -449,6 +463,8 @@ const jaJP = {
       clearVenv: "仮想環境を消去",
       clearPycache: "Python キャッシュを消去",
       deleteInstance: "インスタンスを削除",
+      upgrade: "アップグレード",
+      upgradeAll: "すべてアップグレード",
     },
     list: {
       columns: {
@@ -463,6 +479,34 @@ const jaJP = {
       aria: {
         moreActions: "その他の操作",
         pidUnreliable: "プロセス状態が不正確な可能性があります",
+      },
+    },
+    updates: {
+      latest: "最新安定版 {version}",
+      availableCount: "更新可能：{count} 件",
+      allUpToDate: "すべて最新です",
+      notStopped: "未停止：{count} 件",
+      loading: "更新を確認中",
+      noRelease: "利用可能な安定版がありません",
+      disabled: "インスタンスの更新確認は無効です。",
+      openSettings: "設定へ",
+      stopFirst: "アップグレード前にインスタンスを停止してください。",
+      batchPaused: "一括アップグレードを中断しました。問題を解決して再試行してください。",
+      batchComplete: "{count} 件をアップグレードしました",
+      status: {
+        available: "{version} へ更新",
+        upToDate: "最新",
+        disabled: "未確認",
+        unknown: "不明",
+      },
+      tooltips: {
+        disabled: "このインスタンスの更新確認は無効です。",
+        unknown: "現在のバージョンと最新安定版を比較できません。",
+      },
+      confirm: {
+        title: "すべてアップグレード",
+        message: "{count} 件のインスタンスを {version} にアップグレードします。データは自動的にバックアップされます。",
+        skipped: "停止していない {count} 件はスキップされます。",
       },
     },
     confirm: {
@@ -491,6 +535,7 @@ const jaJP = {
       deleted: "インスタンスを削除しました",
       backupCreated: "バックアップを作成しました",
       updated: "インスタンスを更新しました",
+      upgraded: "インスタンスを {version} にアップグレードしました",
       busy: "操作中です。しばらくお待ちください",
       created: "インスタンスを作成しました",
       missing: "インスタンスが存在しません",
@@ -504,6 +549,10 @@ const jaJP = {
     deploy: {
       title: "インスタンスのデプロイ",
     },
+    restart: {
+      scheduled: "「{name}」が異常終了しました。{seconds} 秒後に自動再起動します（{attempt}/{max} 回目）",
+      exhausted: "「{name}」が繰り返し異常終了したため、自動再起動を停止しました",
+    },
     form: {
       titles: {
         edit: "インスタンスを編集",
@@ -515,6 +564,9 @@ const jaJP = {
         host: "ホスト",
         port: "ポート",
         checkUpdate: "更新を確認",
+        autoRestart: "異常終了後に自動再起動",
+        autoRestartMaxRetries: "最大リトライ回数",
+        autoRestartNotify: "再起動時に通知",
       },
       emptyVersions: "インストール済みのバージョンはありません",
       goVersions: "バージョンページへ移動",
@@ -559,6 +611,39 @@ const jaJP = {
       loadTimeout: "WebUI の読み込みがタイムアウトしました",
       disabled: "WebUI が有効ではありません",
       notRunning: "インスタンスは実行されていません",
+    },
+  },
+  resources: {
+    title: "リソース監視",
+    open: "リソース監視を開く",
+    stoppedHint: "インスタンスの実行中にリソースデータを収集します。",
+    metrics: {
+      cpu: "CPU",
+      memory: "メモリ",
+      disk: "ディスク",
+    },
+    charts: {
+      cpu: "CPU の推移",
+      storage: "メモリとディスクの推移",
+      empty: "サンプルはまだありません",
+    },
+    thresholds: {
+      title: "しきい値アラート",
+      cpu: "CPU 上限",
+      memory: "メモリ上限",
+      disk: "ディスク上限",
+      invalid: "0 より大きい値を入力してください。空欄の場合は制限なしです。",
+      saved: "しきい値を保存しました",
+    },
+    alerts: {
+      breached: "リソース警告：{name} の{metric}が {value} に達しました",
+      current: "現在しきい値を超えています：{metrics}",
+      separator: "、",
+    },
+    units: {
+      percent: "%",
+      mib: "MB",
+      gib: "GB",
     },
   },
   backups: {
