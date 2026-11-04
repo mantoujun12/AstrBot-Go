@@ -449,6 +449,7 @@ pub struct InstanceConfig {
     pub resource_alert_memory_bytes: Option<u64>,
     #[serde(default)]
     pub resource_alert_disk_bytes: Option<u64>,
+    #[serde(default)]
     pub auto_restart_enabled: bool,
     #[serde(default = "default_auto_restart_max_retries")]
     pub auto_restart_max_retries: u32,
@@ -521,6 +522,20 @@ pub(crate) fn has_manifest_record() -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manifest_written_before_auto_restart_fields_still_loads() -> Result<()> {
+        let manifest: AppManifest = serde_json::from_str(
+            r#"{"instances":{"id":{"name":"main","version":"v4.29.4"}},"installed_versions":[{"version":"v4.29.4","zip_path":"C:\\versions\\v4.29.4.zip"}],"tracked_instances_snapshot":[]}"#,
+        )?;
+        let instance = manifest.instances.get("id").ok_or_else(|| {
+            AppError::other("manifest saved by an older build must keep its instances")
+        })?;
+        assert!(!instance.auto_restart_enabled);
+        assert_eq!(instance.auto_restart_max_retries, 3);
+        assert!(instance.auto_restart_notify);
+        Ok(())
+    }
 
     #[test]
     fn backup_metadata_applies_legacy_defaults() -> Result<()> {
