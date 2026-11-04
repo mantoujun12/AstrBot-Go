@@ -72,6 +72,31 @@ export interface InstanceStatus {
   configured_host: string;
   configured_port: number;
   check_update_enabled: boolean;
+  auto_restart_enabled: boolean;
+  auto_restart_max_retries: number;
+  auto_restart_notify: boolean;
+  last_exit_reason: string;
+  restart_attempts: number;
+}
+
+export interface ResourceSample {
+  timestamp: number;
+  cpu_percent: number | null;
+  memory_bytes: number | null;
+  disk_bytes: number | null;
+}
+
+export interface ResourceAlertThreshold {
+  cpu_percent: number | null;
+  memory_bytes: number | null;
+  disk_bytes: number | null;
+}
+
+export interface ResourceAlertEvent {
+  instance_id: string;
+  metric: "cpu" | "memory" | "disk";
+  value: number;
+  threshold: number;
 }
 
 export interface InstalledVersion {
@@ -135,6 +160,25 @@ export interface GitHubRelease {
   body: string | null;
 }
 
+export type InstanceUpdateState =
+  | "available"
+  | "up_to_date"
+  | "disabled"
+  | "unknown";
+
+export interface InstanceUpdateInfo {
+  instance_id: string;
+  current_version: string;
+  latest_version: string | null;
+  state: InstanceUpdateState;
+  check_enabled: boolean;
+}
+
+export interface InstanceUpdateCheckResult {
+  update_check_enabled: boolean;
+  latest_release: GitHubRelease | null;
+  instances: InstanceUpdateInfo[];
+}
 export interface DownloadProgress {
   id: string;
   downloaded: number;
@@ -174,6 +218,19 @@ export interface UpdateInstanceRequest {
   host?: string;
   port?: number;
   checkUpdateEnabled?: boolean;
+  autoRestartEnabled?: boolean;
+  autoRestartMaxRetries?: number;
+  autoRestartNotify?: boolean;
+}
+
+export interface InstanceRestartEvent {
+  instance_id: string;
+  instance_name: string;
+  attempt: number;
+  max_retries: number;
+  will_retry: boolean;
+  delay_secs: number;
+  reason: string;
 }
 
 export interface DataDirChangeResult {

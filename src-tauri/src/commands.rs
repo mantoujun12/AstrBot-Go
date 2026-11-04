@@ -9,17 +9,18 @@ use crate::backup;
 use crate::component;
 use crate::component::{ComponentActionResult, ComponentsSnapshot};
 use crate::config::{
-    load_config, load_manifest, reload_config, reload_manifest, with_config_mut, AppConfig,
-    AppManifest, BackupInfo, InstalledVersion, LanguagePreference, ThemePreference,
+    load_config, load_manifest, reload_config, reload_manifest, with_config_mut, with_manifest_mut,
+    AppConfig, AppManifest, BackupInfo, InstalledVersion, LanguagePreference, ThemePreference,
 };
 use crate::download;
 use crate::download_control;
-use crate::error::{AppError, Result};
+use crate::error::{AppError, ErrorKind, Result};
 use crate::github::{self, GitHubRelease};
 use crate::instance::{self, InstanceStatus};
 use crate::network_config::{self, NetworkSourceKind};
 use crate::platform;
 use crate::process::ProcessManager;
+use crate::update_check::{self, InstanceUpdateCheckResult};
 use crate::utils::index_url::normalize_default_index;
 use crate::utils::lock_check::{collect_files_for_lock_check, ensure_target_not_locked};
 use crate::utils::net::{
@@ -570,6 +571,29 @@ pub async fn fetch_releases(
 }
 
 #[tauri::command]
+pub async fn check_instance_updates(
+    state: State<'_, AppState>,
+    force_refresh: Option<bool>,
+) -> Result<InstanceUpdateCheckResult> {
+    let config = load_config()?;
+    let manifest = load_manifest()?;
+    let global_check_enabled = config.check_instance_update;
+    let latest_release = if global_check_enabled {
+        let releases =
+            github::fetch_releases(&state.client(), force_refresh.unwrap_or(false)).await?;
+        update_check::latest_stable_release(&releases)
+    } else {
+        None
+    };
+
+    Ok(update_check::build_update_check_result(
+        global_check_enabled,
+        manifest.as_ref(),
+        latest_release,
+    ))
+}
+
+#[tauri::command]
 pub async fn fetch_launcher_release_notes(
     state: State<'_, AppState>,
     version: String,
@@ -744,6 +768,9 @@ pub struct UpdateInstanceRequest {
     pub host: Option<String>,
     pub port: Option<u16>,
     pub check_update_enabled: Option<bool>,
+    pub auto_restart_enabled: Option<bool>,
+    pub auto_restart_max_retries: Option<u32>,
+    pub auto_restart_notify: Option<bool>,
 }
 
 #[tauri::command]
@@ -761,6 +788,9 @@ pub async fn update_instance(
         request.host.as_deref(),
         request.port,
         request.check_update_enabled,
+        request.auto_restart_enabled,
+        request.auto_restart_max_retries,
+        request.auto_restart_notify,
         &app_handle,
     )
     .await
@@ -801,6 +831,101 @@ pub async fn get_instance_port(instance_id: String, state: State<'_, AppState>) 
         .process_manager
         .get_port(&instance_id)
         .ok_or_else(AppError::instance_not_running)
+}
+
+// === Resource Monitoring ===
+
+#[tauri::command]
+pub async fn get_instance_resource_history(
+    instance_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::process::ResourceSample>> {
+    Ok(state.process_manager.get_resource_history(&instance_id))
+}
+
+#[tauri::command]
+pub async fn get_resources_snapshot(
+    state: State<'_, AppState>,
+) -> Result<std::collections::HashMap<String, crate::process::ResourceSample>> {
+    Ok(state.process_manager.get_all_latest_resources())
+}
+
+fn validate_resource_thresholds(thresholds: &crate::process::ResourceAlertThreshold) -> Result<()> {
+    if thresholds
+        .cpu_percent
+        .is_some_and(|value| !value.is_finite() || value <= 0.0)
+    {
+        return Err(AppError::config(
+            "CPU threshold must be a positive finite number",
+        ));
+    }
+    if thresholds.memory_bytes == Some(0) {
+        return Err(AppError::config(
+            "Memory threshold must be greater than zero",
+        ));
+    }
+    if thresholds.disk_bytes == Some(0) {
+        return Err(AppError::config("Disk threshold must be greater than zero"));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_resource_alert_threshold(
+    instance_id: String,
+    thresholds: crate::process::ResourceAlertThreshold,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    validate_instance_id(&instance_id)?;
+    validate_resource_thresholds(&thresholds)?;
+
+    let stored = thresholds.clone();
+    let id = instance_id.clone();
+    with_manifest_mut(move |manifest| {
+        let instance = manifest
+            .instances
+            .get_mut(&id)
+            .ok_or_else(|| AppError::instance_not_found(&id))?;
+        instance.resource_alert_cpu_percent = stored.cpu_percent;
+        instance.resource_alert_memory_bytes = stored.memory_bytes;
+        instance.resource_alert_disk_bytes = stored.disk_bytes;
+        Ok(())
+    })?;
+
+    if state
+        .process_manager
+        .get_resource_thresholds(&instance_id)
+        .is_some()
+    {
+        match state
+            .process_manager
+            .set_resource_thresholds(&instance_id, thresholds)
+        {
+            Ok(()) => {}
+            Err(error) if error.kind() == ErrorKind::InstanceNotRunning => {}
+            Err(error) => return Err(error),
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_resource_alert_threshold(
+    instance_id: String,
+) -> Result<crate::process::ResourceAlertThreshold> {
+    validate_instance_id(&instance_id)?;
+    let manifest = load_manifest()?;
+    let instance = manifest
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| AppError::instance_not_found(&instance_id))?;
+
+    Ok(crate::process::ResourceAlertThreshold {
+        cpu_percent: instance.resource_alert_cpu_percent,
+        memory_bytes: instance.resource_alert_memory_bytes,
+        disk_bytes: instance.resource_alert_disk_bytes,
+    })
 }
 
 // === Backup ===

@@ -15,6 +15,7 @@ mod platform;
 mod process;
 mod setup;
 mod tray;
+mod update_check;
 mod updater;
 mod utils;
 mod validation;
@@ -240,6 +241,7 @@ pub fn run() {
             commands::uninstall_component,
             // GitHub
             commands::fetch_releases,
+            commands::check_instance_updates,
             // Launcher updater
             updater::check_launcher_update,
             updater::download_launcher_update,
@@ -269,6 +271,11 @@ pub fn run() {
             commands::stop_instance,
             commands::restart_instance,
             commands::get_instance_port,
+            // Resource Monitoring
+            commands::get_instance_resource_history,
+            commands::get_resources_snapshot,
+            commands::set_resource_alert_threshold,
+            commands::get_resource_alert_threshold,
             // Backup
             commands::create_backup,
             commands::restore_backup,

@@ -398,7 +398,9 @@ const zhCN = {
       "clearData": "清除数据",
       "clearVenv": "清除虚拟环境",
       "clearPycache": "清除 Python 缓存",
-      "deleteInstance": "删除实例"
+      "deleteInstance": "删除实例",
+      "upgrade": "升级",
+      "upgradeAll": "全部升级"
     },
     "list": {
       "columns": {
@@ -413,6 +415,34 @@ const zhCN = {
       "aria": {
         "moreActions": "更多操作",
         "pidUnreliable": "进程状态可能不准确"
+      }
+    },
+    "updates": {
+      "latest": "最新稳定版 {version}",
+      "availableCount": "{count} 个实例可更新",
+      "allUpToDate": "实例均为最新版本",
+      "notStopped": "{count} 个实例未停止",
+      "loading": "正在检查更新",
+      "noRelease": "暂无可用的稳定版本",
+      "disabled": "实例更新检查已关闭。",
+      "openSettings": "前往设置",
+      "stopFirst": "请先停止实例再升级。",
+      "batchPaused": "批量升级已暂停，请处理问题后重试。",
+      "batchComplete": "已升级 {count} 个实例",
+      "status": {
+        "available": "更新到 {version}",
+        "upToDate": "已是最新",
+        "disabled": "未检查",
+        "unknown": "未知"
+      },
+      "tooltips": {
+        "disabled": "此实例的更新检查已关闭。",
+        "unknown": "无法比较当前版本与最新稳定版本。"
+      },
+      "confirm": {
+        "title": "全部升级",
+        "message": "将把 {count} 个实例升级到 {version}，升级会自动备份实例数据。",
+        "skipped": "有 {count} 个实例未停止，已跳过。"
       }
     },
     "confirm": {
@@ -441,6 +471,7 @@ const zhCN = {
       "deleted": "实例已删除",
       "backupCreated": "备份已创建",
       "updated": "实例已更新",
+      "upgraded": "实例已升级到 {version}",
       "busy": "操作进行中，请稍候",
       "created": "实例已创建",
       "missing": "实例不存在",
@@ -454,6 +485,10 @@ const zhCN = {
     "deploy": {
       "title": "实例部署"
     },
+    "restart": {
+      "scheduled": "实例“{name}”异常退出，{seconds} 秒后自动重启（第 {attempt}/{max} 次）",
+      "exhausted": "实例“{name}”多次异常退出，已停止自动重启"
+    },
     "form": {
       "titles": {
         "edit": "编辑实例",
@@ -464,7 +499,10 @@ const zhCN = {
         "version": "版本",
         "host": "主机",
         "port": "端口",
-        "checkUpdate": "检查更新"
+        "checkUpdate": "检查更新",
+        "autoRestart": "异常退出后自动重启",
+        "autoRestartMaxRetries": "最大重试次数",
+        "autoRestartNotify": "重启时发送通知"
       },
       "emptyVersions": "暂无已安装版本",
       "goVersions": "前往版本页",
@@ -509,6 +547,39 @@ const zhCN = {
       "loadTimeout": "WebUI 加载超时",
       "disabled": "WebUI 未启用",
       "notRunning": "实例未运行"
+    }
+  },
+  "resources": {
+    "title": "资源监控",
+    "open": "查看资源监控",
+    "stoppedHint": "实例运行后可采集资源数据。",
+    "metrics": {
+      "cpu": "CPU",
+      "memory": "内存",
+      "disk": "磁盘"
+    },
+    "charts": {
+      "cpu": "CPU 趋势",
+      "storage": "内存与磁盘趋势",
+      "empty": "暂无采样"
+    },
+    "thresholds": {
+      "title": "阈值告警",
+      "cpu": "CPU 上限",
+      "memory": "内存上限",
+      "disk": "磁盘上限",
+      "invalid": "请输入大于 0 的数值，留空表示不限制。",
+      "saved": "阈值已保存"
+    },
+    "alerts": {
+      "breached": "资源告警：{name} 的{metric}达到 {value}",
+      "current": "当前超过阈值：{metrics}",
+      "separator": "，"
+    },
+    "units": {
+      "percent": "%",
+      "mib": "MB",
+      "gib": "GB"
     }
   },
   "backups": {

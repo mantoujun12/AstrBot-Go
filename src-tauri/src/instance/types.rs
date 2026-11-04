@@ -17,6 +17,13 @@ pub struct InstanceStatus {
     pub configured_host: String,
     pub configured_port: u16,
     pub check_update_enabled: bool,
+    pub auto_restart_enabled: bool,
+    pub auto_restart_max_retries: u32,
+    pub auto_restart_notify: bool,
+    /// Recorded reason for the last unexpected exit (empty when unknown).
+    pub last_exit_reason: String,
+    /// Consecutive crash count against the auto-restart budget.
+    pub restart_attempts: u32,
 }
 
 /// Deploy progress messages emitted to the frontend.

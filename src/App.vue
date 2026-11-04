@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useDisplay, useLocale as useVuetifyLocale, useTheme } from "vuetify";
 import AppSnackbar from "./components/common/AppSnackbar.vue";
@@ -10,17 +11,27 @@ import LauncherSidebar from "./components/LauncherSidebar.vue";
 import { useTabShortcuts } from "./composables/useTabShortcuts";
 import { applyLanguagePreference, i18n } from "./i18n";
 import { isSupportedLocale } from "./i18n/locale";
-import { listenDefaultCredentials } from "./services/events";
+import {
+  listenDefaultCredentials,
+  listenInstanceRestart,
+  listenResourceAlert,
+} from "./services/events";
 import { useLauncherStore } from "./stores/launcher";
+import { showToast } from "./stores/toast";
 import { useLogStore } from "./stores/logs";
 import { useProgressStore } from "./stores/progress";
 import { HOME_TAB, useTabsStore } from "./stores/tabs";
-import type { DefaultCredentials } from "./types/launcher";
+import type {
+  DefaultCredentials,
+  ResourceAlertEvent,
+} from "./types/launcher";
+import { formatFileSize } from "./utils/format";
 import { cacheTheme } from "./utils/themeCache";
 
 const { mdAndUp } = useDisplay();
 const theme = useTheme();
 const { current: vuetifyLocale } = useVuetifyLocale();
+const { t } = useI18n();
 
 const { config, instances, init: initLauncher } = useLauncherStore();
 const { activeTab, isHomeActive, activateHome, pruneTabs } = useTabsStore();
@@ -34,6 +45,8 @@ const mobileDrawerOpen = ref(false);
 const credentials = ref<DefaultCredentials | null>(null);
 const credentialsOpen = ref(false);
 let unlistenCredentials: UnlistenFn | null = null;
+let unlistenResourceAlert: UnlistenFn | null = null;
+let unlistenRestart: UnlistenFn | null = null;
 
 const drawerOpen = computed({
   get: () => mdAndUp.value || mobileDrawerOpen.value,
@@ -61,6 +74,23 @@ function closeMobileDrawer() {
 function handleNavigate() {
   activateHome();
   closeMobileDrawer();
+}
+
+function resourceAlertMessage(alert: ResourceAlertEvent): string {
+  const instance = instances.value.find(
+    (entry) => entry.id === alert.instance_id,
+  );
+  const name = instance?.name ?? alert.instance_id;
+  const value =
+    alert.metric === "cpu"
+      ? `${alert.value.toFixed(1)}%`
+      : formatFileSize(alert.value);
+  const metric = i18n.global.t(`resources.metrics.${alert.metric}`);
+  return i18n.global.t("resources.alerts.breached", {
+    name,
+    metric,
+    value,
+  });
 }
 
 watch(
@@ -125,11 +155,48 @@ onMounted(() => {
       // Missing the credential notification must not block the app;
       // the instance logs still contain the same information.
     });
+  void listenResourceAlert((alert) => {
+    showToast(resourceAlertMessage(alert), "warning");
+  })
+    .then((unlisten) => {
+      unlistenResourceAlert = unlisten;
+    })
+    .catch(() => {
+      // Resource charts remain available when event subscription fails.
+    });
+  void listenInstanceRestart((payload) => {
+    if (payload.will_retry) {
+      showToast(
+        t("instances.restart.scheduled", {
+          name: payload.instance_name,
+          seconds: payload.delay_secs,
+          attempt: payload.attempt,
+          max: payload.max_retries,
+        }),
+        "info",
+      );
+    } else {
+      showToast(
+        t("instances.restart.exhausted", { name: payload.instance_name }),
+        "error",
+      );
+    }
+  })
+    .then((unlisten) => {
+      unlistenRestart = unlisten;
+    })
+    .catch(() => {
+      // Restart notifications are best-effort diagnostics only.
+    });
 });
 
 onBeforeUnmount(() => {
   unlistenCredentials?.();
   unlistenCredentials = null;
+  unlistenResourceAlert?.();
+  unlistenResourceAlert = null;
+  unlistenRestart?.();
+  unlistenRestart = null;
 });
 </script>
 

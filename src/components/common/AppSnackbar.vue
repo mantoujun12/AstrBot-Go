@@ -11,6 +11,9 @@ const color = computed(() => {
   if (type.value === "info") {
     return "info";
   }
+  if (type.value === "warning") {
+    return "warning";
+  }
   return "success";
 });
 </script>

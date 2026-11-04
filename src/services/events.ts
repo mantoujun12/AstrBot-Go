@@ -4,8 +4,10 @@ import type {
   DefaultCredentials,
   DeployProgress,
   DownloadProgress,
+  InstanceRestartEvent,
   LogEntry,
   LogLevel,
+  ResourceAlertEvent,
 } from "../types/launcher";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -116,6 +118,67 @@ function toDefaultCredentials(value: unknown): DefaultCredentials | null {
   };
 }
 
+function toResourceAlert(value: unknown): ResourceAlertEvent | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const metric = value.metric;
+  if (
+    typeof value.instance_id !== "string" ||
+    (metric !== "cpu" && metric !== "memory" && metric !== "disk") ||
+    typeof value.value !== "number" ||
+    typeof value.threshold !== "number"
+  ) {
+    return null;
+  }
+  return {
+    instance_id: value.instance_id,
+    metric,
+    value: value.value,
+    threshold: value.threshold,
+  };
+}
+
+function toInstanceRestartEvent(value: unknown): InstanceRestartEvent | null {
+  if (
+    !isRecord(value) ||
+    typeof value.instance_id !== "string" ||
+    typeof value.instance_name !== "string"
+  ) {
+    return null;
+  }
+  const attempt = Number(value.attempt);
+  const maxRetries = Number(value.max_retries);
+  const delaySecs = Number(value.delay_secs);
+  if (
+    !Number.isFinite(attempt) ||
+    !Number.isFinite(maxRetries) ||
+    !Number.isFinite(delaySecs)
+  ) {
+    return null;
+  }
+  return {
+    instance_id: value.instance_id,
+    instance_name: value.instance_name,
+    attempt,
+    max_retries: maxRetries,
+    will_retry: value.will_retry === true,
+    delay_secs: delaySecs,
+    reason: typeof value.reason === "string" ? value.reason : "",
+  };
+}
+
+export function listenInstanceRestart(
+  handler: (event: InstanceRestartEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<unknown>("instance-restart", (event) => {
+    const payload = toInstanceRestartEvent(event.payload);
+    if (payload) {
+      handler(payload);
+    }
+  });
+}
+
 export function listenAppSnapshot(
   handler: (snapshot: AppSnapshot) => void,
 ): Promise<UnlistenFn> {
@@ -166,6 +229,17 @@ export function listenDefaultCredentials(
     const credentials = toDefaultCredentials(event.payload);
     if (credentials) {
       handler(credentials);
+    }
+  });
+}
+
+export function listenResourceAlert(
+  handler: (alert: ResourceAlertEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<unknown>("resource-alert", (event) => {
+    const alert = toResourceAlert(event.payload);
+    if (alert) {
+      handler(alert);
     }
   });
 }
