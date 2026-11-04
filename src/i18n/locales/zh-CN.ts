@@ -139,6 +139,7 @@ const zhCN = {
         "title": "自动更新",
         "check": "检查更新",
         "checking": "正在检查更新…",
+        "unsupported": "此平台暂不支持自动更新",
         "upToDate": "已是最新版本",
         "available": "发现新版本 {version}",
         "download": "下载更新",

@@ -144,6 +144,7 @@ const jaJP = {
         title: "自動更新",
         check: "更新を確認",
         checking: "更新を確認しています…",
+        unsupported: "このプラットフォームでは自動更新を利用できません",
         upToDate: "最新バージョンです",
         available: "新しいバージョン {version} が利用可能です",
         download: "更新をダウンロード",

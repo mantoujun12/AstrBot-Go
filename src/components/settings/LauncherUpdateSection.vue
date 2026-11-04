@@ -17,6 +17,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 type UpdateStatus =
   | "idle"
   | "checking"
+  | "unsupported"
   | "unavailable"
   | "available"
   | "downloading"
@@ -33,6 +34,7 @@ let unlisten: UnlistenFn | null = null;
 let disposed = false;
 
 const checking = computed(() => status.value === "checking");
+const supported = computed(() => updateInfo.value?.supported !== false);
 const downloading = computed(() => status.value === "downloading");
 const installing = computed(() => status.value === "installing");
 const available = computed(() => status.value === "available");
@@ -47,6 +49,9 @@ const statusMessage = computed(() => {
   }
   if (checking.value) {
     return t("settings.about.updater.checking");
+  }
+  if (status.value === "unsupported") {
+    return t("settings.about.updater.unsupported");
   }
   if (downloading.value) {
     return t("settings.about.updater.downloading");
@@ -93,7 +98,11 @@ async function check(): Promise<void> {
   progress.value = null;
   try {
     updateInfo.value = await checkLauncherUpdate();
-    status.value = updateInfo.value.available ? "available" : "unavailable";
+    status.value = !updateInfo.value.supported
+      ? "unsupported"
+      : updateInfo.value.available
+        ? "available"
+        : "unavailable";
   } catch (error) {
     status.value = "idle";
     errorMessage.value = toUserMessage(error);
@@ -101,7 +110,7 @@ async function check(): Promise<void> {
 }
 
 async function download(): Promise<void> {
-  if (busy.value) {
+  if (busy.value || !supported.value) {
     return;
   }
   if (!progressReady.value) {
@@ -120,7 +129,11 @@ async function download(): Promise<void> {
 
   try {
     updateInfo.value = await downloadLauncherUpdate();
-    status.value = updateInfo.value.available ? "downloaded" : "unavailable";
+    status.value = !updateInfo.value.supported
+      ? "unsupported"
+      : updateInfo.value.available
+        ? "downloaded"
+        : "unavailable";
     if (!updateInfo.value.available) {
       progress.value = null;
     }
@@ -131,7 +144,7 @@ async function download(): Promise<void> {
 }
 
 async function install(): Promise<void> {
-  if (busy.value) {
+  if (busy.value || !supported.value) {
     return;
   }
 
@@ -184,7 +197,7 @@ onUnmounted(() => {
           variant="tonal"
           size="small"
           :loading="checking"
-          :disabled="busy"
+          :disabled="busy || status === 'unsupported'"
           @click="check"
         >
           {{ t("settings.about.updater.check") }}

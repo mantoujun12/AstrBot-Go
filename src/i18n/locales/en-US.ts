@@ -144,6 +144,7 @@ const enUS = {
         title: "Automatic updates",
         check: "Check for updates",
         checking: "Checking for updates...",
+        unsupported: "Automatic updates are not available on this platform",
         upToDate: "You're using the latest version",
         available: "Version {version} is available",
         download: "Download update",

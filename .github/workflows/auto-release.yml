@@ -285,6 +285,25 @@ jobs:
           # Every gh release command must pass --repo explicitly.
           # 本任务没有 checkout，gh 无法从 git 推断仓库，所有 gh release 命令必须显式指定 --repo。
 
+          release_created=false
+          publishing_finished=false
+          tag_created_here=false
+
+          cleanup_failed_release() {
+            local status=$?
+            if [ "${status}" -ne 0 ] && [ "${publishing_finished}" != "true" ]; then
+              if [ "${release_created}" = "true" ]; then
+                echo "::warning::发布失败，清理本次未完成的草稿 Release 和标签，允许后续重试"
+                gh release delete "${tag}" --repo "${repo}" --yes --cleanup-tag || true
+              elif [ "${tag_created_here}" = "true" ]; then
+                echo "::warning::发布失败，清理本次创建的标签 ${tag}，允许后续重试"
+                gh api --method DELETE "repos/${repo}/git/refs/tags/${tag}" >/dev/null 2>&1 || true
+              fi
+            fi
+            exit "${status}"
+          }
+          trap cleanup_failed_release EXIT
+
           resolve_tag_sha() {
             local sha type
             sha=$(gh api "repos/${repo}/git/ref/tags/${tag}" --jq '.object.sha' 2>/dev/null) || return 1
@@ -309,6 +328,8 @@ jobs:
                 echo "::error::无法将标签 ${tag} 创建到 ${TARGET_SHA}，停止发布"
                 exit 1
               fi
+            else
+              tag_created_here=true
             fi
           fi
 
@@ -409,17 +430,17 @@ jobs:
           # Only reuse a draft. An already published release with this tag was not
           # created by this run, so its curated notes must not be overwritten.
           # 只复用草稿；同 tag 的已发布 Release 不是本次任务创建的，不能覆盖其说明。
-          created=false
+          release_created=false
           for attempt in 1 2 3; do
             if gh release create "${tag}" --repo "${repo}" --verify-tag --draft \
               --title "${tag}" --notes-file release-notes.md; then
-              created=true
+              release_created=true
               break
             fi
             if existing_draft=$(gh release view "${tag}" --repo "${repo}" \
               --json isDraft --jq '.isDraft' 2>/dev/null); then
               if [ "${existing_draft}" = "true" ]; then
-                created=true
+                release_created=true
                 break
               fi
               echo "::error::${tag} 已存在已发布的 Release，且不是本次任务创建，停止覆盖"
@@ -428,7 +449,7 @@ jobs:
             echo "创建 Release 失败（第 ${attempt} 次），准备重试"
             sleep $((attempt * 10))
           done
-          if [ "${created}" != "true" ]; then
+          if [ "${release_created}" != "true" ]; then
             echo "::error::创建 GitHub Release ${tag} 失败"
             exit 1
           fi
@@ -482,7 +503,6 @@ jobs:
             notes: process.env.CHANGELOG_BODY,
             pub_date: new Date().toISOString(),
             platforms: {
-              "windows-x86_64": platform,
               "windows-x86_64-nsis": platform,
               "windows-x86_64-msi": {
                 signature: process.env.MSI_SIGNATURE,
@@ -542,3 +562,4 @@ jobs:
             echo "::error::发布 GitHub Release ${tag} 失败"
             exit 1
           fi
+          publishing_finished=true

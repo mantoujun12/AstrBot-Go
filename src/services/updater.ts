@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export interface LauncherUpdateInfo {
+  supported: boolean;
   available: boolean;
   current_version: string;
   latest_version: string;
@@ -28,6 +29,7 @@ export function isLauncherUpdateInfo(
   }
 
   return (
+    typeof value.supported === "boolean" &&
     typeof value.available === "boolean" &&
     typeof value.current_version === "string" &&
     typeof value.latest_version === "string" &&
