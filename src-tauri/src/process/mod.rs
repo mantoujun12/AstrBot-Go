@@ -3,6 +3,7 @@
 mod control;
 mod manager;
 mod monitor;
+mod resource;
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(crate) mod libc_api;
@@ -10,6 +11,7 @@ pub(crate) mod libc_api;
 #[cfg(target_os = "windows")]
 pub(crate) mod win_api;
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -20,6 +22,11 @@ pub use control::{
     graceful_shutdown, is_expected_process_alive, resolve_process_executable_path,
 };
 pub use manager::ProcessManager;
+pub(crate) use resource::{
+    compute_disk_usage, sample_metric, sample_process_resources, unix_secs_now, CpuMeter,
+    ResourceHistory,
+};
+pub use resource::{ResourceAlertThreshold, ResourceSample};
 #[cfg(target_os = "windows")]
 pub(crate) use win_api::JobObject;
 
@@ -83,6 +90,15 @@ pub struct RuntimeEvent {
     pub state: InstanceState,
 }
 
+/// Event payload for resource alert notifications.
+#[derive(Debug, Clone, Serialize)]
+pub struct ResourceAlertEvent {
+    pub instance_id: String,
+    pub metric: String,
+    pub value: f64,
+    pub threshold: f64,
+}
+
 /// Payload emitted to the frontend when an instance exits unexpectedly and
 /// the auto-restart machinery reacts to it.
 #[derive(Debug, Clone, Serialize)]
@@ -118,6 +134,13 @@ pub struct InstanceProcess {
     /// When to perform the next liveness probe (fixed interval).
     /// Always `None` on non-Windows (no retry mechanism).
     pub(crate) next_alive_check_at: Option<std::time::Instant>,
+    /// Historical resource usage samples (ring buffer).
+    pub(crate) resource_history: ResourceHistory,
+    /// Configured alert thresholds for this instance.
+    pub(crate) resource_thresholds: ResourceAlertThreshold,
+    /// Metrics currently above their configured threshold, used to avoid
+    /// repeating the same alert on every monitor tick.
+    pub(crate) active_alerts: HashSet<String>,
     /// When the process transitioned into `Live`. Used to reset the
     /// auto-restart budget after a stable runtime.
     pub(crate) started_at: Option<std::time::Instant>,
@@ -156,6 +179,9 @@ impl InstanceProcess {
             _job_object: job_object,
             alive_failure_count: 0,
             next_alive_check_at: None,
+            resource_history: ResourceHistory::new(),
+            resource_thresholds: ResourceAlertThreshold::default(),
+            active_alerts: HashSet::new(),
             started_at: Some(std::time::Instant::now()),
         }
     }

@@ -540,6 +540,39 @@ const jaJP = {
       notRunning: "インスタンスは実行されていません",
     },
   },
+  resources: {
+    title: "リソース監視",
+    open: "リソース監視を開く",
+    stoppedHint: "インスタンスの実行中にリソースデータを収集します。",
+    metrics: {
+      cpu: "CPU",
+      memory: "メモリ",
+      disk: "ディスク",
+    },
+    charts: {
+      cpu: "CPU の推移",
+      storage: "メモリとディスクの推移",
+      empty: "サンプルはまだありません",
+    },
+    thresholds: {
+      title: "しきい値アラート",
+      cpu: "CPU 上限",
+      memory: "メモリ上限",
+      disk: "ディスク上限",
+      invalid: "0 より大きい値を入力してください。空欄の場合は制限なしです。",
+      saved: "しきい値を保存しました",
+    },
+    alerts: {
+      breached: "リソース警告：{name} の{metric}が {value} に達しました",
+      current: "現在しきい値を超えています：{metrics}",
+      separator: "、",
+    },
+    units: {
+      percent: "%",
+      mib: "MB",
+      gib: "GB",
+    },
+  },
   backups: {
     title: "バックアップ",
     createBackup: "バックアップを作成",

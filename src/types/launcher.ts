@@ -79,6 +79,26 @@ export interface InstanceStatus {
   restart_attempts: number;
 }
 
+export interface ResourceSample {
+  timestamp: number;
+  cpu_percent: number | null;
+  memory_bytes: number | null;
+  disk_bytes: number | null;
+}
+
+export interface ResourceAlertThreshold {
+  cpu_percent: number | null;
+  memory_bytes: number | null;
+  disk_bytes: number | null;
+}
+
+export interface ResourceAlertEvent {
+  instance_id: string;
+  metric: "cpu" | "memory" | "disk";
+  value: number;
+  threshold: number;
+}
+
 export interface InstalledVersion {
   version: string;
   zip_path: string;

@@ -116,6 +116,7 @@ pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error:
 
     spawn_event_forwarder(app);
     spawn_log_forwarder(app);
+    spawn_resource_alert_forwarder(app);
     tray::build_tray(app)?;
     restore_instances(app);
 
@@ -337,6 +338,27 @@ fn spawn_log_forwarder(app: &tauri::App) {
                     let _ = app_handle.emit("log-entry", entry);
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    });
+}
+
+fn spawn_resource_alert_forwarder(app: &tauri::App) {
+    let app_handle = app.handle().clone();
+    let state: tauri::State<'_, AppState> = app.state();
+    let pm = state.process_manager.clone();
+    let mut rx = pm.subscribe_resource_alerts();
+
+    tauri::async_runtime::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(alert) => {
+                    let _ = app_handle.emit("resource-alert", &alert);
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    log::warn!("Resource alert listener lagged, skipped {} events", skipped);
+                }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             }
         }

@@ -151,6 +151,9 @@ mod tests {
             auto_restart_enabled: false,
             auto_restart_max_retries: 3,
             auto_restart_notify: true,
+            resource_alert_cpu_percent: None,
+            resource_alert_memory_bytes: None,
+            resource_alert_disk_bytes: None,
         }
     }
 

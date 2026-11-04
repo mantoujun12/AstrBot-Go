@@ -444,6 +444,11 @@ pub struct InstanceConfig {
     #[serde(default = "default_true")]
     pub check_update_enabled: bool,
     #[serde(default)]
+    pub resource_alert_cpu_percent: Option<f32>,
+    #[serde(default)]
+    pub resource_alert_memory_bytes: Option<u64>,
+    #[serde(default)]
+    pub resource_alert_disk_bytes: Option<u64>,
     pub auto_restart_enabled: bool,
     #[serde(default = "default_auto_restart_max_retries")]
     pub auto_restart_max_retries: u32,

@@ -264,6 +264,11 @@ pub fn run() {
             commands::stop_instance,
             commands::restart_instance,
             commands::get_instance_port,
+            // Resource Monitoring
+            commands::get_instance_resource_history,
+            commands::get_resources_snapshot,
+            commands::set_resource_alert_threshold,
+            commands::get_resource_alert_threshold,
             // Backup
             commands::create_backup,
             commands::restore_backup,

@@ -14,13 +14,18 @@ import { isSupportedLocale } from "./i18n/locale";
 import {
   listenDefaultCredentials,
   listenInstanceRestart,
+  listenResourceAlert,
 } from "./services/events";
 import { useLauncherStore } from "./stores/launcher";
 import { showToast } from "./stores/toast";
 import { useLogStore } from "./stores/logs";
 import { useProgressStore } from "./stores/progress";
 import { HOME_TAB, useTabsStore } from "./stores/tabs";
-import type { DefaultCredentials } from "./types/launcher";
+import type {
+  DefaultCredentials,
+  ResourceAlertEvent,
+} from "./types/launcher";
+import { formatFileSize } from "./utils/format";
 import { cacheTheme } from "./utils/themeCache";
 
 const { mdAndUp } = useDisplay();
@@ -40,6 +45,7 @@ const mobileDrawerOpen = ref(false);
 const credentials = ref<DefaultCredentials | null>(null);
 const credentialsOpen = ref(false);
 let unlistenCredentials: UnlistenFn | null = null;
+let unlistenResourceAlert: UnlistenFn | null = null;
 let unlistenRestart: UnlistenFn | null = null;
 
 const drawerOpen = computed({
@@ -68,6 +74,23 @@ function closeMobileDrawer() {
 function handleNavigate() {
   activateHome();
   closeMobileDrawer();
+}
+
+function resourceAlertMessage(alert: ResourceAlertEvent): string {
+  const instance = instances.value.find(
+    (entry) => entry.id === alert.instance_id,
+  );
+  const name = instance?.name ?? alert.instance_id;
+  const value =
+    alert.metric === "cpu"
+      ? `${alert.value.toFixed(1)}%`
+      : formatFileSize(alert.value);
+  const metric = i18n.global.t(`resources.metrics.${alert.metric}`);
+  return i18n.global.t("resources.alerts.breached", {
+    name,
+    metric,
+    value,
+  });
 }
 
 watch(
@@ -132,6 +155,15 @@ onMounted(() => {
       // Missing the credential notification must not block the app;
       // the instance logs still contain the same information.
     });
+  void listenResourceAlert((alert) => {
+    showToast(resourceAlertMessage(alert), "warning");
+  })
+    .then((unlisten) => {
+      unlistenResourceAlert = unlisten;
+    })
+    .catch(() => {
+      // Resource charts remain available when event subscription fails.
+    });
   void listenInstanceRestart((payload) => {
     if (payload.will_retry) {
       showToast(
@@ -161,6 +193,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   unlistenCredentials?.();
   unlistenCredentials = null;
+  unlistenResourceAlert?.();
+  unlistenResourceAlert = null;
   unlistenRestart?.();
   unlistenRestart = null;
 });
