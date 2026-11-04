@@ -6,13 +6,13 @@
 
 <a href="https://github.com/mantoujun12/astrbot-launcher-vue/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/mantoujun12/astrbot-launcher-vue?color=76bad9"></a>
 <a href="https://tauri.app"><img alt="Tauri 2.12.4" src="https://img.shields.io/badge/Tauri-2.12.4-24C8D8?logo=tauri&logoColor=white"></a>
-<a href="https://vuetifyjs.com"><img alt="Vueitfy 4.3.1" src="https://img.shields.io/badge/Vueitfy-4.3.1-1867C0?logo=vuetify"></a>
+<a href="https://vuetifyjs.com"><img alt="Vuetify 4.3.1" src="https://img.shields.io/badge/Vuetify-4.3.1-1867C0?logo=vuetify"></a>
 <a href="https://github.com/AstrBotDevs/astrbot-launcher"><img alt="Static Badge" src="https://img.shields.io/badge/Main-AstrBotDevs%2Fastrbot--launcher-181717?logo=github"></a>
 <a href="https://github.com/AstrBotDevs/AstrBot"><img alt="Upstream - AstrBotDevs/AstrBot" src="https://img.shields.io/badge/Upstream-AstrBotDevs%2FAstrBot-181717?logo=github"></a>
 
 <!-- badge -->
 
-基于 Tauri 2 与 Vueitfy 4 构建的 AstrBot 桌面管理器
+基于 Tauri 2 与 Vuetify 4 构建的 AstrBot 桌面管理器
 
 用于集中管理本地实例，并提供版本下载、数据备份和 Python 等运行环境配置。
 
