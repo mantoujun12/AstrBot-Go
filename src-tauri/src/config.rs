@@ -24,6 +24,14 @@ fn default_instance_host() -> String {
     DEFAULT_INSTANCE_HOST.to_string()
 }
 
+fn default_auto_restart_max_retries() -> u32 {
+    3
+}
+
+fn default_auto_restart_notify() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ThemePreference {
@@ -435,6 +443,12 @@ pub struct InstanceConfig {
     pub created_at: String,
     #[serde(default = "default_true")]
     pub check_update_enabled: bool,
+    #[serde(default)]
+    pub auto_restart_enabled: bool,
+    #[serde(default = "default_auto_restart_max_retries")]
+    pub auto_restart_max_retries: u32,
+    #[serde(default = "default_auto_restart_notify")]
+    pub auto_restart_notify: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

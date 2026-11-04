@@ -744,6 +744,9 @@ pub struct UpdateInstanceRequest {
     pub host: Option<String>,
     pub port: Option<u16>,
     pub check_update_enabled: Option<bool>,
+    pub auto_restart_enabled: Option<bool>,
+    pub auto_restart_max_retries: Option<u32>,
+    pub auto_restart_notify: Option<bool>,
 }
 
 #[tauri::command]
@@ -761,6 +764,9 @@ pub async fn update_instance(
         request.host.as_deref(),
         request.port,
         request.check_update_enabled,
+        request.auto_restart_enabled,
+        request.auto_restart_max_retries,
+        request.auto_restart_notify,
         &app_handle,
     )
     .await

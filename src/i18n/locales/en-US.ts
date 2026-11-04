@@ -445,6 +445,10 @@ const enUS = {
     deploy: {
       title: "Instance Deployment",
     },
+    restart: {
+      scheduled: "Instance \"{name}\" exited unexpectedly; auto-restarting in {seconds}s (attempt {attempt}/{max})",
+      exhausted: "Instance \"{name}\" kept crashing; auto-restart stopped",
+    },
     form: {
       titles: {
         edit: "Edit Instance",
@@ -456,6 +460,9 @@ const enUS = {
         host: "Host",
         port: "Port",
         checkUpdate: "Check for updates",
+        autoRestart: "Auto-restart after abnormal exit",
+        autoRestartMaxRetries: "Max retries",
+        autoRestartNotify: "Notify on restart",
       },
       emptyVersions: "No installed versions",
       goVersions: "Go to Versions",

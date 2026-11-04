@@ -6,13 +6,20 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use tokio::sync::{broadcast, watch};
 
 use super::control::graceful_shutdown;
 use super::monitor;
-use super::{InstanceProcess, InstanceRuntimeInfo, InstanceState, RuntimeEvent};
+use super::{
+    auto_restart_delay_secs, InstanceProcess, InstanceRestartEvent, InstanceRuntimeInfo,
+    InstanceState, RuntimeEvent, AUTO_RESTART_STABLE_RUN_SECS,
+};
+use tauri::Emitter as _;
+
 use crate::backup::find_pending_auto_backup;
+use crate::config::load_manifest;
 use crate::error::{AppError, ErrorKind, Result};
 use crate::instance::lifecycle;
 use crate::utils::sync::lock_mutex_recover;
@@ -40,9 +47,21 @@ pub(super) struct InstanceEntry {
     guarded: bool,
 }
 
+/// Tracks the auto-restart budget for one instance.
+#[derive(Default)]
+pub(super) struct RestartTracker {
+    /// Consecutive unexpected exits since the last stable run.
+    pub(super) attempts: u32,
+    /// Set by a manual stop so a sleeping restart task aborts itself.
+    pub(super) cancelled: bool,
+    /// Diagnostic reason recorded for the latest unexpected exit.
+    pub(super) last_exit_reason: String,
+}
+
 pub(super) struct ProcessState {
     pub(super) slots: HashMap<String, InstanceEntry>,
     pub(super) shutting_down: bool,
+    pub(super) restarts: HashMap<String, RestartTracker>,
 }
 
 impl ProcessState {
@@ -147,6 +166,7 @@ pub struct ProcessManager {
     state: Arc<Mutex<ProcessState>>,
     runtime_events: broadcast::Sender<RuntimeEvent>,
     shutdown_signal: watch::Sender<bool>,
+    app_handle: Arc<Mutex<Option<tauri::AppHandle>>>,
 }
 
 impl ProcessManager {
@@ -156,26 +176,40 @@ impl ProcessManager {
         let state = Arc::new(Mutex::new(ProcessState {
             slots: HashMap::new(),
             shutting_down: false,
+            restarts: HashMap::new(),
         }));
 
         Self {
             state,
             runtime_events,
             shutdown_signal,
+            app_handle: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Associates the manager with the Tauri app handle so it can emit
+    /// lifecycle events and spawn auto-restart tasks.
+    pub fn bind_app_handle(&self, app_handle: tauri::AppHandle) {
+        *lock_mutex_recover(&self.app_handle, "AppHandleSlot") = Some(app_handle);
     }
 
     /// Spawn the background monitor task that periodically polls all instances.
     ///
     /// Must be called after the Tauri async runtime is available (e.g. in `setup`).
-    pub fn start_monitor(&self) {
+    pub fn start_monitor(&self, app_handle: tauri::AppHandle) {
+        self.bind_app_handle(app_handle);
         let monitor_state = Arc::clone(&self.state);
         let monitor_events = self.runtime_events.clone();
+        let pm = self.clone();
         tauri::async_runtime::spawn(async move {
             let mut interval = tokio::time::interval(super::MONITOR_INTERVAL);
             loop {
                 interval.tick().await;
-                monitor::poll_instances(&monitor_state, &monitor_events);
+                let dead = monitor::poll_instances(&monitor_state, &monitor_events);
+                pm.reset_stable_restart_budget();
+                for (id, reason) in dead {
+                    pm.handle_unexpected_exit(&id, reason);
+                }
             }
         });
     }
@@ -238,6 +272,176 @@ impl ProcessManager {
             .collect()
     }
 
+    /// Returns recorded exit reason and consecutive crash attempts for every
+    /// instance that currently holds a restart tracker.
+    pub fn get_restart_info(&self) -> HashMap<String, (String, u32)> {
+        let state = lock_mutex_recover(&self.state, "ProcessState");
+        state
+            .restarts
+            .iter()
+            .map(|(id, tracker)| {
+                (
+                    id.clone(),
+                    (tracker.last_exit_reason.clone(), tracker.attempts),
+                )
+            })
+            .collect()
+    }
+
+    /// Resets the crash budget for instances that have been live beyond the
+    /// stable-run threshold. Called once per monitor tick.
+    pub(super) fn reset_stable_restart_budget(&self) {
+        let mut state = lock_mutex_recover(&self.state, "ProcessState");
+        let stable_ids: Vec<String> = state
+            .slots
+            .iter()
+            .filter_map(|(id, entry)| match &entry.slot {
+                Some(Slot::Live(p)) => p
+                    .started_at
+                    .filter(|t| t.elapsed() >= Duration::from_secs(AUTO_RESTART_STABLE_RUN_SECS))
+                    .map(|_| id.clone()),
+                _ => None,
+            })
+            .collect();
+        for id in stable_ids {
+            if let Some(tracker) = state.restarts.get_mut(&id) {
+                if tracker.attempts > 0 {
+                    log::info!(
+                        "Instance {} ran stably for over {}s, resetting auto-restart attempts",
+                        id,
+                        AUTO_RESTART_STABLE_RUN_SECS
+                    );
+                    tracker.attempts = 0;
+                }
+            }
+        }
+    }
+
+    /// Reacts to an unexpected exit detected by the monitor.
+    ///
+    /// Manual stops never reach this path: they transition through
+    /// `Stopping` -> `Stopped` directly. When auto-restart is enabled for the
+    /// instance, schedules a backoff-delayed restart and emits an
+    /// `instance-restart` event to the frontend.
+    pub(super) fn handle_unexpected_exit(&self, id: &str, reason: String) {
+        let manifest = match load_manifest() {
+            Ok(m) => m,
+            Err(e) => {
+                log::warn!("Cannot read instance config for auto-restart: {}", e);
+                return;
+            }
+        };
+        let Some(instance) = manifest.instances.get(id) else {
+            return;
+        };
+        if !instance.auto_restart_enabled {
+            let mut state = lock_mutex_recover(&self.state, "ProcessState");
+            state.restarts.remove(id);
+            drop(state);
+            return;
+        }
+        let max_retries = instance.auto_restart_max_retries.max(1);
+        let notify = instance.auto_restart_notify;
+        let instance_name = instance.name.clone();
+
+        let attempt = {
+            let mut state = lock_mutex_recover(&self.state, "ProcessState");
+            if state.shutting_down {
+                return;
+            }
+            let tracker = state.restarts.entry(id.to_string()).or_default();
+            tracker.cancelled = false;
+            tracker.last_exit_reason = reason.clone();
+            tracker.attempts += 1;
+            let attempt = tracker.attempts;
+            drop(state);
+            attempt
+        };
+
+        let delay_secs = auto_restart_delay_secs(attempt);
+        let will_retry = attempt <= max_retries;
+
+        log::warn!(
+            "Instance {} exited unexpectedly (attempt {}/{}, reason: {})",
+            id,
+            attempt,
+            max_retries,
+            reason
+        );
+
+        let app_slot = lock_mutex_recover(&self.app_handle, "AppHandleSlot");
+        if let Some(app) = &*app_slot {
+            let payload = InstanceRestartEvent {
+                instance_id: id.to_string(),
+                instance_name,
+                attempt,
+                max_retries,
+                will_retry,
+                delay_secs,
+                reason,
+            };
+            if notify {
+                let _ = app.emit("instance-restart", &payload);
+            }
+        }
+        drop(app_slot);
+
+        if !will_retry {
+            log::warn!(
+                "Instance {} exceeded the maximum auto-restart retries ({}), not restarting again",
+                id,
+                max_retries
+            );
+            return;
+        }
+
+        let pm = self.clone();
+        let id_owned = id.to_string();
+        let app_slot = lock_mutex_recover(&self.app_handle, "AppHandleSlot");
+        let app = app_slot.clone();
+        drop(app_slot);
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(delay_secs)).await;
+            let abort = {
+                let state = lock_mutex_recover(&pm.state, "ProcessState");
+                state.shutting_down
+                    || state.slots.contains_key(&id_owned)
+                    || state
+                        .restarts
+                        .get(&id_owned)
+                        .map(|t| t.cancelled)
+                        .unwrap_or(false)
+            };
+            if abort {
+                log::info!("Skipping scheduled auto-restart for instance {}", id_owned);
+                return;
+            }
+            // The switch may have been turned off during the backoff delay.
+            let still_enabled = load_manifest()
+                .ok()
+                .and_then(|m| m.instances.get(&id_owned).map(|i| i.auto_restart_enabled))
+                .unwrap_or(false);
+            if !still_enabled {
+                log::info!(
+                    "Auto-restart for instance {} was disabled, skipping",
+                    id_owned
+                );
+                return;
+            }
+            let Some(app) = app else {
+                return;
+            };
+            if let Err(e) = pm.start_instance(&id_owned, app).await {
+                log::warn!(
+                    "Scheduled auto-restart failed to launch instance {}: {}",
+                    id_owned,
+                    e
+                );
+                pm.handle_unexpected_exit(&id_owned, format!("launch failed: {e}"));
+            }
+        });
+    }
+
     /// Acquire a guard that prevents lifecycle operations on the instance.
     /// The guard is released when dropped.
     pub fn acquire_guard(&self, id: &str) -> Result<InstanceGuard> {
@@ -290,7 +494,17 @@ impl ProcessManager {
     }
 
     pub async fn stop_instance(&self, id: &str) -> Result<()> {
-        // Phase 1: lock → transition to Stopping → unlock
+        // Cancel any pending auto-restart first: a user-initiated stop must
+        // not be followed by a delayed restart task.
+        {
+            let mut state = lock_mutex_recover(&self.state, "ProcessState");
+            state.check_active(id)?;
+            if let Some(tracker) = state.restarts.get_mut(id) {
+                tracker.cancelled = true;
+                tracker.attempts = 0;
+            }
+        }
+        // Phase 2: lock → transition to Stopping → unlock
         let (pid, exe) = {
             let mut state = lock_mutex_recover(&self.state, "ProcessState");
             state.check_active(id)?;
@@ -477,9 +691,13 @@ impl ProcessManager {
 
     /// Finalize a stop: remove the slot and emit Stopped.
     fn finalize_stop(&self, id: &str) {
-        lock_mutex_recover(&self.state, "ProcessState")
-            .slots
-            .remove(id);
+        let mut state = lock_mutex_recover(&self.state, "ProcessState");
+        state.slots.remove(id);
+        // Manual stops are not crashes: forget the crash budget.
+        if let Some(tracker) = state.restarts.get_mut(id) {
+            tracker.attempts = 0;
+        }
+        drop(state);
         self.emit(id, InstanceState::Stopped);
     }
 

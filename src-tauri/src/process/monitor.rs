@@ -33,7 +33,7 @@ struct LiveSnapshot {
 /// Outcome of evaluating a single instance during monitoring.
 enum MonitorOutcome {
     /// The process is dead — its slot should be removed.
-    Dead { id: String },
+    Dead { id: String, reason: String },
     /// The process is alive — update its fields.
     Alive {
         id: String,
@@ -48,15 +48,17 @@ enum MonitorOutcome {
 ///
 /// Snap-then-apply: locks briefly to snapshot, evaluates with no
 /// lock held, then locks again to apply results.
+/// Returns the IDs (and exit reasons) of instances whose processes died
+/// during this poll, so the manager can apply auto-restart policy.
 pub(super) fn poll_instances(
     state: &Mutex<ProcessState>,
     runtime_events: &tokio::sync::broadcast::Sender<RuntimeEvent>,
-) {
+) -> Vec<(String, String)> {
     // Phase 1: lock → snapshot Live slots → unlock
     let entries: Vec<LiveSnapshot> = {
         let state = lock_mutex_recover(state, "ProcessState");
         if state.shutting_down {
-            return;
+            return Vec::new();
         }
         state
             .slots
@@ -80,14 +82,14 @@ pub(super) fn poll_instances(
     };
 
     if entries.is_empty() {
-        return;
+        return Vec::new();
     }
 
     // Phase 2: evaluate liveness
     let outcomes = evaluate_instances(&entries);
 
     // Phase 3: lock → apply outcomes → unlock → collect events
-    let events = {
+    let (events, dead) = {
         let mut state = lock_mutex_recover(state, "ProcessState");
         apply_outcomes(&mut state, &outcomes)
     };
@@ -98,6 +100,23 @@ pub(super) fn poll_instances(
             instance_id: id,
             state: new_state,
         });
+    }
+
+    dead
+}
+
+/// Diagnostic exit reason recorded when a live instance is declared dead.
+fn exit_reason(entry: &LiveSnapshot) -> String {
+    #[cfg(target_os = "windows")]
+    {
+        format!(
+            "liveness probe failed {} consecutive times; process no longer running (pid {})",
+            entry.alive_failure_count, entry.pid
+        )
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        format!("process exited (pid {})", entry.pid)
     }
 }
 
@@ -110,6 +129,7 @@ fn evaluate_instances(entries: &[LiveSnapshot]) -> Vec<MonitorOutcome> {
         let Some(outcome) = evaluate_liveness(entry, now) else {
             outcomes.push(MonitorOutcome::Dead {
                 id: entry.id.clone(),
+                reason: exit_reason(entry),
             });
             continue;
         };
@@ -120,16 +140,18 @@ fn evaluate_instances(entries: &[LiveSnapshot]) -> Vec<MonitorOutcome> {
     outcomes
 }
 
-/// Apply monitor outcomes to the live process state. Returns events to emit.
-fn apply_outcomes(
-    state: &mut ProcessState,
-    outcomes: &[MonitorOutcome],
-) -> Vec<(String, InstanceState)> {
+/// `apply_outcomes` result: (state-change events, dead IDs with reasons).
+type ApplyResult = (Vec<(String, InstanceState)>, Vec<(String, String)>);
+
+/// Apply monitor outcomes to the live process state. Returns (events to
+/// emit, dead instance IDs with their recorded exit reasons).
+fn apply_outcomes(state: &mut ProcessState, outcomes: &[MonitorOutcome]) -> ApplyResult {
     let mut events = Vec::new();
+    let mut dead = Vec::new();
 
     for outcome in outcomes {
         match outcome {
-            MonitorOutcome::Dead { id } => {
+            MonitorOutcome::Dead { id, reason } => {
                 // Only remove slots still in Live state — another lifecycle
                 // method may have transitioned the slot in the meantime.
                 if matches!(
@@ -142,6 +164,7 @@ fn apply_outcomes(
                     state.slots.remove(id);
                     log::info!("Removed dead process tracking entry for instance {}", id);
                     events.push((id.clone(), InstanceState::Stopped));
+                    dead.push((id.clone(), reason.clone()));
                 }
             }
             MonitorOutcome::Alive {
@@ -172,7 +195,7 @@ fn apply_outcomes(
         }
     }
 
-    events
+    (events, dead)
 }
 
 // -- Liveness evaluation ------------------------------------------------------

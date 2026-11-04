@@ -72,6 +72,11 @@ export interface InstanceStatus {
   configured_host: string;
   configured_port: number;
   check_update_enabled: boolean;
+  auto_restart_enabled: boolean;
+  auto_restart_max_retries: number;
+  auto_restart_notify: boolean;
+  last_exit_reason: string;
+  restart_attempts: number;
 }
 
 export interface InstalledVersion {
@@ -174,6 +179,19 @@ export interface UpdateInstanceRequest {
   host?: string;
   port?: number;
   checkUpdateEnabled?: boolean;
+  autoRestartEnabled?: boolean;
+  autoRestartMaxRetries?: number;
+  autoRestartNotify?: boolean;
+}
+
+export interface InstanceRestartEvent {
+  instance_id: string;
+  instance_name: string;
+  attempt: number;
+  max_retries: number;
+  will_retry: boolean;
+  delay_secs: number;
+  reason: string;
 }
 
 export interface DataDirChangeResult {
