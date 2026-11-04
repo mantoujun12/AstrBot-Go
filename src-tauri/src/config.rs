@@ -443,12 +443,15 @@ pub struct InstanceConfig {
     pub created_at: String,
     #[serde(default = "default_true")]
     pub check_update_enabled: bool,
+    /// `None` means "not customised yet", filled from the alert defaults.
     #[serde(default)]
     pub resource_alert_cpu_percent: Option<f32>,
     #[serde(default)]
     pub resource_alert_memory_bytes: Option<u64>,
     #[serde(default)]
     pub resource_alert_disk_bytes: Option<u64>,
+    #[serde(default = "default_true")]
+    pub resource_alert_enabled: bool,
     #[serde(default)]
     pub auto_restart_enabled: bool,
     #[serde(default = "default_auto_restart_max_retries")]
@@ -534,6 +537,10 @@ mod tests {
         assert!(!instance.auto_restart_enabled);
         assert_eq!(instance.auto_restart_max_retries, 3);
         assert!(instance.auto_restart_notify);
+        assert!(instance.resource_alert_enabled);
+        assert_eq!(instance.resource_alert_cpu_percent, None);
+        assert_eq!(instance.resource_alert_memory_bytes, None);
+        assert_eq!(instance.resource_alert_disk_bytes, None);
         Ok(())
     }
 

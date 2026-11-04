@@ -11,7 +11,6 @@ pub(crate) mod libc_api;
 #[cfg(target_os = "windows")]
 pub(crate) mod win_api;
 
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -23,8 +22,8 @@ pub use control::{
 };
 pub use manager::ProcessManager;
 pub(crate) use resource::{
-    compute_disk_usage, sample_metric, sample_process_resources, unix_secs_now, CpuMeter,
-    ResourceHistory,
+    compute_disk_usage, sample_metric, sample_process_resources, unix_secs_now, AlertTracker,
+    CpuMeter, ResourceHistory,
 };
 pub use resource::{ResourceAlertThreshold, ResourceSample};
 #[cfg(target_os = "windows")]
@@ -138,9 +137,9 @@ pub struct InstanceProcess {
     pub(crate) resource_history: ResourceHistory,
     /// Configured alert thresholds for this instance.
     pub(crate) resource_thresholds: ResourceAlertThreshold,
-    /// Metrics currently above their configured threshold, used to avoid
-    /// repeating the same alert on every monitor tick.
-    pub(crate) active_alerts: HashSet<String>,
+    /// Tracks breached metrics across samples so alerts fire and clear on
+    /// confirmed transitions instead of every monitor tick.
+    pub(crate) alert_tracker: AlertTracker,
     /// When the process transitioned into `Live`. Used to reset the
     /// auto-restart budget after a stable runtime.
     pub(crate) started_at: Option<std::time::Instant>,
@@ -181,7 +180,7 @@ impl InstanceProcess {
             next_alive_check_at: None,
             resource_history: ResourceHistory::new(),
             resource_thresholds: ResourceAlertThreshold::default(),
-            active_alerts: HashSet::new(),
+            alert_tracker: AlertTracker::default(),
             started_at: Some(std::time::Instant::now()),
         }
     }

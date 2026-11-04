@@ -66,17 +66,25 @@ pub(super) struct ProcessState {
 }
 
 fn configured_resource_thresholds(instance_id: &str) -> ResourceAlertThreshold {
+    let defaults = ResourceAlertThreshold::default();
     let Ok(manifest) = load_manifest() else {
-        return ResourceAlertThreshold::default();
+        return defaults;
     };
     let Some(instance) = manifest.instances.get(instance_id) else {
-        return ResourceAlertThreshold::default();
+        return defaults;
     };
 
     ResourceAlertThreshold {
-        cpu_percent: instance.resource_alert_cpu_percent,
-        memory_bytes: instance.resource_alert_memory_bytes,
-        disk_bytes: instance.resource_alert_disk_bytes,
+        enabled: instance.resource_alert_enabled,
+        cpu_percent: instance
+            .resource_alert_cpu_percent
+            .unwrap_or(defaults.cpu_percent),
+        memory_bytes: instance
+            .resource_alert_memory_bytes
+            .unwrap_or(defaults.memory_bytes),
+        disk_bytes: instance
+            .resource_alert_disk_bytes
+            .unwrap_or(defaults.disk_bytes),
     }
 }
 
@@ -354,7 +362,7 @@ impl ProcessManager {
                 ..
             }) => {
                 process.resource_thresholds = thresholds;
-                process.active_alerts.clear();
+                process.alert_tracker.clear();
                 Ok(())
             }
             _ => Err(AppError::instance_not_running()),

@@ -134,6 +134,7 @@ fn scan_instances() -> Result<HashMap<String, InstanceConfig>> {
             continue;
         };
 
+        let defaults = crate::process::ResourceAlertThreshold::default();
         let instance = InstanceConfig {
             name: default_instance_name(&instance_id),
             version,
@@ -141,9 +142,10 @@ fn scan_instances() -> Result<HashMap<String, InstanceConfig>> {
             port: 0,
             created_at: chrono::Utc::now().to_rfc3339(),
             check_update_enabled: true,
-            resource_alert_cpu_percent: None,
-            resource_alert_memory_bytes: None,
-            resource_alert_disk_bytes: None,
+            resource_alert_cpu_percent: Some(defaults.cpu_percent),
+            resource_alert_memory_bytes: Some(defaults.memory_bytes),
+            resource_alert_disk_bytes: Some(defaults.disk_bytes),
+            resource_alert_enabled: defaults.enabled,
             auto_restart_enabled: false,
             auto_restart_max_retries: 3,
             auto_restart_notify: true,

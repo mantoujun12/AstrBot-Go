@@ -629,10 +629,11 @@ const enUS = {
     },
     thresholds: {
       title: "Threshold alerts",
+      enabled: "Enable alerts",
       cpu: "CPU limit",
       memory: "Memory limit",
       disk: "Disk limit",
-      invalid: "Enter a value greater than 0, or leave it empty for no limit.",
+      invalid: "Enter a value greater than 0.",
       saved: "Thresholds saved",
     },
     alerts: {

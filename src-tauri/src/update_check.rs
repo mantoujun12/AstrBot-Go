@@ -154,6 +154,7 @@ mod tests {
             resource_alert_cpu_percent: None,
             resource_alert_memory_bytes: None,
             resource_alert_disk_bytes: None,
+            resource_alert_enabled: true,
         }
     }
 

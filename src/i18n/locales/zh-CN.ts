@@ -624,10 +624,11 @@ const zhCN = {
     },
     "thresholds": {
       "title": "阈值告警",
+      "enabled": "启用告警",
       "cpu": "CPU 上限",
       "memory": "内存上限",
       "disk": "磁盘上限",
-      "invalid": "请输入大于 0 的数值，留空表示不限制。",
+      "invalid": "请输入大于 0 的数值。",
       "saved": "阈值已保存"
     },
     "alerts": {

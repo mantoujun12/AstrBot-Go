@@ -4,9 +4,11 @@
 //! in a bounded ring buffer so the frontend can draw trend charts without
 //! unbounded memory growth.
 
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::path::Path;
 use std::time::{Instant, SystemTime};
+
+use once_cell::sync::OnceCell;
 
 use serde::{Deserialize, Serialize};
 
@@ -31,10 +33,11 @@ pub(crate) fn is_disk_sample_due(tick: u32) -> bool {
 pub struct ResourceSample {
     /// Unix timestamp in seconds (wall-clock).
     pub timestamp: u64,
-    /// CPU usage percentage of the process. Values above 100 are possible
-    /// when a process uses more than one logical core.
+    /// CPU usage of the instance process tree, in percent of the whole
+    /// machine (100 means every logical core is busy).
     pub cpu_percent: Option<f32>,
-    /// Resident memory in bytes. `None` when unavailable.
+    /// Private working set of the instance process tree in bytes, the value
+    /// task managers report as a process's memory. `None` when unavailable.
     pub memory_bytes: Option<u64>,
     /// Instance directory disk usage in bytes. `None` when unavailable.
     pub disk_bytes: Option<u64>,
@@ -146,34 +149,128 @@ pub fn compute_disk_usage(path: &Path) -> Option<u64> {
     Some(total)
 }
 
-/// Sample CPU and memory for a process identified by PID.
+/// Sample CPU and memory for the process tree rooted at `pid`.
 ///
-/// The first CPU probe has no previous baseline and therefore returns `None`.
-/// Subsequent probes report the CPU used between monitor ticks.
+/// CPU time and memory are summed over the root process and its descendants so
+/// helper processes spawned by the instance are included. CPU is reported
+/// relative to the whole machine (100% = all logical cores busy) and memory is
+/// the private working set, matching what task managers show. The first CPU
+/// probe has no previous baseline and therefore returns `None`.
 pub(crate) fn sample_process_resources(
     pid: u32,
     meter: &mut CpuMeter,
 ) -> (Option<f32>, Option<u64>) {
-    let cpu_total_ns = read_process_cpu_time_ns(pid);
-    let cpu_percent = meter.observe(cpu_total_ns, Instant::now());
-    let memory_bytes = read_process_memory_bytes(pid);
+    let (cpu_total_ns, memory_bytes) = read_process_tree_usage(pid);
+    let cpu_percent = meter
+        .observe(cpu_total_ns, Instant::now())
+        .map(|single_core_percent| scale_cpu_percent(single_core_percent, logical_core_count()));
     (cpu_percent, memory_bytes)
 }
 
+/// Turn a single-core-relative percentage into a whole-machine percentage.
+fn scale_cpu_percent(single_core_percent: f32, cores: f32) -> f32 {
+    if cores > 1.0 {
+        single_core_percent / cores
+    } else {
+        single_core_percent
+    }
+}
+
+fn logical_core_count() -> f32 {
+    static CORES: OnceCell<f32> = OnceCell::new();
+    *CORES.get_or_init(|| {
+        std::thread::available_parallelism()
+            .map(|cores| cores.get() as f32)
+            .unwrap_or(1.0)
+    })
+}
+
 #[cfg(target_os = "windows")]
-fn read_process_cpu_time_ns(pid: u32) -> Option<u64> {
-    use windows::Win32::Foundation::FILETIME;
-    use windows::Win32::System::Threading::{
-        GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+fn read_process_tree_usage(root_pid: u32) -> (Option<u64>, Option<u64>) {
+    let mut cpu_total = 0u64;
+    let mut memory_total = 0u64;
+    let mut cpu_seen = false;
+    let mut memory_seen = false;
+
+    for pid in process_tree_pids(root_pid) {
+        let (cpu_ns, memory_bytes) = read_single_process_usage(pid);
+        if let Some(value) = cpu_ns {
+            cpu_total = cpu_total.saturating_add(value);
+            cpu_seen = true;
+        }
+        if let Some(value) = memory_bytes {
+            memory_total = memory_total.saturating_add(value);
+            memory_seen = true;
+        }
+    }
+
+    (
+        cpu_seen.then_some(cpu_total),
+        memory_seen.then_some(memory_total),
+    )
+}
+
+/// Collect the root process and every descendant PID.
+#[cfg(target_os = "windows")]
+fn process_tree_pids(root_pid: u32) -> Vec<u32> {
+    use std::collections::HashMap;
+
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
     };
 
-    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?;
+    let Ok(snapshot) = (unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }) else {
+        return vec![root_pid];
+    };
+
+    let mut children: HashMap<u32, Vec<u32>> = HashMap::new();
+    let mut entry = PROCESSENTRY32W {
+        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+        ..Default::default()
+    };
+
+    if unsafe { Process32FirstW(snapshot, &mut entry) }.is_ok() {
+        loop {
+            children
+                .entry(entry.th32ParentProcessID)
+                .or_default()
+                .push(entry.th32ProcessID);
+            if unsafe { Process32NextW(snapshot, &mut entry) }.is_err() {
+                break;
+            }
+        }
+    }
+    let _ = unsafe { CloseHandle(snapshot) };
+
+    let mut pids = vec![root_pid];
+    let mut index = 0;
+    // Cap the walk so a corrupted parent chain cannot loop forever.
+    while index < pids.len() && pids.len() < 4096 {
+        let current = pids[index];
+        if let Some(kids) = children.get(&current) {
+            pids.extend(kids.iter().copied());
+        }
+        index += 1;
+    }
+    pids
+}
+
+#[cfg(target_os = "windows")]
+fn read_single_process_usage(pid: u32) -> (Option<u64>, Option<u64>) {
+    use windows::Win32::Foundation::{CloseHandle, FILETIME};
+    use windows::Win32::System::Threading::GetProcessTimes;
+
+    let Some(handle) = open_process_for_metrics(pid) else {
+        return (None, None);
+    };
+
     let mut creation = FILETIME::default();
     let mut exit_time = FILETIME::default();
     let mut kernel = FILETIME::default();
     let mut user = FILETIME::default();
-
-    let success = unsafe {
+    let cpu_ns = if unsafe {
         GetProcessTimes(
             handle,
             &mut creation,
@@ -182,39 +279,80 @@ fn read_process_cpu_time_ns(pid: u32) -> Option<u64> {
             &mut user,
         )
     }
-    .is_ok();
-    let _ = unsafe { windows::Win32::Foundation::CloseHandle(handle) };
+    .is_ok()
+    {
+        filetime_to_u64(&kernel)
+            .saturating_add(filetime_to_u64(&user))
+            .checked_mul(100)
+    } else {
+        None
+    };
 
-    if !success {
-        return None;
-    }
-
-    filetime_to_u64(&kernel)
-        .saturating_add(filetime_to_u64(&user))
-        .checked_mul(100)
+    let memory_bytes = query_private_working_set(handle);
+    let _ = unsafe { CloseHandle(handle) };
+    (cpu_ns, memory_bytes)
 }
 
 #[cfg(target_os = "windows")]
-fn read_process_memory_bytes(pid: u32) -> Option<u64> {
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+fn open_process_for_metrics(pid: u32) -> Option<windows::Win32::Foundation::HANDLE> {
     use windows::Win32::System::Threading::{
-        OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+        OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
     };
 
-    let handle =
-        unsafe { OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid) }.ok()?;
-    let mut counters = PROCESS_MEMORY_COUNTERS::default();
+    let limited = unsafe {
+        OpenProcess(
+            PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
+            false,
+            pid,
+        )
+    };
+    if let Ok(handle) = limited {
+        return Some(handle);
+    }
+    unsafe { OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid).ok() }
+}
+
+/// Private working set, the number Windows Task Manager shows as a process's
+/// memory. Falls back to the plain working set on builds that reject the
+/// larger counter struct.
+#[cfg(target_os = "windows")]
+fn query_private_working_set(handle: windows::Win32::Foundation::HANDLE) -> Option<u64> {
+    use windows::Win32::System::ProcessStatus::{
+        K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
+        PROCESS_MEMORY_COUNTERS_EX2,
+    };
+
+    let mut counters = PROCESS_MEMORY_COUNTERS_EX2 {
+        cb: std::mem::size_of::<PROCESS_MEMORY_COUNTERS_EX2>() as u32,
+        ..Default::default()
+    };
+    let size = std::mem::size_of::<PROCESS_MEMORY_COUNTERS_EX2>() as u32;
     let success = unsafe {
         K32GetProcessMemoryInfo(
             handle,
-            &mut counters,
-            std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+            (&mut counters as *mut PROCESS_MEMORY_COUNTERS_EX2).cast::<PROCESS_MEMORY_COUNTERS>(),
+            size,
         )
-    };
-    let _ = unsafe { CloseHandle(handle) };
+    }
+    .as_bool();
+    if success {
+        return Some(counters.PrivateWorkingSetSize as u64);
+    }
 
-    (success.0 != 0).then_some(counters.WorkingSetSize as u64)
+    let mut legacy = PROCESS_MEMORY_COUNTERS_EX {
+        cb: std::mem::size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32,
+        ..Default::default()
+    };
+    let size = std::mem::size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32;
+    let success = unsafe {
+        K32GetProcessMemoryInfo(
+            handle,
+            (&mut legacy as *mut PROCESS_MEMORY_COUNTERS_EX).cast::<PROCESS_MEMORY_COUNTERS>(),
+            size,
+        )
+    }
+    .as_bool();
+    success.then_some(legacy.WorkingSetSize as u64)
 }
 
 #[cfg(target_os = "windows")]
@@ -223,10 +361,74 @@ fn filetime_to_u64(filetime: &windows::Win32::Foundation::FILETIME) -> u64 {
 }
 
 #[cfg(target_os = "linux")]
-fn read_process_cpu_time_ns(pid: u32) -> Option<u64> {
-    use std::fs;
+fn read_process_tree_usage(root_pid: u32) -> (Option<u64>, Option<u64>) {
+    use std::collections::HashMap;
 
-    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    let mut parents: HashMap<u32, u32> = HashMap::new();
+    if let Ok(entries) = std::fs::read_dir("/proc") {
+        for entry in entries.flatten() {
+            let Some(pid) = entry
+                .file_name()
+                .to_str()
+                .and_then(|name| name.parse::<u32>().ok())
+            else {
+                continue;
+            };
+            let Some(parent) = linux_parent_pid(pid) else {
+                continue;
+            };
+            parents.insert(pid, parent);
+        }
+    }
+
+    let mut pids = vec![root_pid];
+    let mut index = 0;
+    // Cap the walk so a corrupted parent chain cannot loop forever.
+    while index < pids.len() && pids.len() < 4096 {
+        let current = pids[index];
+        for (pid, parent) in &parents {
+            if *parent == current {
+                pids.push(*pid);
+            }
+        }
+        index += 1;
+    }
+
+    let mut cpu_total = 0u64;
+    let mut memory_total = 0u64;
+    let mut cpu_seen = false;
+    let mut memory_seen = false;
+    for pid in pids {
+        if let Some(value) = linux_process_cpu_ns(pid) {
+            cpu_total = cpu_total.saturating_add(value);
+            cpu_seen = true;
+        }
+        if let Some(value) = linux_process_memory_bytes(pid) {
+            memory_total = memory_total.saturating_add(value);
+            memory_seen = true;
+        }
+    }
+
+    (
+        cpu_seen.then_some(cpu_total),
+        memory_seen.then_some(memory_total),
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn linux_parent_pid(pid: u32) -> Option<u32> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    let close_paren = stat.rfind(')')?;
+    stat[close_paren + 2..]
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()
+}
+
+#[cfg(target_os = "linux")]
+fn linux_process_cpu_ns(pid: u32) -> Option<u64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     let close_paren = stat.rfind(')')?;
     let fields: Vec<&str> = stat[close_paren + 2..].split_whitespace().collect();
     let user_ticks = fields.get(11)?.parse::<u64>().ok()?;
@@ -243,10 +445,8 @@ fn read_process_cpu_time_ns(pid: u32) -> Option<u64> {
 }
 
 #[cfg(target_os = "linux")]
-fn read_process_memory_bytes(pid: u32) -> Option<u64> {
-    use std::fs;
-
-    let status = fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
+fn linux_process_memory_bytes(pid: u32) -> Option<u64> {
+    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
     for line in status.lines() {
         if let Some(raw) = line.strip_prefix("VmRSS:") {
             let kilobytes = raw.split_whitespace().next()?.parse::<u64>().ok()?;
@@ -257,63 +457,110 @@ fn read_process_memory_bytes(pid: u32) -> Option<u64> {
 }
 
 #[cfg(target_os = "macos")]
-fn read_process_cpu_time_ns(pid: u32) -> Option<u64> {
+fn read_process_tree_usage(pid: u32) -> (Option<u64>, Option<u64>) {
     use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
 
-    let usage = pidrusage::<RUsageInfoV2>(pid as i32).ok()?;
-    Some(usage.ri_user_time.saturating_add(usage.ri_system_time))
-}
-
-#[cfg(target_os = "macos")]
-fn read_process_memory_bytes(pid: u32) -> Option<u64> {
-    use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
-
-    let usage = pidrusage::<RUsageInfoV2>(pid as i32).ok()?;
-    Some(usage.ri_resident_size)
+    let Ok(usage) = pidrusage::<RUsageInfoV2>(pid as i32) else {
+        return (None, None);
+    };
+    let cpu_ns = Some(usage.ri_user_time.saturating_add(usage.ri_system_time));
+    (cpu_ns, Some(usage.ri_resident_size))
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-fn read_process_cpu_time_ns(_pid: u32) -> Option<u64> {
-    None
+fn read_process_tree_usage(_pid: u32) -> (Option<u64>, Option<u64>) {
+    (None, None)
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-fn read_process_memory_bytes(_pid: u32) -> Option<u64> {
-    None
+/// Consecutive samples a metric must breach before an alert fires, and must
+/// stay back within the threshold before it clears. Filters one-off spikes and
+/// stops alerts from flapping around the threshold.
+pub(crate) const ALERT_CONFIRM_SAMPLES: u8 = 2;
+
+/// Tracks breached metrics across samples so alert events only fire on real
+/// transitions instead of every monitor tick.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct AlertTracker {
+    breach_streak: std::collections::HashMap<String, u8>,
+    clear_streak: std::collections::HashMap<String, u8>,
+    active: HashSet<String>,
 }
 
-/// Resource alert threshold configuration.
-///
-/// Each field is an optional upper bound. When a sample exceeds a configured
-/// threshold, an alert event is emitted to the frontend.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+impl AlertTracker {
+    pub(crate) fn clear(&mut self) {
+        self.breach_streak.clear();
+        self.clear_streak.clear();
+        self.active.clear();
+    }
+
+    /// Record one sample for `metric`; returns true only on the sample where
+    /// the alert becomes active.
+    pub(crate) fn observe(&mut self, metric: &str, breached: bool) -> bool {
+        if !breached {
+            self.breach_streak.remove(metric);
+            let streak = self.clear_streak.entry(metric.to_string()).or_insert(0);
+            *streak = streak.saturating_add(1);
+            if *streak >= ALERT_CONFIRM_SAMPLES {
+                self.active.remove(metric);
+            }
+            return false;
+        }
+
+        self.clear_streak.remove(metric);
+        let streak = self.breach_streak.entry(metric.to_string()).or_insert(0);
+        *streak = streak.saturating_add(1);
+        *streak >= ALERT_CONFIRM_SAMPLES && self.active.insert(metric.to_string())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_active(&self, metric: &str) -> bool {
+        self.active.contains(metric)
+    }
+}
+
+/// Resource alert configuration: a per-instance switch plus one upper bound
+/// per metric. When enabled and a sample exceeds a bound, an alert is
+/// emitted after it stays above for two consecutive samples.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ResourceAlertThreshold {
-    pub cpu_percent: Option<f32>,
-    pub memory_bytes: Option<u64>,
-    pub disk_bytes: Option<u64>,
+    pub enabled: bool,
+    pub cpu_percent: f32,
+    pub memory_bytes: u64,
+    pub disk_bytes: u64,
+}
+
+impl Default for ResourceAlertThreshold {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cpu_percent: 90.0,
+            memory_bytes: 4 * 1024 * 1024 * 1024,
+            disk_bytes: 20 * 1024 * 1024 * 1024,
+        }
+    }
 }
 
 impl ResourceAlertThreshold {
-    pub fn is_empty(&self) -> bool {
-        self.cpu_percent.is_none() && self.memory_bytes.is_none() && self.disk_bytes.is_none()
-    }
-
     /// Return every metric that currently exceeds its configured threshold.
     pub fn breached_metrics(&self, sample: &ResourceSample) -> Vec<&'static str> {
+        if !self.enabled {
+            return Vec::new();
+        }
+
         let mut metrics = Vec::new();
 
-        if let (Some(threshold), Some(value)) = (self.cpu_percent, sample.cpu_percent) {
-            if value > threshold {
+        if let Some(value) = sample.cpu_percent {
+            if value > self.cpu_percent {
                 metrics.push("cpu");
             }
         }
-        if let (Some(threshold), Some(value)) = (self.memory_bytes, sample.memory_bytes) {
-            if value > threshold {
+        if let Some(value) = sample.memory_bytes {
+            if value > self.memory_bytes {
                 metrics.push("memory");
             }
         }
-        if let (Some(threshold), Some(value)) = (self.disk_bytes, sample.disk_bytes) {
-            if value > threshold {
+        if let Some(value) = sample.disk_bytes {
+            if value > self.disk_bytes {
                 metrics.push("disk");
             }
         }
@@ -324,9 +571,9 @@ impl ResourceAlertThreshold {
     /// Read a metric's configured threshold as a finite number.
     pub fn threshold_for(&self, metric: &str) -> Option<f64> {
         match metric {
-            "cpu" => self.cpu_percent.map(f64::from),
-            "memory" => self.memory_bytes.map(|value| value as f64),
-            "disk" => self.disk_bytes.map(|value| value as f64),
+            "cpu" => Some(f64::from(self.cpu_percent)),
+            "memory" => Some(self.memory_bytes as f64),
+            "disk" => Some(self.disk_bytes as f64),
             _ => None,
         }
     }
@@ -429,11 +676,39 @@ mod tests {
     }
 
     #[test]
+    fn alerts_require_two_consecutive_breaches() {
+        let mut tracker = AlertTracker::default();
+        assert!(!tracker.observe("cpu", true));
+        assert!(!tracker.is_active("cpu"));
+        assert!(tracker.observe("cpu", true));
+        assert!(tracker.is_active("cpu"));
+        assert!(!tracker.observe("cpu", true));
+    }
+
+    #[test]
+    fn alerts_clear_after_two_normal_samples() {
+        let mut tracker = AlertTracker::default();
+        tracker.observe("cpu", true);
+        tracker.observe("cpu", true);
+        assert!(!tracker.observe("cpu", false));
+        assert!(tracker.is_active("cpu"));
+        assert!(!tracker.observe("cpu", false));
+        assert!(!tracker.is_active("cpu"));
+    }
+
+    #[test]
+    fn cpu_percent_is_scaled_to_the_whole_machine() {
+        assert_eq!(scale_cpu_percent(200.0, 8.0), 25.0);
+        assert_eq!(scale_cpu_percent(80.0, 1.0), 80.0);
+    }
+
+    #[test]
     fn threshold_returns_all_breached_metrics() {
         let threshold = ResourceAlertThreshold {
-            cpu_percent: Some(80.0),
-            memory_bytes: Some(1024),
-            disk_bytes: Some(4096),
+            enabled: true,
+            cpu_percent: 80.0,
+            memory_bytes: 1024,
+            disk_bytes: 4096,
         };
         let over = sample(0, Some(90.0), Some(2048), Some(8192));
         assert_eq!(
@@ -443,8 +718,21 @@ mod tests {
 
         let within = sample(0, Some(50.0), Some(512), Some(2048));
         assert!(threshold.breached_metrics(&within).is_empty());
-        assert!(ResourceAlertThreshold::default()
-            .breached_metrics(&over)
-            .is_empty());
+    }
+
+    #[test]
+    fn disabled_alerts_never_breach_and_defaults_are_sane() {
+        let disabled = ResourceAlertThreshold {
+            enabled: false,
+            ..ResourceAlertThreshold::default()
+        };
+        let over = sample(0, Some(99.0), Some(u64::MAX), Some(u64::MAX));
+        assert!(disabled.breached_metrics(&over).is_empty());
+
+        let defaults = ResourceAlertThreshold::default();
+        assert!(defaults.enabled);
+        assert_eq!(defaults.cpu_percent, 90.0);
+        assert_eq!(defaults.memory_bytes, 4 * 1024 * 1024 * 1024);
+        assert_eq!(defaults.disk_bytes, 20 * 1024 * 1024 * 1024);
     }
 }
