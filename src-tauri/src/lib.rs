@@ -15,6 +15,7 @@ mod platform;
 mod process;
 mod setup;
 mod tray;
+mod update_check;
 mod utils;
 mod validation;
 mod webview_shortcuts;
@@ -238,7 +239,7 @@ pub fn run() {
             commands::uninstall_component,
             // GitHub
             commands::fetch_releases,
-            commands::fetch_launcher_release_notes,
+            commands::check_instance_updates,
             // Version Management
             commands::install_version,
             commands::pause_download,

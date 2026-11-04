@@ -135,6 +135,25 @@ export interface GitHubRelease {
   body: string | null;
 }
 
+export type InstanceUpdateState =
+  | "available"
+  | "up_to_date"
+  | "disabled"
+  | "unknown";
+
+export interface InstanceUpdateInfo {
+  instance_id: string;
+  current_version: string;
+  latest_version: string | null;
+  state: InstanceUpdateState;
+  check_enabled: boolean;
+}
+
+export interface InstanceUpdateCheckResult {
+  update_check_enabled: boolean;
+  latest_release: GitHubRelease | null;
+  instances: InstanceUpdateInfo[];
+}
 export interface DownloadProgress {
   id: string;
   downloaded: number;
