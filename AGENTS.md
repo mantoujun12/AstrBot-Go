@@ -118,15 +118,18 @@ References:
 - [Semantic Versioning](https://semver.org/)
 - [Keep a Changelog](https://keepachangelog.com/)
 
-- Follow the rules described in `changelog/README.md`.
-- During development, add user-facing changes to `changelog/unreleased.md` in the same pull request, under `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security` as applicable. Internal refactors, CI changes, and documentation-only changes may skip it.
-- `changelog/unreleased.md` is a working draft. It is not used as release notes until it is renamed.
+- Follow the rules described in `changelogs/README.md`.
+- During development, add user-facing changes to `changelogs/unreleased.md` in the same pull request, under `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security` as applicable. Internal refactors, CI changes, and documentation-only changes may skip it.
+- Keep each entry short and focused on the most important user-visible change. One pull request contributes exactly one logical entry (one English bullet and its matching Chinese bullet in the same section), not one entry per section. Do not split one pull request across multiple entries; when it spans several areas, choose the most user-visible change.
+- `changelogs/unreleased.md` is a working draft. Leave its entries unannotated during development; pull request links are added only in the version update pull request. It is not used as release notes until it is renamed.
 - Versions follow [Semantic Versioning](https://semver.org/); changelog entries follow [Keep a Changelog](https://keepachangelog.com/).
-- After a release, continue development and keep adding entries to `changelog/unreleased.md`; do not bump the version until you are ready to release.
-- When ready to release, create a version update pull request that bumps `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` to the release version, updates `src-tauri/Cargo.lock` by running `cargo check` in `src-tauri/`, renames `changelog/unreleased.md` to `changelog/v<version>.md`, and recreates an empty `changelog/unreleased.md` for the next cycle.
+- After a release, continue development and keep adding entries to `changelogs/unreleased.md`; do not bump the version until you are ready to release.
+- When ready to release, create a version update pull request that bumps `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` to the release version, updates `src-tauri/Cargo.lock` by running `cargo check` in `src-tauri/`, renames `changelogs/unreleased.md` to `changelogs/v<version>.md`, and recreates an empty `changelogs/unreleased.md` for the next cycle.
+- In that release pull request, annotate every entry with its source pull request number as a full Markdown link: `([#12](https://github.com/mantoujun12/astrbot-launcher-vue/pull/12))` in English sections and `（[#12](https://github.com/mantoujun12/astrbot-launcher-vue/pull/12)）` in Chinese sections. Both language versions of an entry must link to the same pull request.
+- Do not backfill pull request links into historical version files such as `changelogs/v0.1.1.md`.
 - Merge the version update pull request into `main`. `.github/workflows/auto-release.yml` builds the Windows installers and publishes the GitHub Release.
 - The workflow only enforces that `package.json` and `src-tauri/tauri.conf.json` share the same version; `src-tauri/Cargo.toml` must be kept in sync manually.
-- The workflow only publishes when the versions match, `changelog/v<version>.md` exists with real entries, and no GitHub Release exists for the tag. An existing tag without a release also skips and requires manual handling.
+- The workflow only publishes when the versions match, `changelogs/v<version>.md` exists with real entries, and no GitHub Release exists for the tag. An existing tag without a release also skips and requires manual handling.
 
 ## Commit Conventions
 
