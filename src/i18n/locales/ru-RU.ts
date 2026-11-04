@@ -462,9 +462,8 @@ const ruRU = {
       venvCleared: "Виртуальное окружение очищено",
       pycacheCleared: "Кэш Python очищен",
       repairComplete: "Восстановление завершено",
-      started: "Экземпляр запущен",
+      started: "Экземпляр «{name}» запущен",
       stopped: "Экземпляр остановлен",
-      restarted: "Экземпляр перезапущен",
     },
     deploy: {
       title: "Развёртывание экземпляра",

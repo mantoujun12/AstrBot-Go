@@ -439,9 +439,8 @@ const enUS = {
       venvCleared: "Virtual environment cleared",
       pycacheCleared: "Python cache cleared",
       repairComplete: "Repair complete",
-      started: "Instance started",
+      started: "Instance \"{name}\" started",
       stopped: "Instance stopped",
-      restarted: "Instance restarted",
     },
     deploy: {
       title: "Instance Deployment",

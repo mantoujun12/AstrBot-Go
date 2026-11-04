@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import type { DataTableHeader } from "vuetify";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
@@ -364,17 +364,16 @@ function instanceWebuiUrl(instance: InstanceStatus): string {
   return `http://${host}:${port}/`;
 }
 
+function instanceReadyMessage(instance: InstanceStatus): string {
+  return t("instances.toasts.started", { name: instance.name });
+}
+
 function dismissDeployIfActive(instanceId: string): void {
   if (activeDeployId.value === instanceId) {
     dismissDeploy();
   }
 }
 
-function finishDeployIfNeeded(instanceId: string, ok: boolean): void {
-  if (!ok || !deploys.value[instanceId]) {
-    dismissDeployIfActive(instanceId);
-  }
-}
 
 async function executeLockableAction(
   action: LockableAction,
@@ -452,7 +451,7 @@ async function runLockable(action: LockableAction): Promise<boolean> {
   );
 
   if (action.kind === "upgrade") {
-    finishDeployIfNeeded(action.instance.id, ok);
+    dismissDeployIfActive(action.instance.id);
   }
   return ok;
 }
@@ -482,7 +481,7 @@ async function continueLockAction(): Promise<void> {
 
   lockLoading.value = false;
   if (action.kind === "upgrade") {
-    finishDeployIfNeeded(action.instance.id, ok);
+    dismissDeployIfActive(action.instance.id);
   }
 
   if (!ok && lockFailure.value) {
@@ -649,26 +648,23 @@ async function handleRepair(scope: RepairPreserveScope): Promise<void> {
   repairOpen.value = false;
   beginDeploy(target.id);
 
-  const ok = await run(
+  await run(
     repairKey(target.id),
     () => repairInstance(target.id, scope),
     { success: t("instances.toasts.repairComplete") },
   );
 
-  finishDeployIfNeeded(target.id, ok);
+  dismissDeployIfActive(target.id);
 }
 
 async function handleStart(instance: InstanceStatus): Promise<void> {
   if (isInstanceBusy(instance.id)) {
     return;
   }
-  beginDeploy(instance.id);
-  const ok = await run(
-    startKey(instance.id),
-    () => startInstance(instance.id),
-    { success: t("instances.toasts.started") },
-  );
-  finishDeployIfNeeded(instance.id, ok);
+
+  await run(startKey(instance.id), () => startInstance(instance.id), {
+    success: instanceReadyMessage(instance),
+  });
 }
 
 async function handleStop(instance: InstanceStatus): Promise<void> {
@@ -681,13 +677,10 @@ async function handleRestart(instance: InstanceStatus): Promise<void> {
   if (isInstanceBusy(instance.id)) {
     return;
   }
-  beginDeploy(instance.id);
-  const ok = await run(
-    restartKey(instance.id),
-    () => restartInstance(instance.id),
-    { success: t("instances.toasts.restarted") },
-  );
-  finishDeployIfNeeded(instance.id, ok);
+
+  await run(restartKey(instance.id), () => restartInstance(instance.id), {
+    success: instanceReadyMessage(instance),
+  });
 }
 
 async function handleOpenCoreFolder(instance: InstanceStatus): Promise<void> {
@@ -714,11 +707,6 @@ function openWebui(instance: InstanceStatus): void {
   openInstanceTab(instance.id);
 }
 
-watch(activeDeploy, (progress) => {
-  if (progress && (progress.step === "done" || progress.step === "error")) {
-    dismissDeploy();
-  }
-});
 </script>
 
 <template>

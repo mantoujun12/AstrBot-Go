@@ -434,9 +434,8 @@ const zhCN = {
       "venvCleared": "虚拟环境已清除",
       "pycacheCleared": "Python 缓存已清除",
       "repairComplete": "修复完成",
-      "started": "实例已启动",
-      "stopped": "实例已停止",
-      "restarted": "实例已重启"
+      "started": "实例“{name}”已启动",
+      "stopped": "实例已停止"
     },
     "deploy": {
       "title": "实例部署"

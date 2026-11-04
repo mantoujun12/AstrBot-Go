@@ -41,8 +41,10 @@ function scheduleClear(key: string, kind: "deploy" | "download"): void {
 
 function handleDeploy(progress: DeployProgress): void {
   deploys.value = { ...deploys.value, [progress.instance_id]: progress };
-  if (progress.step === "done") {
+  if (progress.step === "done" || progress.step === "error") {
     scheduleClear(progress.instance_id, "deploy");
+  } else {
+    cancelClear(progress.instance_id);
   }
 }
 
@@ -77,6 +79,10 @@ export function initProgressStore(): Promise<void> {
 }
 
 export function beginDeploy(instanceId: string): void {
+  cancelClear(instanceId);
+  const next = { ...deploys.value };
+  delete next[instanceId];
+  deploys.value = next;
   activeDeployId.value = instanceId;
 }
 

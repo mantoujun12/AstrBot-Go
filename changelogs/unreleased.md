@@ -9,6 +9,7 @@
 ### Changed
 
 - Replaced the global mainland acceleration switch with per-source network configuration. Existing mainland acceleration settings are migrated to equivalent presets.
+- Starting or restarting an instance no longer shows a blocking progress dialog; a bottom notification reports when the instance starts.
 
 ### Fixed
 
@@ -34,6 +35,7 @@
 ### 变更
 
 - 使用逐项网络源配置替代全局大陆加速开关；已有大陆加速配置会自动迁移为对应预设。
+- 启动或重启实例时不再显示阻塞式进度弹窗；启动完成后通过底部通知提示实例已启动。
 
 ### 修复
 

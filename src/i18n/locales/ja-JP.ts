@@ -439,9 +439,8 @@ const jaJP = {
       venvCleared: "仮想環境を消去しました",
       pycacheCleared: "Python キャッシュを消去しました",
       repairComplete: "修復が完了しました",
-      started: "インスタンスを起動しました",
+      started: "インスタンス「{name}」を起動しました",
       stopped: "インスタンスを停止しました",
-      restarted: "インスタンスを再起動しました",
     },
     deploy: {
       title: "インスタンスのデプロイ",
