@@ -26,6 +26,7 @@ use reqwest::Client;
 use tauri::Manager as _;
 use tauri_plugin_decorum::WebviewWindowExt as _;
 use tauri_plugin_log::{fern, Target, TargetKind};
+use tauri_plugin_window_state::StateFlags;
 
 use commands::AppState;
 use config::{load_config, with_manifest_mut};
@@ -83,10 +84,8 @@ fn validate_window_state() {
 /// (when `close_to_tray` is disabled), so the window may no longer exist
 /// when the app is re-activated.
 fn show_or_recreate_main_window(app_handle: &tauri::AppHandle) {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
+    if app_handle.get_webview_window("main").is_some() {
+        setup::request_show_main_window(app_handle);
         return;
     }
 
@@ -96,19 +95,9 @@ fn show_or_recreate_main_window(app_handle: &tauri::AppHandle) {
 }
 
 fn recreate_main_window(app_handle: &tauri::AppHandle) -> tauri::Result<()> {
-    let window_config = app_handle
-        .config()
-        .app
-        .windows
-        .iter()
-        .find(|w| w.label == "main")
-        .cloned()
-        .unwrap_or_default();
-
-    let window = tauri::WebviewWindowBuilder::from_config(app_handle, &window_config)?.build()?;
-    setup::configure_main_window(&window);
-    let _ = window.show();
-    let _ = window.set_focus();
+    setup::prepare_recreated_window(app_handle);
+    setup::create_main_window(app_handle)?;
+    setup::spawn_window_show_fallback(app_handle.clone());
     Ok(())
 }
 
@@ -149,7 +138,17 @@ pub fn run() {
                 .arg("--autostart")
                 .build(),
         )
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(
+                    StateFlags::SIZE
+                        | StateFlags::POSITION
+                        | StateFlags::MAXIMIZED
+                        | StateFlags::DECORATIONS
+                        | StateFlags::FULLSCREEN,
+                )
+                .build(),
+        )
         .plugin(
             tauri_plugin_log::Builder::new()
                 .targets([
@@ -168,6 +167,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_decorum::init())
         .plugin(webview_shortcuts::plugin())
+        .manage(setup::StartupWindowState::new())
         .manage({
             let startup_client = (|| {
                 let config = load_config()?;
@@ -189,9 +189,8 @@ pub fn run() {
             }
         })
         .setup(|app| {
-            if let Some(main_window) = app.get_webview_window("main") {
-                main_window.create_overlay_titlebar()?;
-            }
+            let main_window = setup::create_main_window(app.handle())?;
+            main_window.create_overlay_titlebar()?;
             setup::on_setup(app)
         })
         .on_window_event(move |window, event| {
@@ -205,6 +204,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_app_snapshot,
             commands::rebuild_app_snapshot,
+            // Window
+            commands::show_main_window,
             // Config
             commands::save_github_proxy,
             commands::save_proxy,

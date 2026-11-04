@@ -31,12 +31,7 @@ pub fn build_tray(app: &tauri::App) -> std::result::Result<(), Box<dyn std::erro
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "show" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
-            }
+            "show" => crate::setup::request_show_main_window(app),
             "quit" => {
                 app.exit(0);
             }
@@ -45,10 +40,7 @@ pub fn build_tray(app: &tauri::App) -> std::result::Result<(), Box<dyn std::erro
         .on_tray_icon_event(|tray, event| {
             if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
                 if button == tauri::tray::MouseButton::Left {
-                    if let Some(w) = tray.app_handle().get_webview_window("main") {
-                        let _ = w.show();
-                        let _ = w.set_focus();
-                    }
+                    crate::setup::request_show_main_window(tray.app_handle());
                 }
             }
         })

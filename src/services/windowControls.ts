@@ -14,6 +14,10 @@ export function closeWindow(): Promise<void> {
   return getCurrentWindow().close();
 }
 
+export function showMainWindow(): Promise<void> {
+  return invoke("show_main_window");
+}
+
 export function isWindowMaximized(): Promise<boolean> {
   return getCurrentWindow().isMaximized();
 }

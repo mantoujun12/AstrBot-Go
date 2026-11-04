@@ -6,7 +6,19 @@ function isThemePreference(value: string | null): value is ThemePreference {
   return value === "system" || value === "light" || value === "dark";
 }
 
+function readInjectedTheme(): ThemePreference | null {
+  const injected = window.__ASTRBOT_THEME_PREFERENCE__;
+  return typeof injected === "string" && isThemePreference(injected)
+    ? injected
+    : null;
+}
+
 export function readCachedTheme(): ThemePreference {
+  const injected = readInjectedTheme();
+  if (injected) {
+    return injected;
+  }
+
   try {
     const cached = localStorage.getItem(THEME_CACHE_KEY);
     return isThemePreference(cached) ? cached : "system";

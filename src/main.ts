@@ -1,4 +1,4 @@
-import { createApp } from "vue";
+import { createApp, nextTick } from "vue";
 import { createVuetify } from "vuetify";
 import { aliases, mdi } from "vuetify/iconsets/mdi";
 import { en, ja, ru, zhHans } from "vuetify/locale";
@@ -14,6 +14,7 @@ import { PurpleThemeDark } from "./theme/DarkTheme";
 import { router } from "./router";
 import { applyThemeColors, readStoredThemeColors } from "./theme/customColors";
 import { readCachedTheme } from "./utils/themeCache";
+import { showMainWindow } from "./services/windowControls";
 
 document.documentElement.lang = initialLocale;
 
@@ -50,3 +51,20 @@ if (storedThemeColors) {
 }
 
 createApp(App).use(i18n).use(vuetify).use(router).mount("#app");
+
+void revealMainWindowAfterFirstPaint();
+
+async function revealMainWindowAfterFirstPaint(): Promise<void> {
+  await nextTick();
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+
+  try {
+    await showMainWindow();
+  } catch (error: unknown) {
+    console.error("显示主窗口失败：", error);
+  }
+}
