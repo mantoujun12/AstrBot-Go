@@ -307,7 +307,7 @@ const zhCN = {
     }
   },
   "tasks": {
-    "title": "任务中心",
+    "title": "任务",
     "filters": {
       "all": "全部",
       "download": "下载",
@@ -370,7 +370,7 @@ const zhCN = {
       "instances": "实例",
       "versions": "版本",
       "backups": "备份",
-      "tasks": "任务中心",
+      "tasks": "任务",
       "logs": "日志",
       "settings": "设置"
     },
