@@ -31,6 +31,8 @@ const emit = defineEmits<{
 const POLL_INTERVAL_MS = 5_000;
 const BYTES_PER_MIB = 1024 * 1024;
 const BYTES_PER_GIB = 1024 * 1024 * 1024;
+/// A metric only counts as breached after this many consecutive samples.
+const CONFIRM_SAMPLES = 2;
 
 type ResourceMetric = "cpu" | "memory" | "disk";
 
@@ -40,10 +42,12 @@ const { instances } = useLauncherStore();
 
 const history = ref<ResourceSample[]>([]);
 const appliedThresholds = ref<ResourceAlertThreshold>({
-  cpu_percent: null,
-  memory_bytes: null,
-  disk_bytes: null,
+  enabled: true,
+  cpu_percent: 90,
+  memory_bytes: 4 * 1024 * 1024 * 1024,
+  disk_bytes: 20 * 1024 * 1024 * 1024,
 });
+const alertEnabled = ref(true);
 const cpuInput = ref("");
 const memoryInput = ref("");
 const diskInput = ref("");
@@ -238,32 +242,34 @@ const cpuDisplay = computed(() => {
 const memoryDisplay = computed(() => formatFileSize(latest.value?.memory_bytes ?? 0));
 const diskDisplay = computed(() => formatFileSize(latest.value?.disk_bytes ?? 0));
 
-const breachedMetrics = computed(() => {
-  const sample = latest.value;
-  if (!sample) {
-    return [] as ResourceMetric[];
+/** A metric is only reported once it stayed above the threshold. */
+function sustainedBreach(
+  read: (sample: ResourceSample) => number | null,
+  threshold: number,
+): boolean {
+  const samples = history.value.slice(-CONFIRM_SAMPLES);
+  if (samples.length < CONFIRM_SAMPLES) {
+    return false;
   }
-  const metrics: ResourceMetric[] = [];
+  return samples.every((item) => {
+    const value = read(item);
+    return value !== null && value > threshold;
+  });
+}
+
+const breachedMetrics = computed(() => {
   const thresholds = appliedThresholds.value;
-  if (
-    thresholds.cpu_percent !== null &&
-    sample.cpu_percent !== null &&
-    sample.cpu_percent > thresholds.cpu_percent
-  ) {
+  const metrics: ResourceMetric[] = [];
+  if (!thresholds.enabled) {
+    return metrics;
+  }
+  if (sustainedBreach((item) => item.cpu_percent, thresholds.cpu_percent)) {
     metrics.push("cpu");
   }
-  if (
-    thresholds.memory_bytes !== null &&
-    sample.memory_bytes !== null &&
-    sample.memory_bytes > thresholds.memory_bytes
-  ) {
+  if (sustainedBreach((item) => item.memory_bytes, thresholds.memory_bytes)) {
     metrics.push("memory");
   }
-  if (
-    thresholds.disk_bytes !== null &&
-    sample.disk_bytes !== null &&
-    sample.disk_bytes > thresholds.disk_bytes
-  ) {
+  if (sustainedBreach((item) => item.disk_bytes, thresholds.disk_bytes)) {
     metrics.push("disk");
   }
   return metrics;
@@ -319,22 +325,19 @@ function startPolling(): void {
   }, POLL_INTERVAL_MS);
 }
 
-function parseOptionalNumber(raw: string | null | undefined): number | null | undefined {
+function parseOptionalNumber(raw: string | null | undefined): number | undefined {
   const value = (raw ?? "").trim();
-  if (value === "") {
-    return null;
-  }
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  return value !== "" && Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : undefined;
 }
 
-function readFormValues():
-  | {
-      cpu: number | null;
-      memory: number | null;
-      disk: number | null;
-    }
-  | null {
+function readFormValues(): {
+  cpu: number;
+  memory: number;
+  disk: number;
+} | null {
   const cpu = parseOptionalNumber(cpuInput.value);
   const memoryMiB = parseOptionalNumber(memoryInput.value);
   const diskGiB = parseOptionalNumber(diskInput.value);
@@ -344,22 +347,20 @@ function readFormValues():
 
   return {
     cpu,
-    memory: memoryMiB === null ? null : Math.round(memoryMiB * BYTES_PER_MIB),
-    disk: diskGiB === null ? null : Math.round(diskGiB * BYTES_PER_GIB),
+    memory: Math.round(memoryMiB * BYTES_PER_MIB),
+    disk: Math.round(diskGiB * BYTES_PER_GIB),
   };
 }
 
 function syncFormFromThresholds(value: ResourceAlertThreshold): void {
-  cpuInput.value =
-    value.cpu_percent === null ? "" : String(value.cpu_percent);
-  memoryInput.value =
-    value.memory_bytes === null
-      ? ""
-      : String(Number((value.memory_bytes / BYTES_PER_MIB).toFixed(2)));
-  diskInput.value =
-    value.disk_bytes === null
-      ? ""
-      : String(Number((value.disk_bytes / BYTES_PER_GIB).toFixed(2)));
+  alertEnabled.value = value.enabled;
+  cpuInput.value = String(value.cpu_percent);
+  memoryInput.value = String(
+    Number((value.memory_bytes / BYTES_PER_MIB).toFixed(2)),
+  );
+  diskInput.value = String(
+    Number((value.disk_bytes / BYTES_PER_GIB).toFixed(2)),
+  );
 }
 
 async function initialize(): Promise<void> {
@@ -372,14 +373,13 @@ async function initialize(): Promise<void> {
   history.value = [];
   thresholdError.value = "";
   loading.value = true;
-  const sequence = ++requestSequence;
 
   try {
     const [nextHistory, nextThresholds] = await Promise.all([
       getInstanceResourceHistory(instance.id),
       getResourceAlertThreshold(instance.id),
     ]);
-    if (sequence !== requestSequence || activeInstanceId !== instance.id) {
+    if (activeInstanceId !== instance.id) {
       return;
     }
     history.value = nextHistory;
@@ -389,7 +389,9 @@ async function initialize(): Promise<void> {
   } catch (cause) {
     showErrorToast(cause);
   } finally {
-    if (sequence === requestSequence) {
+    // A poll that starts while this load is in flight must not strand the
+    // dialog on its skeleton, so the spinner follows the dialog, not the request.
+    if (activeInstanceId === instance.id) {
       loading.value = false;
     }
   }
@@ -401,21 +403,24 @@ async function saveThresholds(): Promise<void> {
     return;
   }
   const values = readFormValues();
-  if (!values) {
+  if (!values && alertEnabled.value) {
     thresholdError.value = t("resources.thresholds.invalid");
     return;
   }
 
   thresholdError.value = "";
   saving.value = true;
+  const current = appliedThresholds.value;
   try {
-    const nextThresholds: ResourceAlertThreshold = {
-      cpu_percent: values.cpu,
-      memory_bytes: values.memory,
-      disk_bytes: values.disk,
-    };
-    await setResourceAlertThreshold(instance.id, nextThresholds);
-    appliedThresholds.value = nextThresholds;
+    await setResourceAlertThreshold(instance.id, {
+      enabled: alertEnabled.value,
+      cpu_percent: values?.cpu ?? current.cpu_percent,
+      memory_bytes: values?.memory ?? current.memory_bytes,
+      disk_bytes: values?.disk ?? current.disk_bytes,
+    });
+    const stored = await getResourceAlertThreshold(instance.id);
+    appliedThresholds.value = stored;
+    syncFormFromThresholds(stored);
     showToast(t("resources.thresholds.saved"));
   } catch (cause) {
     showErrorToast(cause);
@@ -565,42 +570,50 @@ onBeforeUnmount(stopPolling);
           <h3 class="resource-panel__title">
             {{ t("resources.thresholds.title") }}
           </h3>
+          <v-switch
+            v-model="alertEnabled"
+            color="primary"
+            density="compact"
+            hide-details
+            class="resource-thresholds__toggle"
+            :label="t('resources.thresholds.enabled')"
+          />
           <div class="resource-thresholds__fields">
             <v-text-field
               v-model="cpuInput"
+              :disabled="!alertEnabled"
               type="number"
-              min="0"
+              min="1"
               step="1"
               density="compact"
               variant="outlined"
               :label="t('resources.thresholds.cpu')"
               :suffix="t('resources.units.percent')"
               :error-messages="thresholdError"
-              clearable
             />
             <v-text-field
               v-model="memoryInput"
               type="number"
-              min="0"
+              min="1"
               step="1"
               density="compact"
               variant="outlined"
+              :disabled="!alertEnabled"
               :label="t('resources.thresholds.memory')"
               :suffix="t('resources.units.mib')"
               :error-messages="thresholdError"
-              clearable
             />
             <v-text-field
               v-model="diskInput"
               type="number"
-              min="0"
+              min="1"
               step="1"
               density="compact"
               variant="outlined"
+              :disabled="!alertEnabled"
               :label="t('resources.thresholds.disk')"
               :suffix="t('resources.units.gib')"
               :error-messages="thresholdError"
-              clearable
             />
           </div>
         </section>

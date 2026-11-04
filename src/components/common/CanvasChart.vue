@@ -40,16 +40,41 @@ const props = defineProps<{
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 let chart: Chart<TType> | null = null;
+let observer: ResizeObserver | null = null;
+
+function chartContainer(): HTMLElement | null {
+  return canvasRef.value?.parentElement ?? null;
+}
+
+function hasLayoutSize(element: HTMLElement | null): boolean {
+  return element !== null && element.clientWidth > 0 && element.clientHeight > 0;
+}
 
 function createChart(): void {
   const canvas = canvasRef.value;
-  if (!canvas || chart) {
+  if (!canvas || chart || !hasLayoutSize(canvas.parentElement)) {
     return;
   }
   chart = new Chart(canvas, props.config);
 }
 
-onMounted(createChart);
+onMounted(() => {
+  const container = chartContainer();
+  if (!container) {
+    return;
+  }
+  // Dialog content is laid out after it opens, so a chart created too early
+  // ends up with a zero-sized canvas. Build it only once the box has a size.
+  observer = new ResizeObserver(() => {
+    if (chart) {
+      chart.resize();
+      return;
+    }
+    createChart();
+  });
+  observer.observe(container);
+  createChart();
+});
 
 watch(
   () => props.config,
@@ -75,6 +100,8 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  observer?.disconnect();
+  observer = null;
   chart?.destroy();
   chart = null;
 });

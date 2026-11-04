@@ -87,9 +87,10 @@ export interface ResourceSample {
 }
 
 export interface ResourceAlertThreshold {
-  cpu_percent: number | null;
-  memory_bytes: number | null;
-  disk_bytes: number | null;
+  enabled: boolean;
+  cpu_percent: number;
+  memory_bytes: number;
+  disk_bytes: number;
 }
 
 export interface ResourceAlertEvent {

@@ -323,16 +323,15 @@ fn apply_resource_samples(
         p.resource_history.push(outcome.sample.clone());
 
         let threshold = p.resource_thresholds.clone();
-        if threshold.is_empty() {
-            p.active_alerts.clear();
+        if !threshold.enabled {
+            p.alert_tracker.clear();
             continue;
         }
 
         let breached = threshold.breached_metrics(&outcome.sample);
-        let breached_set: std::collections::HashSet<&str> = breached.iter().copied().collect();
 
-        for metric in breached {
-            if !p.active_alerts.insert(metric.to_string()) {
+        for metric in ["cpu", "memory", "disk"] {
+            if !p.alert_tracker.observe(metric, breached.contains(&metric)) {
                 continue;
             }
             let Some(value) = sample_metric(&outcome.sample, metric) else {
@@ -348,9 +347,6 @@ fn apply_resource_samples(
                 threshold: threshold_value,
             });
         }
-
-        p.active_alerts
-            .retain(|metric| breached_set.contains(metric.as_str()));
     }
 
     alerts

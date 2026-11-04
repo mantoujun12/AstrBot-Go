@@ -972,20 +972,20 @@ pub async fn get_resources_snapshot(
 }
 
 fn validate_resource_thresholds(thresholds: &crate::process::ResourceAlertThreshold) -> Result<()> {
-    if thresholds
-        .cpu_percent
-        .is_some_and(|value| !value.is_finite() || value <= 0.0)
+    if !thresholds.cpu_percent.is_finite()
+        || thresholds.cpu_percent <= 0.0
+        || thresholds.cpu_percent > 100.0
     {
         return Err(AppError::config(
-            "CPU threshold must be a positive finite number",
+            "CPU threshold must be between 0 and 100 percent",
         ));
     }
-    if thresholds.memory_bytes == Some(0) {
+    if thresholds.memory_bytes == 0 {
         return Err(AppError::config(
             "Memory threshold must be greater than zero",
         ));
     }
-    if thresholds.disk_bytes == Some(0) {
+    if thresholds.disk_bytes == 0 {
         return Err(AppError::config("Disk threshold must be greater than zero"));
     }
     Ok(())
@@ -1007,9 +1007,10 @@ pub async fn set_resource_alert_threshold(
             .instances
             .get_mut(&id)
             .ok_or_else(|| AppError::instance_not_found(&id))?;
-        instance.resource_alert_cpu_percent = stored.cpu_percent;
-        instance.resource_alert_memory_bytes = stored.memory_bytes;
-        instance.resource_alert_disk_bytes = stored.disk_bytes;
+        instance.resource_alert_enabled = stored.enabled;
+        instance.resource_alert_cpu_percent = Some(stored.cpu_percent);
+        instance.resource_alert_memory_bytes = Some(stored.memory_bytes);
+        instance.resource_alert_disk_bytes = Some(stored.disk_bytes);
         Ok(())
     })?;
 
@@ -1042,10 +1043,18 @@ pub async fn get_resource_alert_threshold(
         .get(&instance_id)
         .ok_or_else(|| AppError::instance_not_found(&instance_id))?;
 
+    let defaults = crate::process::ResourceAlertThreshold::default();
     Ok(crate::process::ResourceAlertThreshold {
-        cpu_percent: instance.resource_alert_cpu_percent,
-        memory_bytes: instance.resource_alert_memory_bytes,
-        disk_bytes: instance.resource_alert_disk_bytes,
+        enabled: instance.resource_alert_enabled,
+        cpu_percent: instance
+            .resource_alert_cpu_percent
+            .unwrap_or(defaults.cpu_percent),
+        memory_bytes: instance
+            .resource_alert_memory_bytes
+            .unwrap_or(defaults.memory_bytes),
+        disk_bytes: instance
+            .resource_alert_disk_bytes
+            .unwrap_or(defaults.disk_bytes),
     })
 }
 

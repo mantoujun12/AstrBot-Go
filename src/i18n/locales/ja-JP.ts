@@ -629,10 +629,11 @@ const jaJP = {
     },
     thresholds: {
       title: "しきい値アラート",
+      enabled: "アラートを有効にする",
       cpu: "CPU 上限",
       memory: "メモリ上限",
       disk: "ディスク上限",
-      invalid: "0 より大きい値を入力してください。空欄の場合は制限なしです。",
+      invalid: "0 より大きい値を入力してください。",
       saved: "しきい値を保存しました",
     },
     alerts: {
