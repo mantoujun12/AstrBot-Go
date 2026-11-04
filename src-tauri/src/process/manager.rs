@@ -416,6 +416,18 @@ impl ProcessManager {
                 log::info!("Skipping scheduled auto-restart for instance {}", id_owned);
                 return;
             }
+            // The switch may have been turned off during the backoff delay.
+            let still_enabled = load_manifest()
+                .ok()
+                .and_then(|m| m.instances.get(&id_owned).map(|i| i.auto_restart_enabled))
+                .unwrap_or(false);
+            if !still_enabled {
+                log::info!(
+                    "Auto-restart for instance {} was disabled, skipping",
+                    id_owned
+                );
+                return;
+            }
             let Some(app) = app else {
                 return;
             };
