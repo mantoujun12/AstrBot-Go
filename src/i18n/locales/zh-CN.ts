@@ -306,12 +306,71 @@ const zhCN = {
       "installed": "安装完成"
     }
   },
+  "tasks": {
+    "title": "任务中心",
+    "filters": {
+      "all": "全部",
+      "download": "下载",
+      "deploy": "部署",
+      "backup": "备份",
+      "repair": "修复"
+    },
+    "actions": {
+      "clearFinished": "清除记录",
+      "pause": "暂停任务",
+      "resume": "继续任务",
+      "cancel": "取消任务",
+      "remove": "删除记录"
+    },
+    "fields": {
+      "targetValue": "目标：{target}"
+    },
+    "empty": "暂无任务记录",
+    "titles": {
+      "downloadVersion": "下载版本 {version}",
+      "deployInstance": "部署实例 {instance}",
+      "createBackup": "创建备份 {instance}",
+      "restoreBackup": "还原备份 {instance}",
+      "repairInstance": "修复实例 {instance}"
+    },
+    "status": {
+      "queued": "排队中",
+      "running": "运行中",
+      "paused": "已暂停",
+      "cancelling": "正在取消",
+      "cancelled": "已取消",
+      "succeeded": "已完成",
+      "failed": "失败",
+      "interrupted": "已中断"
+    },
+    "errors": {
+      "other": "操作失败",
+      "config": "配置操作失败",
+      "io": "文件操作失败",
+      "network": "网络操作失败",
+      "python": "Python 运行环境异常",
+      "process": "进程操作失败",
+      "process_locking": "目标文件被占用",
+      "backup": "备份操作失败",
+      "github": "GitHub 请求失败",
+      "instance_not_found": "实例不存在",
+      "instance_running": "实例正在运行",
+      "instance_not_running": "实例未运行",
+      "version_not_found": "版本不存在",
+      "version_in_use": "版本正被实例使用",
+      "python_not_installed": "Python 运行环境未安装",
+      "port_occupied": "端口已被占用",
+      "invalid_host": "主机地址无效",
+      "startup_timeout": "实例启动超时"
+    }
+  },
   "shell": {
     "nav": {
       "overview": "概览",
       "instances": "实例",
       "versions": "版本",
       "backups": "备份",
+      "tasks": "任务中心",
       "logs": "日志",
       "settings": "设置"
     },

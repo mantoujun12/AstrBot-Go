@@ -14,6 +14,7 @@ mod network_config;
 mod platform;
 mod process;
 mod setup;
+mod tasks;
 mod tray;
 mod update_check;
 mod updater;
@@ -113,6 +114,7 @@ pub fn run() {
     }
 
     utils::paths::ensure_data_dirs().expect("Failed to create data directories");
+    tasks::initialize();
     migration::run_startup_migrations();
     github::init_releases_cache();
     validate_window_state();
@@ -253,6 +255,12 @@ pub fn run() {
             commands::pause_download,
             commands::resume_download,
             commands::cancel_download,
+            commands::list_tasks,
+            commands::cancel_task,
+            commands::pause_task,
+            commands::resume_task,
+            commands::remove_task,
+            commands::clear_finished_tasks,
             commands::uninstall_version,
             // Troubleshooting
             commands::check_lock,

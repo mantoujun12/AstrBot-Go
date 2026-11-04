@@ -279,7 +279,7 @@ pub async fn update_instance(
             "backup",
             ProgressMessage::BackingUpData,
             5,
-        );
+        )?;
         let backup_path = if core_dir.join("data").exists() {
             Some(create_backup(instance_id, true, None)?)
         } else {
@@ -291,7 +291,7 @@ pub async fn update_instance(
             "backup",
             ProgressMessage::DataBackupDone,
             10,
-        );
+        )?;
 
         // Clear core_dir and venv_dir
         if core_dir.exists() {
@@ -323,7 +323,7 @@ pub async fn update_instance(
                 "restore",
                 ProgressMessage::RestoringData,
                 92,
-            );
+            )?;
             restore_data_to_instance(bp, instance_id).map_err(|err| {
                 AppError::backup(format!(
                     "自动备份还原失败，已保留备份 {}。请在“备份管理”中手动恢复该备份并确认数据。原始错误：{}",
@@ -336,7 +336,7 @@ pub async fn update_instance(
                 "restore",
                 ProgressMessage::DataRestored,
                 95,
-            );
+            )?;
         }
 
         ensure_webui_for_version_after_restore(instance_id, new_version, app_handle).await?;
@@ -361,7 +361,7 @@ pub async fn update_instance(
             "done",
             ProgressMessage::UpdateDone,
             100,
-        );
+        )?;
         Ok(())
     } else {
         // No version change

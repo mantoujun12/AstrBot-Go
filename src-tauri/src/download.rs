@@ -12,6 +12,7 @@ use crate::config::{with_manifest_mut, InstalledVersion};
 use crate::download_control::{self, ControlState, DownloadControl};
 use crate::error::{AppError, ErrorKind, Result};
 use crate::github::{get_source_archive_urls, GitHubRelease};
+use crate::tasks;
 use crate::utils::fs_ops;
 use crate::utils::log_redact;
 use crate::utils::net::{ensure_success_status, send_get};
@@ -84,6 +85,7 @@ pub struct DownloadOptions<'a> {
     pub id: &'a str,
     /// Present for downloads the user may pause or cancel.
     pub control: Option<&'a DownloadControl>,
+    pub task_id: Option<&'a str>,
 }
 
 pub fn emit_download_progress(
@@ -94,20 +96,25 @@ pub fn emit_download_progress(
     speed: Option<u64>,
     step: &str,
     message: DownloadMessage,
-) {
-    let _ = opts.app_handle.emit(
-        "download-progress",
-        DownloadProgress {
-            id: opts.id.to_string(),
-            downloaded,
-            total,
-            progress,
-            speed,
-            step: step.to_string(),
-            message_key: message.key().to_string(),
-            message: message.fallback().to_string(),
-        },
-    );
+) -> Result<()> {
+    let payload = DownloadProgress {
+        id: opts.id.to_string(),
+        downloaded,
+        total,
+        progress,
+        speed,
+        step: step.to_string(),
+        message_key: message.key().to_string(),
+        message: message.fallback().to_string(),
+    };
+    let _ = opts.app_handle.emit("download-progress", payload);
+    tasks::handle_download_progress(
+        opts.task_id,
+        progress,
+        step,
+        message.key(),
+        message.fallback(),
+    )
 }
 
 /// Smoothed transfer rate derived from byte deltas between progress events.
@@ -172,7 +179,7 @@ async fn checkpoint(
                         None,
                         "downloading",
                         DownloadMessage::Resuming,
-                    );
+                    )?;
                 }
                 return Ok(());
             }
@@ -185,7 +192,7 @@ async fn checkpoint(
                     Some(0),
                     "cancelled",
                     DownloadMessage::Cancelled,
-                );
+                )?;
                 return Err(AppError::download_cancelled());
             }
             ControlState::Paused => {
@@ -198,7 +205,7 @@ async fn checkpoint(
                         Some(0),
                         "paused",
                         DownloadMessage::Paused,
-                    );
+                    )?;
                     paused = true;
                 }
                 control.wait_for_change().await;
@@ -365,7 +372,7 @@ pub async fn download_file_with_fallbacks(
                     None,
                     "downloading",
                     DownloadMessage::AccelerationFallback,
-                );
+                )?;
             }
         }
 
@@ -412,7 +419,7 @@ async fn download_file_inner(
             None,
             "downloading",
             DownloadMessage::Starting,
-        );
+        )?;
     }
 
     let mut stream = resp.bytes_stream();
@@ -455,7 +462,7 @@ async fn download_file_inner(
                     meter.update(downloaded, now),
                     "downloading",
                     DownloadMessage::Downloading,
-                );
+                )?;
                 last_emit = now;
                 last_percent = current_percent;
             }
@@ -474,7 +481,7 @@ async fn download_file_inner(
             meter.update(downloaded, Instant::now()),
             "downloading",
             DownloadMessage::Completed,
-        );
+        )?;
     }
 
     Ok(DownloadOutcome { downloaded, total })
@@ -485,6 +492,7 @@ pub async fn download_version(
     client: &Client,
     release: &GitHubRelease,
     app_handle: Option<&AppHandle>,
+    task_id: Option<&str>,
 ) -> Result<()> {
     let version = &release.tag_name;
     log::info!("Downloading version {}", version);
@@ -503,6 +511,7 @@ pub async fn download_version(
         app_handle: ah,
         id: version,
         control: Some(guard.control()),
+        task_id,
     });
 
     let core_archive_urls = get_source_archive_urls(version);
@@ -518,7 +527,7 @@ pub async fn download_version(
             None,
             "done",
             DownloadMessage::Completed,
-        );
+        )?;
     }
 
     let zip_path_str = zip_path

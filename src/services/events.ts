@@ -8,7 +8,9 @@ import type {
   LogEntry,
   LogLevel,
   ResourceAlertEvent,
+  TaskRecord,
 } from "../types/launcher";
+import { toTaskRecord } from "./tasks";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -218,6 +220,27 @@ export function listenDeployProgress(
     const progress = toDeployProgress(event.payload);
     if (progress) {
       handler(progress);
+    }
+  });
+}
+
+export function listenTaskUpdated(
+  handler: (task: TaskRecord) => void,
+): Promise<UnlistenFn> {
+  return listen<unknown>("task-updated", (event) => {
+    const task = toTaskRecord(event.payload);
+    if (task) {
+      handler(task);
+    }
+  });
+}
+
+export function listenTaskRemoved(
+  handler: (taskId: string) => void,
+): Promise<UnlistenFn> {
+  return listen<unknown>("task-removed", (event) => {
+    if (typeof event.payload === "string") {
+      handler(event.payload);
     }
   });
 }

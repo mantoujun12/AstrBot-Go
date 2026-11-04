@@ -69,6 +69,14 @@ const toggleLabel = computed(() =>
           @select="emit('navigate')"
         />
         <SidebarNavItem
+          icon="mdi-clipboard-check-outline"
+          :label="t('shell.nav.tasks')"
+          to="/tasks"
+          :tooltip-disabled="!props.rail"
+          :active="props.homeActive ? undefined : false"
+          @select="emit('navigate')"
+        />
+        <SidebarNavItem
           icon="mdi-text-box-outline"
           :label="t('shell.nav.logs')"
           to="/logs"

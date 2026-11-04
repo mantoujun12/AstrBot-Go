@@ -237,7 +237,7 @@ pub async fn launch_instance(
         "start",
         ProgressMessage::StartingInstance,
         95,
-    );
+    )?;
 
     let core_dir = get_instance_core_dir(instance_id);
     let venv_dir = get_instance_venv_dir(instance_id);
@@ -441,7 +441,7 @@ pub async fn launch_instance(
                 "done",
                 ProgressMessage::InstanceStarted,
                 100,
-            );
+            )?;
             Ok(LaunchResult {
                 pid,
                 executable_path,
