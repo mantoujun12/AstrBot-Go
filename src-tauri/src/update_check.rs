@@ -148,6 +148,9 @@ mod tests {
             port: 6185,
             created_at: String::new(),
             check_update_enabled,
+            auto_restart_enabled: false,
+            auto_restart_max_retries: 3,
+            auto_restart_notify: true,
         }
     }
 
