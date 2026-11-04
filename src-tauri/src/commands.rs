@@ -109,7 +109,9 @@ fn instance_task_spec(kind: TaskKind, title_key: &'static str, instance_id: &str
     spec.title_args = task_args([("instance", instance_name)]);
     spec.target_id = Some(instance_id.to_string());
     spec.dedupe_target = true;
-    spec.cancellable = matches!(kind, TaskKind::Deploy | TaskKind::Repair);
+    // Instance work clears and refills instance data mid-flight, so a cancellation
+    // would abort between the two halves; only downloads can be cancelled safely.
+    spec.cancellable = false;
     spec.initial_message_key = "tasks.status.running".to_string();
     spec.initial_message = "运行中".to_string();
     spec
@@ -872,12 +874,11 @@ pub async fn start_instance(
     instance_id: String,
     state: State<'_, AppState>,
 ) -> Result<u16> {
-    let mut spec = instance_task_spec(
+    let spec = instance_task_spec(
         TaskKind::Deploy,
         "tasks.titles.deployInstance",
         &instance_id,
     );
-    spec.cancellable = false;
     tasks::execute(app_handle, spec, move |context| async move {
         state
             .process_manager
@@ -898,12 +899,11 @@ pub async fn restart_instance(
     instance_id: String,
     state: State<'_, AppState>,
 ) -> Result<u16> {
-    let mut spec = instance_task_spec(
+    let spec = instance_task_spec(
         TaskKind::Deploy,
         "tasks.titles.deployInstance",
         &instance_id,
     );
-    spec.cancellable = false;
     tasks::execute(app_handle, spec, move |context| async move {
         state
             .process_manager

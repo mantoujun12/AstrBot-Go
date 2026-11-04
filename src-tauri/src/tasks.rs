@@ -278,21 +278,15 @@ impl TaskManager {
             .as_ref()
             .map(|runtime| runtime.app_handle.clone())
             .unwrap_or_else(|| app_handle.clone());
-        let cancelled = runtime
+        let token_cancelled = runtime
             .as_ref()
-            .is_some_and(|runtime| runtime.token.is_cancelled())
-            || result == Err(ErrorKind::DownloadCancelled);
+            .is_some_and(|runtime| runtime.token.is_cancelled());
+        let status = outcome_status(&result, token_cancelled);
 
         let now = chrono::Utc::now().to_rfc3339();
         let record = &mut self.records[index];
         if !record.status.is_terminal() {
-            record.status = if cancelled {
-                TaskStatus::Cancelled
-            } else if result.is_err() {
-                TaskStatus::Failed
-            } else {
-                TaskStatus::Succeeded
-            };
+            record.status = status;
             record.finished_at = Some(now.clone());
             if record.started_at.is_none() {
                 record.started_at = Some(now.clone());
@@ -302,7 +296,7 @@ impl TaskManager {
             } else {
                 record.progress
             };
-            if cancelled {
+            if status == TaskStatus::Cancelled {
                 record.message_key = "tasks.status.cancelled".to_string();
                 record.message = "任务已取消".to_string();
             } else if let Err(kind) = result {
@@ -338,6 +332,19 @@ impl TaskManager {
         terminal.sort_by(|left, right| left.created_at.cmp(&right.created_at));
         active.append(&mut terminal);
         write_persisted_records(&active);
+    }
+}
+
+/// A run that finished its work succeeds even when a cancel request arrived too late.
+fn outcome_status(
+    result: &std::result::Result<(), ErrorKind>,
+    token_cancelled: bool,
+) -> TaskStatus {
+    match result {
+        Ok(()) => TaskStatus::Succeeded,
+        Err(ErrorKind::DownloadCancelled) => TaskStatus::Cancelled,
+        Err(_) if token_cancelled => TaskStatus::Cancelled,
+        Err(_) => TaskStatus::Failed,
     }
 }
 
@@ -793,5 +800,21 @@ mod tests {
         let outcome: Result<()> = Err(AppError::backup("failed"));
 
         assert_eq!(task_outcome(&outcome), Err(ErrorKind::Backup));
+    }
+
+    #[test]
+    fn completed_work_wins_over_a_late_cancel_request() {
+        let done: std::result::Result<(), ErrorKind> = Ok(());
+        let aborted: std::result::Result<(), ErrorKind> = Err(ErrorKind::Other);
+        let cancelled_download: std::result::Result<(), ErrorKind> =
+            Err(ErrorKind::DownloadCancelled);
+
+        assert_eq!(outcome_status(&done, true), TaskStatus::Succeeded);
+        assert_eq!(outcome_status(&aborted, true), TaskStatus::Cancelled);
+        assert_eq!(outcome_status(&aborted, false), TaskStatus::Failed);
+        assert_eq!(
+            outcome_status(&cancelled_download, false),
+            TaskStatus::Cancelled
+        );
     }
 }
