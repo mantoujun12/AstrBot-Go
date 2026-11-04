@@ -12,18 +12,22 @@ use crate::tray;
 use crate::utils::log_bus as log_channel;
 
 const WINDOW_SHOW_FALLBACK_DELAY: Duration = Duration::from_secs(5);
+const WINDOW_SHOW_RETRY_DELAY: Duration = Duration::from_secs(1);
+const WINDOW_SHOW_MAX_ATTEMPTS: usize = 3;
 
 const LIGHT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(255, 255, 255, 255);
 const DARK_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(36, 36, 36, 255);
 
 pub(crate) struct StartupWindowState {
     frontend_ready: AtomicBool,
+    show_pending: AtomicBool,
 }
 
 impl StartupWindowState {
     pub(crate) fn new() -> Self {
         Self {
             frontend_ready: AtomicBool::new(false),
+            show_pending: AtomicBool::new(false),
         }
     }
 
@@ -34,6 +38,23 @@ impl StartupWindowState {
     fn is_frontend_ready(&self) -> bool {
         self.frontend_ready.load(Ordering::Acquire)
     }
+
+    fn request_show(&self) {
+        self.show_pending.store(true, Ordering::Release);
+    }
+
+    fn is_show_pending(&self) -> bool {
+        self.show_pending.load(Ordering::Acquire)
+    }
+
+    fn clear_show_pending(&self) {
+        self.show_pending.store(false, Ordering::Release);
+    }
+
+    fn prepare_recreated_window(&self) {
+        self.frontend_ready.store(false, Ordering::Release);
+        self.request_show();
+    }
 }
 
 pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -43,7 +64,7 @@ pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error:
         configure_main_window(&main_window);
     }
 
-    spawn_window_show_fallback(app);
+    spawn_window_show_fallback(app.handle().clone());
 
     let state: tauri::State<'_, AppState> = app.state();
     state.process_manager.start_monitor();
@@ -119,16 +140,19 @@ fn hide_window_for_autostart(app: &tauri::App) {
     }
 }
 
-pub(crate) fn reveal_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
-    if should_start_hidden() {
-        return Ok(());
-    }
+fn main_window_unavailable_error() -> tauri::Error {
+    tauri::Error::Io(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "main window is unavailable",
+    ))
+}
 
-    let Some(window) = app.get_webview_window("main") else {
-        log::warn!("Main window is unavailable while revealing the application");
-        return Ok(());
-    };
+fn show_main_window_now(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(main_window_unavailable_error)?;
 
+    let _ = window.unminimize();
     window.show()?;
     if let Err(error) = window.set_focus() {
         log::warn!("Failed to focus the main window: {}", error);
@@ -137,12 +161,45 @@ pub(crate) fn reveal_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Reveals the main window once the frontend has signaled it is ready.
+///
+/// A pending show request from the tray, single-instance activation, or a
+/// recreated window overrides the autostart minimize-to-tray policy.
+pub(crate) fn reveal_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let state = app.state::<StartupWindowState>();
+    if should_start_hidden() && !state.is_show_pending() {
+        return Ok(());
+    }
+
+    show_main_window_now(app)?;
+    state.clear_show_pending();
+    Ok(())
+}
+
+/// Handles a user-initiated activation such as the tray icon or a second launch.
+pub(crate) fn request_show_main_window(app: &tauri::AppHandle) {
+    let state = app.state::<StartupWindowState>();
+    state.request_show();
+
+    if !state.is_frontend_ready() {
+        return;
+    }
+
+    match show_main_window_now(app) {
+        Ok(()) => state.clear_show_pending(),
+        Err(error) => log::warn!("Failed to show the main window on request: {}", error),
+    }
+}
+
 pub(crate) fn mark_frontend_ready(app: &tauri::AppHandle) {
     app.state::<StartupWindowState>().mark_frontend_ready();
 }
 
-fn spawn_window_show_fallback(app: &tauri::App) {
-    let app_handle = app.handle().clone();
+pub(crate) fn prepare_recreated_window(app: &tauri::AppHandle) {
+    app.state::<StartupWindowState>().prepare_recreated_window();
+}
+
+pub(crate) fn spawn_window_show_fallback(app_handle: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(WINDOW_SHOW_FALLBACK_DELAY).await;
 
@@ -155,10 +212,31 @@ fn spawn_window_show_fallback(app: &tauri::App) {
             "Frontend did not signal readiness within {:?}; showing the main window",
             WINDOW_SHOW_FALLBACK_DELAY
         );
-        if let Err(error) = reveal_main_window(&app_handle) {
-            log::error!("Failed to show the main window during fallback: {}", error);
+
+        for attempt in 1..=WINDOW_SHOW_MAX_ATTEMPTS {
+            match reveal_main_window(&app_handle) {
+                Ok(()) => {
+                    state.mark_frontend_ready();
+                    return;
+                }
+                Err(error) => {
+                    log::warn!(
+                        "Failed to show the main window during fallback (attempt {}/{}): {}",
+                        attempt,
+                        WINDOW_SHOW_MAX_ATTEMPTS,
+                        error
+                    );
+                    if attempt < WINDOW_SHOW_MAX_ATTEMPTS {
+                        tokio::time::sleep(WINDOW_SHOW_RETRY_DELAY).await;
+                    }
+                }
+            }
         }
-        state.mark_frontend_ready();
+
+        log::error!(
+            "Failed to show the main window after {} fallback attempts",
+            WINDOW_SHOW_MAX_ATTEMPTS
+        );
     });
 }
 

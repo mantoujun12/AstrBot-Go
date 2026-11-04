@@ -84,10 +84,8 @@ fn validate_window_state() {
 /// (when `close_to_tray` is disabled), so the window may no longer exist
 /// when the app is re-activated.
 fn show_or_recreate_main_window(app_handle: &tauri::AppHandle) {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
+    if app_handle.get_webview_window("main").is_some() {
+        setup::request_show_main_window(app_handle);
         return;
     }
 
@@ -106,10 +104,10 @@ fn recreate_main_window(app_handle: &tauri::AppHandle) -> tauri::Result<()> {
         .cloned()
         .unwrap_or_default();
 
+    setup::prepare_recreated_window(app_handle);
     let window = tauri::WebviewWindowBuilder::from_config(app_handle, &window_config)?.build()?;
     setup::configure_main_window(&window);
-    let _ = window.show();
-    let _ = window.set_focus();
+    setup::spawn_window_show_fallback(app_handle.clone());
     Ok(())
 }
 

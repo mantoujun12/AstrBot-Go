@@ -4,37 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AstrBot Launcher</title>
-    <script>
-      (function () {
-        var preference = null;
-        try {
-          preference = localStorage.getItem("launcher.theme");
-        } catch (error) {
-          preference = null;
-        }
-        var dark =
-          preference === "dark" ||
-          (preference !== "light" &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.dataset.theme = dark ? "dark" : "light";
-        document.documentElement.style.colorScheme = dark ? "dark" : "light";
-        document.documentElement.style.backgroundColor = dark
-          ? "#242424"
-          : "#ffffff";
-      })();
-    </script>
-    <style>
-      html,
-      body {
-        margin: 0;
-        background-color: #ffffff;
-      }
-
-      html[data-theme="dark"],
-      html[data-theme="dark"] body {
-        background-color: #242424;
-      }
-    </style>
   </head>
 
   <body>

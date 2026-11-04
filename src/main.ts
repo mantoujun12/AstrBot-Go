@@ -57,12 +57,8 @@ void revealMainWindowAfterFirstPaint();
 async function revealMainWindowAfterFirstPaint(): Promise<void> {
   await nextTick();
   await new Promise<void>((resolve) => {
-    const timer = window.setTimeout(resolve, 150);
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.clearTimeout(timer);
-        resolve();
-      });
+      requestAnimationFrame(() => resolve());
     });
   });
 
