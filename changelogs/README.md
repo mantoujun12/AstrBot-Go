@@ -25,7 +25,8 @@
 3. 将 `unreleased.md` 改名为 `v<版本号>.md`，例如 `v0.2.0.md`。版本文件的内容会直接作为 GitHub Release 说明。
 4. 为版本文件中的每条记录补上来源 PR 的完整 Markdown 链接：英文条目使用半角括号，例如 `([#8](https://github.com/mantoujun12/astrbot-launcher-vue/pull/8))`；中文条目使用全角括号，例如 `（[#8](https://github.com/mantoujun12/astrbot-launcher-vue/pull/8)）`。同一逻辑条目的英文和中文必须链接到同一个 PR。
 5. 新建空的 `unreleased.md`，供下一轮开发使用。
-6. 合入 `main`。工作流会校验版本号、版本文件和是否已有 GitHub Release，然后构建 Windows 安装包并创建 GitHub Release。若 tag 已存在但没有 Release，工作流会跳过并提示人工处理。
+6. 合并前先变基到最新 `main`，确认 `unreleased.md` 中并发新增的条目已移回新的 `unreleased.md`；`v<版本号>.md` 只保留本次发布的内容。
+7. 合入 `main`。工作流会校验版本号、版本文件和是否已有 GitHub Release，然后构建 Windows 安装包并创建 GitHub Release。若 tag 已存在但没有 Release，工作流会跳过并提示人工处理。
 
 发版前确认每个条目都简短且已标注来源 PR 编号；可通过 `git log --follow -- changelogs/unreleased.md` 追溯条目的来源 PR。
 
