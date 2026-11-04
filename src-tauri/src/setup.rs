@@ -18,8 +18,15 @@ const WINDOW_SHOW_MAX_ATTEMPTS: usize = 3;
 const LIGHT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(255, 255, 255, 255);
 const DARK_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(36, 36, 36, 255);
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RevealOutcome {
+    Shown,
+    HiddenByAutostart,
+}
+
 pub(crate) struct StartupWindowState {
     frontend_ready: AtomicBool,
+    startup_handled: AtomicBool,
     show_pending: AtomicBool,
 }
 
@@ -27,16 +34,26 @@ impl StartupWindowState {
     pub(crate) fn new() -> Self {
         Self {
             frontend_ready: AtomicBool::new(false),
+            startup_handled: AtomicBool::new(false),
             show_pending: AtomicBool::new(false),
         }
     }
 
     fn mark_frontend_ready(&self) {
         self.frontend_ready.store(true, Ordering::Release);
+        self.startup_handled.store(true, Ordering::Release);
     }
 
-    fn is_frontend_ready(&self) -> bool {
-        self.frontend_ready.load(Ordering::Acquire)
+    fn mark_startup_hidden(&self) {
+        self.startup_handled.store(true, Ordering::Release);
+    }
+
+    fn is_startup_handled(&self) -> bool {
+        self.startup_handled.load(Ordering::Acquire)
+    }
+
+    fn can_reveal_now(&self) -> bool {
+        self.frontend_ready.load(Ordering::Acquire) || self.startup_handled.load(Ordering::Acquire)
     }
 
     fn request_show(&self) {
@@ -53,17 +70,45 @@ impl StartupWindowState {
 
     fn prepare_recreated_window(&self) {
         self.frontend_ready.store(false, Ordering::Release);
+        self.startup_handled.store(false, Ordering::Release);
         self.request_show();
+    }
+}
+
+pub fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    let window_config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .cloned()
+        .unwrap_or_default();
+    let preference = load_config()
+        .map(|config| config.theme_preference)
+        .unwrap_or_default();
+    let initialization_script = format!(
+        "window.__ASTRBOT_THEME_PREFERENCE__ = \"{}\";",
+        theme_preference_value(preference)
+    );
+
+    let window = tauri::WebviewWindowBuilder::from_config(app, &window_config)?
+        .initialization_script(initialization_script)
+        .build()?;
+    configure_main_window(&window);
+    Ok(window)
+}
+
+fn theme_preference_value(preference: ThemePreference) -> &'static str {
+    match preference {
+        ThemePreference::System => "system",
+        ThemePreference::Light => "light",
+        ThemePreference::Dark => "dark",
     }
 }
 
 pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     hide_window_for_autostart(app);
-
-    if let Some(main_window) = app.get_webview_window("main") {
-        configure_main_window(&main_window);
-    }
-
     spawn_window_show_fallback(app.handle().clone());
 
     let state: tauri::State<'_, AppState> = app.state();
@@ -165,15 +210,15 @@ fn show_main_window_now(app: &tauri::AppHandle) -> tauri::Result<()> {
 ///
 /// A pending show request from the tray, single-instance activation, or a
 /// recreated window overrides the autostart minimize-to-tray policy.
-pub(crate) fn reveal_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+pub(crate) fn reveal_main_window(app: &tauri::AppHandle) -> tauri::Result<RevealOutcome> {
     let state = app.state::<StartupWindowState>();
     if should_start_hidden() && !state.is_show_pending() {
-        return Ok(());
+        return Ok(RevealOutcome::HiddenByAutostart);
     }
 
     show_main_window_now(app)?;
     state.clear_show_pending();
-    Ok(())
+    Ok(RevealOutcome::Shown)
 }
 
 /// Handles a user-initiated activation such as the tray icon or a second launch.
@@ -181,7 +226,7 @@ pub(crate) fn request_show_main_window(app: &tauri::AppHandle) {
     let state = app.state::<StartupWindowState>();
     state.request_show();
 
-    if !state.is_frontend_ready() {
+    if !state.can_reveal_now() {
         return;
     }
 
@@ -195,6 +240,10 @@ pub(crate) fn mark_frontend_ready(app: &tauri::AppHandle) {
     app.state::<StartupWindowState>().mark_frontend_ready();
 }
 
+pub(crate) fn mark_startup_hidden(app: &tauri::AppHandle) {
+    app.state::<StartupWindowState>().mark_startup_hidden();
+}
+
 pub(crate) fn prepare_recreated_window(app: &tauri::AppHandle) {
     app.state::<StartupWindowState>().prepare_recreated_window();
 }
@@ -204,7 +253,7 @@ pub(crate) fn spawn_window_show_fallback(app_handle: tauri::AppHandle) {
         tokio::time::sleep(WINDOW_SHOW_FALLBACK_DELAY).await;
 
         let state = app_handle.state::<StartupWindowState>();
-        if state.is_frontend_ready() {
+        if state.is_startup_handled() {
             return;
         }
 
@@ -215,10 +264,11 @@ pub(crate) fn spawn_window_show_fallback(app_handle: tauri::AppHandle) {
 
         for attempt in 1..=WINDOW_SHOW_MAX_ATTEMPTS {
             match reveal_main_window(&app_handle) {
-                Ok(()) => {
+                Ok(RevealOutcome::Shown) => {
                     state.mark_frontend_ready();
                     return;
                 }
+                Ok(RevealOutcome::HiddenByAutostart) => return,
                 Err(error) => {
                     log::warn!(
                         "Failed to show the main window during fallback (attempt {}/{}): {}",

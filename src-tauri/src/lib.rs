@@ -95,18 +95,8 @@ fn show_or_recreate_main_window(app_handle: &tauri::AppHandle) {
 }
 
 fn recreate_main_window(app_handle: &tauri::AppHandle) -> tauri::Result<()> {
-    let window_config = app_handle
-        .config()
-        .app
-        .windows
-        .iter()
-        .find(|w| w.label == "main")
-        .cloned()
-        .unwrap_or_default();
-
     setup::prepare_recreated_window(app_handle);
-    let window = tauri::WebviewWindowBuilder::from_config(app_handle, &window_config)?.build()?;
-    setup::configure_main_window(&window);
+    setup::create_main_window(app_handle)?;
     setup::spawn_window_show_fallback(app_handle.clone());
     Ok(())
 }
@@ -199,9 +189,8 @@ pub fn run() {
             }
         })
         .setup(|app| {
-            if let Some(main_window) = app.get_webview_window("main") {
-                main_window.create_overlay_titlebar()?;
-            }
+            let main_window = setup::create_main_window(app.handle())?;
+            main_window.create_overlay_titlebar()?;
             setup::on_setup(app)
         })
         .on_window_event(move |window, event| {
