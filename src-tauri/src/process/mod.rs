@@ -22,11 +22,11 @@ pub use control::{
     graceful_shutdown, is_expected_process_alive, resolve_process_executable_path,
 };
 pub use manager::ProcessManager;
-pub use resource::{ResourceAlertThreshold, ResourceSample};
 pub(crate) use resource::{
     compute_disk_usage, sample_metric, sample_process_resources, unix_secs_now, CpuMeter,
     ResourceHistory,
 };
+pub use resource::{ResourceAlertThreshold, ResourceSample};
 #[cfg(target_os = "windows")]
 pub(crate) use win_api::JobObject;
 
