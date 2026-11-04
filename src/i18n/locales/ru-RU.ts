@@ -499,6 +499,10 @@ const ruRU = {
     deploy: {
       title: "Развёртывание экземпляра",
     },
+    restart: {
+      scheduled: "Экземпляр «{name}» аварийно завершён: перезапуск через {seconds} с (попытка {attempt}/{max})",
+      exhausted: "Экземпляр «{name}» постоянно аварийно завершается; автоперезапуск остановлен",
+    },
     form: {
       titles: {
         edit: "Редактирование экземпляра",
@@ -510,6 +514,9 @@ const ruRU = {
         host: "Хост",
         port: "Порт",
         checkUpdate: "Проверять обновления",
+        autoRestart: "Автоматический перезапуск после сбоя",
+        autoRestartMaxRetries: "Максимум попыток",
+        autoRestartNotify: "Уведомлять о перезапуске",
       },
       emptyVersions: "Нет установленных версий",
       goVersions: "Перейти к версиям",

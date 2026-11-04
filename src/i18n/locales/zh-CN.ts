@@ -471,6 +471,10 @@ const zhCN = {
     "deploy": {
       "title": "实例部署"
     },
+    "restart": {
+      "scheduled": "实例“{name}”异常退出，{seconds} 秒后自动重启（第 {attempt}/{max} 次）",
+      "exhausted": "实例“{name}”多次异常退出，已停止自动重启"
+    },
     "form": {
       "titles": {
         "edit": "编辑实例",
@@ -481,7 +485,10 @@ const zhCN = {
         "version": "版本",
         "host": "主机",
         "port": "端口",
-        "checkUpdate": "检查更新"
+        "checkUpdate": "检查更新",
+        "autoRestart": "异常退出后自动重启",
+        "autoRestartMaxRetries": "最大重试次数",
+        "autoRestartNotify": "重启时发送通知"
       },
       "emptyVersions": "暂无已安装版本",
       "goVersions": "前往版本页",

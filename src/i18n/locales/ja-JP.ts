@@ -476,6 +476,10 @@ const jaJP = {
     deploy: {
       title: "インスタンスのデプロイ",
     },
+    restart: {
+      scheduled: "「{name}」が異常終了しました。{seconds} 秒後に自動再起動します（{attempt}/{max} 回目）",
+      exhausted: "「{name}」が繰り返し異常終了したため、自動再起動を停止しました",
+    },
     form: {
       titles: {
         edit: "インスタンスを編集",
@@ -487,6 +491,9 @@ const jaJP = {
         host: "ホスト",
         port: "ポート",
         checkUpdate: "更新を確認",
+        autoRestart: "異常終了後に自動再起動",
+        autoRestartMaxRetries: "最大リトライ回数",
+        autoRestartNotify: "再起動時に通知",
       },
       emptyVersions: "インストール済みのバージョンはありません",
       goVersions: "バージョンページへ移動",
