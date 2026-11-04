@@ -376,11 +376,6 @@ function dismissDeployIfActive(instanceId: string): void {
   }
 }
 
-function finishDeployIfNeeded(instanceId: string, ok: boolean): void {
-  if (!ok || !deploys.value[instanceId]) {
-    dismissDeployIfActive(instanceId);
-  }
-}
 
 async function executeLockableAction(
   action: LockableAction,
@@ -458,7 +453,7 @@ async function runLockable(action: LockableAction): Promise<boolean> {
   );
 
   if (action.kind === "upgrade") {
-    finishDeployIfNeeded(action.instance.id, ok);
+    dismissDeployIfActive(action.instance.id);
   }
   return ok;
 }
@@ -488,7 +483,7 @@ async function continueLockAction(): Promise<void> {
 
   lockLoading.value = false;
   if (action.kind === "upgrade") {
-    finishDeployIfNeeded(action.instance.id, ok);
+    dismissDeployIfActive(action.instance.id);
   }
 
   if (!ok && lockFailure.value) {
@@ -655,13 +650,13 @@ async function handleRepair(scope: RepairPreserveScope): Promise<void> {
   repairOpen.value = false;
   beginDeploy(target.id);
 
-  const ok = await run(
+  await run(
     repairKey(target.id),
     () => repairInstance(target.id, scope),
     { success: t("instances.toasts.repairComplete") },
   );
 
-  finishDeployIfNeeded(target.id, ok);
+  dismissDeployIfActive(target.id);
 }
 
 async function handleStart(instance: InstanceStatus): Promise<void> {
