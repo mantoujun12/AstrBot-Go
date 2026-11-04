@@ -2,7 +2,7 @@
 #
 # Triggers / 触发条件
 # - Push to main when paths match: src/**, public/**, src-tauri/**, package.json, pnpm-lock.yaml,
-#   vite.config.ts, index.html, tsconfig*.json, changelog/**.
+#   vite.config.ts, index.html, tsconfig*.json, changelogs/**.
 #   推送到 main，且改动命中上述路径时触发。
 # - Manual workflow_dispatch from main.
 #   在 main 上手动执行 workflow_dispatch。
@@ -10,14 +10,16 @@
 # Release gate / 发布闸门
 # - package.json and src-tauri/tauri.conf.json versions must match.
 #   package.json 与 src-tauri/tauri.conf.json 的版本号必须一致。
-# - changelog/v<version>.md must exist with at least one real list entry.
-#   changelog/v<版本号>.md 必须存在且至少包含一条实际列表条目。
+# - changelogs/v<version>.md must exist with at least one real list entry.
+#   changelogs/v<版本号>.md 必须存在且至少包含一条实际列表条目。
+# - A version file left in the legacy changelog/ directory fails the job with a rebase instruction.
+#   版本文件仍位于旧 changelog/ 目录时会失败，并提示变基。
 # - Tag v<version> must not already have a GitHub Release.
 #   v<版本号> tag 不能已有 GitHub Release。
 # - An existing tag without a release also skips the build and requires manual handling.
 #   tag 已存在但没有 Release 时也会跳过构建，需要人工处理。
-# A version mismatch fails the job; a missing changelog or an existing tag skips the build.
-# 版本不一致会直接失败；缺少 changelog 或 tag 已存在时跳过构建。
+# A version mismatch or a legacy version file fails the job; a missing changelog or an existing tag skips the build.
+# 版本不一致或版本文件仍位于旧目录会直接失败；缺少 changelog 或 tag 已存在时跳过构建。
 #
 # Security / 安全
 # - Third-party actions are pinned to full commit SHAs; update pins deliberately.
@@ -30,25 +32,36 @@
 #   发布前会再次校验 tag，并以原子方式创建，避免并发改动导致 Release 与源码不一致。
 #
 # How to trigger a release / 如何触发一次发布
-# 1. During development, add user-facing changes to changelog/unreleased.md under the Added, Changed,
-#    Deprecated, Removed, Fixed, and Security sections.
-#    开发过程中，面向用户的改动写入 changelog/unreleased.md 的“新增”“变更”“弃用”“移除”“修复”“安全”分节。
+# 1. During development, add user-facing changes to changelogs/unreleased.md under the Added, Changed,
+#    Deprecated, Removed, Fixed, and Security sections. Keep entries short; one pull request yields
+#    exactly one logical entry (one English bullet and its matching Chinese bullet), not one per section.
+#    Leave entries unannotated until the release pull request.
+#    开发过程中，面向用户的改动写入 changelogs/unreleased.md 的“新增”“变更”“弃用”“移除”“修复”“安全”分节。
+#    条目应简短；每个 PR 只产生一条逻辑条目（一条英文条目和对应的中文条目），不要按分节拆成多条。
+#    开发期间不添加 PR 链接，统一在发版 PR 中补齐。
 # 2. When ready to release, create a version update pull request that:
 #    - bumps package.json, src-tauri/Cargo.toml, and src-tauri/tauri.conf.json to the release version;
 #    - updates src-tauri/Cargo.lock by running cargo check in src-tauri/;
-#    - renames changelog/unreleased.md to changelog/v<version>.md;
-#    - recreates an empty changelog/unreleased.md for the next cycle.
+#    - renames changelogs/unreleased.md to changelogs/v<version>.md;
+#    - annotates every entry with its source pull request as a full Markdown link, using
+#      `([#8](https://github.com/mantoujun12/astrbot-launcher-vue/pull/8))` for English entries and
+#      `（[#8](https://github.com/mantoujun12/astrbot-launcher-vue/pull/8)）` for Chinese entries;
+#    - recreates an empty changelogs/unreleased.md for the next cycle;
+#    - rebases onto the latest main before merging and moves concurrent unreleased entries into
+#      the new draft.
 #    准备发版时创建版本更新 PR：将 package.json、src-tauri/Cargo.toml、src-tauri/tauri.conf.json 改到发布版本；
-#    在 src-tauri/ 下运行 cargo check 更新 src-tauri/Cargo.lock；把 changelog/unreleased.md 改名为 changelog/v<版本号>.md；
-#    并新建空的 changelog/unreleased.md 供下一轮使用。
+#    在 src-tauri/ 下运行 cargo check 更新 src-tauri/Cargo.lock；把 changelogs/unreleased.md 改名为 changelogs/v<版本号>.md，
+#    并为每条条目补上来源 PR 的完整 Markdown 链接（英文用半角括号，中文用全角括号）；
+#    并新建空的 changelogs/unreleased.md 供下一轮使用。
+#    合并前先变基到最新 main，并把并发新增的条目移到新的 changelogs/unreleased.md，留到下一轮发布。
 # 3. Merge the version update pull request into main. The workflow builds Windows NSIS/MSI installers
 #    in a read-only job, then creates a GitHub Release in a separate job with write access.
 #    Build failures are retried 2 times (3 attempts total); release creation and asset upload are
 #    retried up to 3 times.
 #    合入 main 后，工作流先在只读任务中构建 Windows NSIS/MSI 安装包，再在拥有写权限的独立任务中创建 GitHub Release；
 #    构建失败自动重试 2 次（共 3 次尝试），Release 创建与安装包上传最多重试 3 次。
-# 4. After a release, continue development; the new changelog/unreleased.md is ready for the next cycle.
-#    发版后继续开发，新的 changelog/unreleased.md 已准备好记录下一轮改动。
+# 4. After a release, continue development; the new changelogs/unreleased.md is ready for the next cycle.
+#    发版后继续开发，新的 changelogs/unreleased.md 已准备好记录下一轮改动。
 #
 # References / 参考
 # - tauri-action: https://github.com/tauri-apps/tauri-action
@@ -71,7 +84,7 @@ on:
       - "vite.config.ts"
       - "index.html"
       - "tsconfig*.json"
-      - "changelog/**"
+      - "changelogs/**"
   workflow_dispatch:
 
 permissions:
@@ -116,7 +129,13 @@ jobs:
               return;
             }
 
-            const changelogPath = `changelog/v${version}.md`;
+            const changelogPath = `changelogs/v${version}.md`;
+            const legacyChangelogPath = `changelog/v${version}.md`;
+
+            if (!fs.existsSync(changelogPath) && fs.existsSync(legacyChangelogPath)) {
+              core.setFailed(`发现旧目录 ${legacyChangelogPath}，请变基到最新 main 并将版本文件移动到 ${changelogPath}`);
+              return;
+            }
 
             if (!fs.existsSync(changelogPath)) {
               core.notice(`未找到 ${changelogPath}，跳过发布`);
