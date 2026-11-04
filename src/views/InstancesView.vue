@@ -365,9 +365,7 @@ function instanceWebuiUrl(instance: InstanceStatus): string {
 }
 
 function instanceReadyMessage(instance: InstanceStatus): string {
-  return instance.dashboard_enabled
-    ? t("instances.webuiReady.toast", { name: instance.name })
-    : t("instances.webuiReady.toastStarted", { name: instance.name });
+  return t("instances.toasts.started", { name: instance.name });
 }
 
 function dismissDeployIfActive(instanceId: string): void {

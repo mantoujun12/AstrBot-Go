@@ -121,12 +121,8 @@ async function startFromEmpty(): Promise<void> {
     return;
   }
 
-  const message = target.dashboard_enabled
-    ? t("instances.webuiReady.toast", { name: target.name })
-    : t("instances.webuiReady.toastStarted", { name: target.name });
-
   await run(startKey.value, () => startInstance(target.id), {
-    success: message,
+    success: t("instances.toasts.started", { name: target.name }),
   });
 }
 

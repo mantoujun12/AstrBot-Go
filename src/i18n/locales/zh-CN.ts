@@ -434,6 +434,7 @@ const zhCN = {
       "venvCleared": "虚拟环境已清除",
       "pycacheCleared": "Python 缓存已清除",
       "repairComplete": "修复完成",
+      "started": "实例“{name}”已启动",
       "stopped": "实例已停止"
     },
     "deploy": {
@@ -494,10 +495,6 @@ const zhCN = {
       "loadTimeout": "WebUI 加载超时",
       "disabled": "WebUI 未启用",
       "notRunning": "实例未运行"
-    },
-    "webuiReady": {
-      "toast": "实例“{name}”的 WebUI 已就绪",
-      "toastStarted": "实例“{name}”已启动"
     }
   },
   "backups": {
