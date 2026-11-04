@@ -4,7 +4,7 @@
 //! in a bounded ring buffer so the frontend can draw trend charts without
 //! unbounded memory growth.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 use std::time::{Instant, SystemTime};
 
@@ -36,27 +36,54 @@ pub struct ResourceSample {
     /// CPU usage of the instance process tree, in percent of the whole
     /// machine (100 means every logical core is busy).
     pub cpu_percent: Option<f32>,
-    /// Private working set of the instance process tree in bytes, the value
-    /// task managers report as a process's memory. `None` when unavailable.
+    /// Private memory of the instance process tree in bytes: the private
+    /// working set on Windows (the value task managers show) and private
+    /// resident pages on Linux. `None` when unavailable.
     pub memory_bytes: Option<u64>,
     /// Instance directory disk usage in bytes. `None` when unavailable.
     pub disk_bytes: Option<u64>,
 }
 
-/// Tracks cumulative process CPU time so consecutive probes can produce a
-/// usage percentage instead of a lifetime average.
+/// Identifies one process across probes. The start time keeps a recycled PID
+/// from being mistaken for the process that used it before.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct ProcessKey {
+    pid: u32,
+    started_at: u64,
+}
+
+/// Cumulative CPU time of one process in nanoseconds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ProcessCpuTime {
+    key: ProcessKey,
+    cpu_ns: u64,
+}
+
+/// Tracks cumulative CPU time per process so consecutive probes can produce a
+/// usage percentage instead of a lifetime average. Deltas are taken per
+/// process, so a child exiting between probes does not make the tree total
+/// drop and hide the CPU the remaining processes used.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct CpuMeter {
-    last_total_ns: Option<u64>,
+    last_cpu_ns: HashMap<ProcessKey, u64>,
     last_probe_at: Option<Instant>,
 }
 
 impl CpuMeter {
-    fn observe(&mut self, total_cpu_ns: Option<u64>, now: Instant) -> Option<f32> {
-        let usage = match (total_cpu_ns, self.last_total_ns, self.last_probe_at) {
-            (Some(current), Some(previous), Some(previous_at)) => {
+    /// `processes` is empty when no CPU time could be read for the tree.
+    fn observe(&mut self, processes: &[ProcessCpuTime], now: Instant) -> Option<f32> {
+        let usage = match self.last_probe_at {
+            Some(previous_at) if !processes.is_empty() => {
                 let elapsed = now.saturating_duration_since(previous_at).as_nanos();
-                let consumed = current.saturating_sub(previous);
+                // Processes not seen at the previous probe started since
+                // then, so their whole CPU time belongs to this interval.
+                let consumed = processes
+                    .iter()
+                    .map(|process| match self.last_cpu_ns.get(&process.key) {
+                        Some(previous) => process.cpu_ns.saturating_sub(*previous),
+                        None => process.cpu_ns,
+                    })
+                    .fold(0u64, u64::saturating_add);
                 if elapsed == 0 {
                     None
                 } else {
@@ -66,8 +93,11 @@ impl CpuMeter {
             _ => None,
         };
 
-        self.last_total_ns = total_cpu_ns;
-        self.last_probe_at = total_cpu_ns.map(|_| now);
+        self.last_cpu_ns = processes
+            .iter()
+            .map(|process| (process.key, process.cpu_ns))
+            .collect();
+        self.last_probe_at = (!processes.is_empty()).then_some(now);
         usage
     }
 }
@@ -154,15 +184,15 @@ pub fn compute_disk_usage(path: &Path) -> Option<u64> {
 /// CPU time and memory are summed over the root process and its descendants so
 /// helper processes spawned by the instance are included. CPU is reported
 /// relative to the whole machine (100% = all logical cores busy) and memory is
-/// the private working set, matching what task managers show. The first CPU
+/// private memory (see [`ResourceSample::memory_bytes`]). The first CPU
 /// probe has no previous baseline and therefore returns `None`.
 pub(crate) fn sample_process_resources(
     pid: u32,
     meter: &mut CpuMeter,
 ) -> (Option<f32>, Option<u64>) {
-    let (cpu_total_ns, memory_bytes) = read_process_tree_usage(pid);
+    let (cpu_times, memory_bytes) = read_process_tree_usage(pid);
     let cpu_percent = meter
-        .observe(cpu_total_ns, Instant::now())
+        .observe(&cpu_times, Instant::now())
         .map(|single_core_percent| scale_cpu_percent(single_core_percent, logical_core_count()));
     (cpu_percent, memory_bytes)
 }
@@ -186,28 +216,21 @@ fn logical_core_count() -> f32 {
 }
 
 #[cfg(target_os = "windows")]
-fn read_process_tree_usage(root_pid: u32) -> (Option<u64>, Option<u64>) {
-    let mut cpu_total = 0u64;
+fn read_process_tree_usage(root_pid: u32) -> (Vec<ProcessCpuTime>, Option<u64>) {
+    let mut cpu_times = Vec::new();
     let mut memory_total = 0u64;
-    let mut cpu_seen = false;
     let mut memory_seen = false;
 
     for pid in process_tree_pids(root_pid) {
-        let (cpu_ns, memory_bytes) = read_single_process_usage(pid);
-        if let Some(value) = cpu_ns {
-            cpu_total = cpu_total.saturating_add(value);
-            cpu_seen = true;
-        }
+        let (cpu_time, memory_bytes) = read_single_process_usage(pid);
+        cpu_times.extend(cpu_time);
         if let Some(value) = memory_bytes {
             memory_total = memory_total.saturating_add(value);
             memory_seen = true;
         }
     }
 
-    (
-        cpu_seen.then_some(cpu_total),
-        memory_seen.then_some(memory_total),
-    )
+    (cpu_times, memory_seen.then_some(memory_total))
 }
 
 /// Collect the root process and every descendant PID.
@@ -258,7 +281,7 @@ fn process_tree_pids(root_pid: u32) -> Vec<u32> {
 }
 
 #[cfg(target_os = "windows")]
-fn read_single_process_usage(pid: u32) -> (Option<u64>, Option<u64>) {
+fn read_single_process_usage(pid: u32) -> (Option<ProcessCpuTime>, Option<u64>) {
     use windows::Win32::Foundation::{CloseHandle, FILETIME};
     use windows::Win32::System::Threading::GetProcessTimes;
 
@@ -270,7 +293,7 @@ fn read_single_process_usage(pid: u32) -> (Option<u64>, Option<u64>) {
     let mut exit_time = FILETIME::default();
     let mut kernel = FILETIME::default();
     let mut user = FILETIME::default();
-    let cpu_ns = if unsafe {
+    let cpu_time = if unsafe {
         GetProcessTimes(
             handle,
             &mut creation,
@@ -284,13 +307,20 @@ fn read_single_process_usage(pid: u32) -> (Option<u64>, Option<u64>) {
         filetime_to_u64(&kernel)
             .saturating_add(filetime_to_u64(&user))
             .checked_mul(100)
+            .map(|cpu_ns| ProcessCpuTime {
+                key: ProcessKey {
+                    pid,
+                    started_at: filetime_to_u64(&creation),
+                },
+                cpu_ns,
+            })
     } else {
         None
     };
 
     let memory_bytes = query_private_working_set(handle);
     let _ = unsafe { CloseHandle(handle) };
-    (cpu_ns, memory_bytes)
+    (cpu_time, memory_bytes)
 }
 
 #[cfg(target_os = "windows")]
@@ -309,7 +339,14 @@ fn open_process_for_metrics(pid: u32) -> Option<windows::Win32::Foundation::HAND
     if let Ok(handle) = limited {
         return Some(handle);
     }
-    unsafe { OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid).ok() }
+    if let Ok(handle) =
+        unsafe { OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid) }
+    {
+        return Some(handle);
+    }
+    // Processes that refuse memory reads still expose CPU times; the memory
+    // query then fails on its own without dropping the CPU sample.
+    unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok() }
 }
 
 /// Private working set, the number Windows Task Manager shows as a process's
@@ -361,9 +398,7 @@ fn filetime_to_u64(filetime: &windows::Win32::Foundation::FILETIME) -> u64 {
 }
 
 #[cfg(target_os = "linux")]
-fn read_process_tree_usage(root_pid: u32) -> (Option<u64>, Option<u64>) {
-    use std::collections::HashMap;
-
+fn read_process_tree_usage(root_pid: u32) -> (Vec<ProcessCpuTime>, Option<u64>) {
     let mut parents: HashMap<u32, u32> = HashMap::new();
     if let Ok(entries) = std::fs::read_dir("/proc") {
         for entry in entries.flatten() {
@@ -394,58 +429,61 @@ fn read_process_tree_usage(root_pid: u32) -> (Option<u64>, Option<u64>) {
         index += 1;
     }
 
-    let mut cpu_total = 0u64;
+    let mut cpu_times = Vec::new();
     let mut memory_total = 0u64;
-    let mut cpu_seen = false;
     let mut memory_seen = false;
     for pid in pids {
-        if let Some(value) = linux_process_cpu_ns(pid) {
-            cpu_total = cpu_total.saturating_add(value);
-            cpu_seen = true;
-        }
+        cpu_times.extend(linux_process_cpu_time(pid));
         if let Some(value) = linux_process_memory_bytes(pid) {
             memory_total = memory_total.saturating_add(value);
             memory_seen = true;
         }
     }
 
-    (
-        cpu_seen.then_some(cpu_total),
-        memory_seen.then_some(memory_total),
-    )
+    (cpu_times, memory_seen.then_some(memory_total))
 }
 
 #[cfg(target_os = "linux")]
 fn linux_parent_pid(pid: u32) -> Option<u32> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
-    let close_paren = stat.rfind(')')?;
-    stat[close_paren + 2..]
-        .split_whitespace()
-        .next()?
-        .parse()
-        .ok()
+    parse_stat_fields(&stat)?.ppid
 }
 
 #[cfg(target_os = "linux")]
-fn linux_process_cpu_ns(pid: u32) -> Option<u64> {
+fn linux_process_cpu_time(pid: u32) -> Option<ProcessCpuTime> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
-    let close_paren = stat.rfind(')')?;
-    let fields: Vec<&str> = stat[close_paren + 2..].split_whitespace().collect();
-    let user_ticks = fields.get(11)?.parse::<u64>().ok()?;
-    let system_ticks = fields.get(12)?.parse::<u64>().ok()?;
+    let fields = parse_stat_fields(&stat)?;
     let clock_ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
     if clock_ticks <= 0 {
         return None;
     }
 
-    user_ticks
-        .saturating_add(system_ticks)
+    let cpu_ns = fields
+        .cpu_ticks?
         .checked_mul(1_000_000_000)?
-        .checked_div(clock_ticks as u64)
+        .checked_div(clock_ticks as u64)?;
+    Some(ProcessCpuTime {
+        key: ProcessKey {
+            pid,
+            started_at: fields.start_ticks?,
+        },
+        cpu_ns,
+    })
 }
 
+/// Private memory of one process. Summing `VmRSS` over a tree counts pages
+/// shared between parent and children once per process, so the private
+/// counters from `smaps_rollup` are used instead; `VmRSS` is only the
+/// fallback for kernels without that file.
 #[cfg(target_os = "linux")]
 fn linux_process_memory_bytes(pid: u32) -> Option<u64> {
+    if let Some(bytes) = std::fs::read_to_string(format!("/proc/{pid}/smaps_rollup"))
+        .ok()
+        .and_then(|rollup| parse_smaps_private_bytes(&rollup))
+    {
+        return Some(bytes);
+    }
+
     let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
     for line in status.lines() {
         if let Some(raw) = line.strip_prefix("VmRSS:") {
@@ -456,20 +494,74 @@ fn linux_process_memory_bytes(pid: u32) -> Option<u64> {
     None
 }
 
+/// Fields read from `/proc/<pid>/stat`.
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, PartialEq, Eq)]
+struct StatFields {
+    ppid: Option<u32>,
+    /// `utime + stime` in clock ticks.
+    cpu_ticks: Option<u64>,
+    /// Process start time in clock ticks since boot.
+    start_ticks: Option<u64>,
+}
+
+/// Parse `/proc/<pid>/stat`. The command name may contain spaces and
+/// parentheses, so fields are counted from the last `)`: the first field
+/// after it is the state (field 3), followed by the parent PID (field 4).
+#[cfg(any(target_os = "linux", test))]
+fn parse_stat_fields(stat: &str) -> Option<StatFields> {
+    let close_paren = stat.rfind(')')?;
+    let fields: Vec<&str> = stat.get(close_paren + 1..)?.split_whitespace().collect();
+    let field = |index: usize| fields.get(index).and_then(|raw| raw.parse::<u64>().ok());
+
+    let cpu_ticks = match (field(11), field(12)) {
+        (Some(user), Some(system)) => Some(user.saturating_add(system)),
+        _ => None,
+    };
+    Some(StatFields {
+        ppid: fields.get(1).and_then(|raw| raw.parse().ok()),
+        cpu_ticks,
+        start_ticks: field(19),
+    })
+}
+
+/// Sum the `Private_Clean` and `Private_Dirty` lines of `smaps_rollup`.
+#[cfg(any(target_os = "linux", test))]
+fn parse_smaps_private_bytes(rollup: &str) -> Option<u64> {
+    let mut total_kilobytes: Option<u64> = None;
+    for line in rollup.lines() {
+        let Some(raw) = line
+            .strip_prefix("Private_Clean:")
+            .or_else(|| line.strip_prefix("Private_Dirty:"))
+        else {
+            continue;
+        };
+        let kilobytes = raw.split_whitespace().next()?.parse::<u64>().ok()?;
+        total_kilobytes = Some(total_kilobytes.unwrap_or(0).saturating_add(kilobytes));
+    }
+    total_kilobytes?.checked_mul(1024)
+}
+
 #[cfg(target_os = "macos")]
-fn read_process_tree_usage(pid: u32) -> (Option<u64>, Option<u64>) {
+fn read_process_tree_usage(pid: u32) -> (Vec<ProcessCpuTime>, Option<u64>) {
     use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
 
     let Ok(usage) = pidrusage::<RUsageInfoV2>(pid as i32) else {
-        return (None, None);
+        return (Vec::new(), None);
     };
-    let cpu_ns = Some(usage.ri_user_time.saturating_add(usage.ri_system_time));
-    (cpu_ns, Some(usage.ri_resident_size))
+    let cpu_time = ProcessCpuTime {
+        key: ProcessKey {
+            pid,
+            started_at: usage.ri_proc_start_abstime,
+        },
+        cpu_ns: usage.ri_user_time.saturating_add(usage.ri_system_time),
+    };
+    (vec![cpu_time], Some(usage.ri_resident_size))
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-fn read_process_tree_usage(_pid: u32) -> (Option<u64>, Option<u64>) {
-    (None, None)
+fn read_process_tree_usage(_pid: u32) -> (Vec<ProcessCpuTime>, Option<u64>) {
+    (Vec::new(), None)
 }
 
 /// Consecutive samples a metric must breach before an alert fires, and must
@@ -644,20 +736,99 @@ mod tests {
         assert!(is_disk_sample_due(DISK_SAMPLE_INTERVAL_TICKS));
     }
 
+    fn cpu(pid: u32, started_at: u64, cpu_ns: u64) -> ProcessCpuTime {
+        ProcessCpuTime {
+            key: ProcessKey { pid, started_at },
+            cpu_ns,
+        }
+    }
+
     #[test]
     fn cpu_meter_reports_delta_usage() {
         let mut meter = CpuMeter::default();
         let start = Instant::now();
 
-        assert_eq!(meter.observe(Some(0), start), None);
+        assert_eq!(meter.observe(&[cpu(1, 0, 0)], start), None);
         assert_eq!(
-            meter.observe(Some(500_000_000), start + Duration::from_secs(1)),
+            meter.observe(&[cpu(1, 0, 500_000_000)], start + Duration::from_secs(1)),
             Some(50.0)
         );
         assert_eq!(
-            meter.observe(Some(1_000_000_000), start + Duration::from_secs(2)),
+            meter.observe(&[cpu(1, 0, 1_000_000_000)], start + Duration::from_secs(2)),
             Some(50.0)
         );
+    }
+
+    #[test]
+    fn cpu_meter_ignores_exited_children() {
+        let mut meter = CpuMeter::default();
+        let start = Instant::now();
+
+        meter.observe(
+            &[cpu(1, 0, 1_000_000_000), cpu(2, 5, 30_000_000_000)],
+            start,
+        );
+        assert_eq!(
+            meter.observe(&[cpu(1, 0, 1_500_000_000)], start + Duration::from_secs(1)),
+            Some(50.0)
+        );
+    }
+
+    #[test]
+    fn cpu_meter_counts_new_and_recycled_processes_from_zero() {
+        let mut meter = CpuMeter::default();
+        let start = Instant::now();
+
+        meter.observe(&[cpu(1, 0, 0), cpu(2, 5, 9_000_000_000)], start);
+        // PID 2 was recycled by a new process (different start time) and a
+        // new child PID 3 appeared; both count their whole CPU time.
+        assert_eq!(
+            meter.observe(
+                &[cpu(1, 0, 0), cpu(2, 7, 250_000_000), cpu(3, 8, 250_000_000)],
+                start + Duration::from_secs(1)
+            ),
+            Some(50.0)
+        );
+    }
+
+    #[test]
+    fn cpu_meter_resets_when_cpu_is_unavailable() {
+        let mut meter = CpuMeter::default();
+        let start = Instant::now();
+
+        meter.observe(&[cpu(1, 0, 0)], start);
+        assert_eq!(meter.observe(&[], start + Duration::from_secs(1)), None);
+        assert_eq!(
+            meter.observe(&[cpu(1, 0, 500_000_000)], start + Duration::from_secs(2)),
+            None
+        );
+    }
+
+    #[test]
+    fn stat_parser_reads_parent_cpu_and_start_time() {
+        let stat = "4242 (python (worker) x) S 100 4242 4242 0 -1 4194560 2000 0 0 0 \
+                    150 50 0 0 20 0 3 0 987654 123456789 4096 18446744073709551615";
+        assert_eq!(
+            parse_stat_fields(stat),
+            Some(StatFields {
+                ppid: Some(100),
+                cpu_ticks: Some(200),
+                start_ticks: Some(987654),
+            })
+        );
+        assert_eq!(parse_stat_fields("garbage"), None);
+    }
+
+    #[test]
+    fn smaps_parser_sums_private_pages_only() {
+        let rollup = "55d0c0000000-7ffd00000000 ---p 00000000 00:00 0  [rollup]\n\
+                      Rss:              300000 kB\n\
+                      Pss:              200000 kB\n\
+                      Shared_Clean:     100000 kB\n\
+                      Private_Clean:     50000 kB\n\
+                      Private_Dirty:    150000 kB\n";
+        assert_eq!(parse_smaps_private_bytes(rollup), Some(200_000 * 1024));
+        assert_eq!(parse_smaps_private_bytes("Rss: 1 kB\n"), None);
     }
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
