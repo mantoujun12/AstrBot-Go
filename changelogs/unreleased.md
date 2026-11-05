@@ -7,6 +7,7 @@
 - Added an instance update center with stable release checks, update badges, single-instance upgrades, and batch upgrades, while respecting the global and per-instance update toggles.
 - Launcher updates can now be checked, downloaded, and installed from Settings without manually downloading a release.
 - Added a unified task center for downloads, deployments, backups, and repairs, with persistent records, live progress, and cancellable downloads with pause and resume support.
+- Added one-click instance health checks for Python, virtual environments, dependencies, ports, disk space, configuration, and WebUI connectivity.
 
 ### Changed
 
@@ -25,6 +26,7 @@
 - 新增实例更新中心，支持检查最新稳定版、显示更新徽标、单实例升级和全部升级，并遵循全局与单实例更新开关。
 - 现在可以在设置中检查、下载并安装启动器更新，无需手动下载发布安装包。
 - 新增统一任务中心，集中展示下载、部署、备份和修复任务，并支持持久化记录、实时进度，下载任务可取消、暂停与继续。
+- 新增实例一键体检，检查 Python、虚拟环境、依赖、端口、磁盘空间、配置和 WebUI 连通性。
 
 ### 变更
 

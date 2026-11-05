@@ -79,6 +79,68 @@ export interface InstanceStatus {
   restart_attempts: number;
 }
 
+export type InstanceHealthGrade = "healthy" | "warning" | "critical";
+
+export type InstanceHealthCheckKey =
+  | "python"
+  | "venv"
+  | "dependencies"
+  | "port"
+  | "disk_space"
+  | "configuration"
+  | "webui";
+
+export type InstanceHealthCheckStatus =
+  | "pass"
+  | "warning"
+  | "fail"
+  | "skipped";
+
+export type InstanceHealthDetailCode =
+  | "runtime_ready"
+  | "runtime_missing"
+  | "runtime_failed"
+  | "venv_ready"
+  | "venv_missing"
+  | "venv_failed"
+  | "dependencies_ready"
+  | "dependencies_issues"
+  | "dependencies_check_failed"
+  | "requirements_missing"
+  | "pip_unavailable"
+  | "venv_required"
+  | "dependencies_timeout"
+  | "port_available"
+  | "port_occupied"
+  | "port_listening"
+  | "port_unreachable"
+  | "port_invalid"
+  | "port_check_failed"
+  | "space_sufficient"
+  | "space_low"
+  | "space_critical"
+  | "space_unavailable"
+  | "config_valid"
+  | "config_invalid"
+  | "config_missing"
+  | "webui_reachable"
+  | "webui_unreachable"
+  | "webui_not_running"
+  | "webui_disabled"
+  | "webui_host_unsupported";
+
+export interface InstanceHealthCheck {
+  key: InstanceHealthCheckKey;
+  status: InstanceHealthCheckStatus;
+  detail_code: InstanceHealthDetailCode;
+  value: string | null;
+}
+
+export interface InstanceHealthReport {
+  overall: InstanceHealthGrade;
+  checks: InstanceHealthCheck[];
+}
+
 export interface ResourceSample {
   timestamp: number;
   cpu_percent: number | null;

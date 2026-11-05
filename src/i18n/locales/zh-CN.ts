@@ -459,7 +459,64 @@ const zhCN = {
       "clearPycache": "清除 Python 缓存",
       "deleteInstance": "删除实例",
       "upgrade": "升级",
-      "upgradeAll": "全部升级"
+      "upgradeAll": "全部升级",
+      "healthCheck": "一键体检"
+    },
+    "health": {
+      "title": "{instance} · 实例体检",
+      "grades": {
+        "healthy": "状态良好",
+        "warning": "需要关注",
+        "critical": "发现问题"
+      },
+      "status": {
+        "pass": "通过",
+        "warning": "警告",
+        "fail": "失败",
+        "skipped": "未检查"
+      },
+      "checks": {
+        "python": "Python 运行时",
+        "venv": "虚拟环境",
+        "dependencies": "依赖",
+        "port": "端口",
+        "disk_space": "磁盘空间",
+        "configuration": "配置解析",
+        "webui": "WebUI 连通性"
+      },
+      "details": {
+        "runtime_ready": "Python {value} 可用。",
+        "runtime_missing": "未找到此实例版本所需的 Python 运行时。",
+        "runtime_failed": "Python 运行时无法正常启动。",
+        "venv_ready": "虚拟环境中的 Python {value} 可用。",
+        "venv_missing": "未找到完整的虚拟环境。",
+        "venv_failed": "虚拟环境中的 Python 无法正常启动。",
+        "dependencies_ready": "依赖检查通过。",
+        "dependencies_issues": "发现 {value} 项依赖问题。",
+        "dependencies_check_failed": "无法完成依赖检查。",
+        "requirements_missing": "核心目录缺少 requirements.txt。",
+        "pip_unavailable": "虚拟环境未安装 pip，无法核验依赖。",
+        "venv_required": "需要先创建虚拟环境。",
+        "dependencies_timeout": "依赖检查超时，请稍后重试。",
+        "port_available": "端口 {value} 可用。",
+        "port_occupied": "端口 {value} 已被占用。",
+        "port_listening": "端口 {value} 正在监听。",
+        "port_unreachable": "无法连接到端口 {value}。",
+        "port_invalid": "实例端口无效。",
+        "port_check_failed": "无法检查实例端口 {value}。",
+        "space_sufficient": "可用空间：{value}",
+        "space_low": "可用空间偏低：{value}",
+        "space_critical": "可用空间不足：{value}",
+        "space_unavailable": "无法获取磁盘剩余空间。",
+        "config_valid": "YAML 与 JSON 配置均可解析。",
+        "config_invalid": "配置文件缺失或格式无效。",
+        "config_missing": "尚未生成配置文件。",
+        "webui_reachable": "WebUI 已响应（HTTP {value}）。",
+        "webui_unreachable": "无法连接到 WebUI。",
+        "webui_not_running": "实例未运行，已跳过连通性检查。",
+        "webui_disabled": "WebUI 已禁用。",
+        "webui_host_unsupported": "仅检查本机地址，已跳过非本机 WebUI 地址。"
+      }
     },
     "list": {
       "columns": {
