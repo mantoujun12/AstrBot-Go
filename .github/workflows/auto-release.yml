@@ -461,10 +461,27 @@ jobs:
             exit 1
           fi
 
-          nsis_zip=$(find dist -type f -name '*-setup.nsis.zip' -print | sort | head -n 1)
-          msi_zip=$(find dist -type f -name '*.msi.zip' -print | sort | head -n 1)
-          if [ -z "${nsis_zip}" ] || [ ! -f "${nsis_zip}.sig" ] || [ -z "${msi_zip}" ] || [ ! -f "${msi_zip}.sig" ]; then
-            echo "::error::缺少 Tauri Updater 所需的签名压缩包"
+          resolve_signed_update_asset() {
+            local pattern asset
+            for pattern in "$@"; do
+              while IFS= read -r asset; do
+                [ -n "${asset}" ] || continue
+                if [ -s "${asset}.sig" ]; then
+                  printf '%s' "${asset}"
+                  return 0
+                fi
+              done < <(find dist -type f -name "${pattern}" -print | sort)
+            done
+            return 1
+          }
+
+          # Tauri can sign the installer directly or emit a ZIP updater bundle,
+          # depending on the bundler version and artifact mode.
+          # Tauri 可能直接签名安装包，也可能生成 ZIP 更新包，取决于打包器版本与产物模式。
+          nsis_update_asset=$(resolve_signed_update_asset '*-setup.nsis.zip' '*-setup.exe.zip' '*-setup.exe') || true
+          msi_update_asset=$(resolve_signed_update_asset '*.msi.zip' '*.msi') || true
+          if [ -z "${nsis_update_asset}" ] || [ -z "${msi_update_asset}" ]; then
+            echo "::error::缺少 Tauri Updater 所需的已签名 NSIS 或 MSI 更新包"
             exit 1
           fi
 
@@ -482,10 +499,10 @@ jobs:
             exit 1
           fi
 
-          nsis_asset=$(basename "${nsis_zip}")
-          msi_asset=$(basename "${msi_zip}")
-          nsis_signature=$(cat "${nsis_zip}.sig")
-          msi_signature=$(cat "${msi_zip}.sig")
+          nsis_asset=$(basename "${nsis_update_asset}")
+          msi_asset=$(basename "${msi_update_asset}")
+          nsis_signature=$(cat "${nsis_update_asset}.sig")
+          msi_signature=$(cat "${msi_update_asset}.sig")
           base_url="https://github.com/${repo}/releases/download/${tag}"
           export NSIS_URL="${base_url}/${nsis_asset}"
           export MSI_URL="${base_url}/${msi_asset}"
