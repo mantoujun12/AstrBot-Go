@@ -107,11 +107,27 @@ jobs:
           APP="src-tauri/target/debug/bundle/macos/AstrBot Launcher.app"
           test -d "$APP"
           codesign --force --deep --sign - "$APP"
+          echo "--- spctl ---"
+          spctl -a -vv "$APP" 2>&1 || true
           mkdir -p shots crash
-          open "$APP"
+          echo "--- open ---"
+          open "$APP" 2>&1 || echo "open failed: $?"
           sleep 20
           echo "--- processes ---"
+          if ! pgrep -f astrbot > /dev/null; then
+            echo "no astrbot process, trying direct launch"
+            "$APP/Contents/MacOS/astrbot-launcher-vue" \
+              > app.log 2>&1 &
+            sleep 15
+            echo "--- app.log ---"
+            cat app.log || true
+          fi
+          echo "--- processes ---"
           pgrep -fl astrbot || echo "no astrbot process"
+          echo "--- system log ---"
+          log show --last 2m --style compact \
+            --predicate 'eventMessage CONTAINS[c] "astrbot"' \
+            2>/dev/null | tail -20 || true
           screencapture -x shots/macos-window.png || true
           find ~/Library/Logs/DiagnosticReports -name "*.ips" \
             -mmin -10 -exec cp {} crash/ \; 2>/dev/null || true
@@ -128,6 +144,7 @@ jobs:
           path: |
             shots/*.png
             crash/*.ips
+            app.log
           if-no-files-found: warn
 
   windows-native:
