@@ -683,7 +683,11 @@ fn available_disk_bytes(path: &Path) -> std::io::Result<u64> {
             return Err(std::io::Error::last_os_error());
         }
         let stats = unsafe { stats.assume_init() };
-        Ok(stats.f_bavail.saturating_mul(stats.f_frsize))
+        // f_bavail is u32 on macOS and u64 on Linux, so widen before multiplying.
+        fn widen<T: Into<u64>>(value: T) -> u64 {
+            value.into()
+        }
+        Ok(widen(stats.f_bavail).saturating_mul(widen(stats.f_frsize)))
     }
 
     #[cfg(not(any(target_os = "windows", unix)))]
