@@ -15,6 +15,42 @@ const DISK_WARNING_BYTES: u64 = 1024 * 1024 * 1024;
 const DISK_CRITICAL_BYTES: u64 = 256 * 1024 * 1024;
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
+const REQUIREMENTS_AUDIT_SCRIPT: &str = r#"
+import importlib.metadata
+import json
+import sys
+
+from pip._internal.network.session import PipSession
+from pip._internal.req.req_file import parse_requirements
+from pip._vendor.packaging.markers import default_environment
+from pip._vendor.packaging.requirements import Requirement
+from pip._vendor.packaging.utils import canonicalize_name
+
+session = PipSession()
+try:
+    requirements = parse_requirements(sys.argv[1], session=session)
+    installed = {
+        canonicalize_name(distribution.metadata["Name"]): distribution.version
+        for distribution in importlib.metadata.distributions()
+        if distribution.metadata.get("Name")
+    }
+    missing = set()
+    for parsed in requirements:
+        if not parsed.requirement or parsed.constraint:
+            continue
+        requirement = Requirement(parsed.requirement)
+        if requirement.marker and not requirement.marker.evaluate(default_environment()):
+            continue
+        version = installed.get(canonicalize_name(requirement.name))
+        if version is None or (
+            requirement.specifier
+            and not requirement.specifier.contains(version, prereleases=True)
+        ):
+            missing.add(requirement.name)
+    print(json.dumps(sorted(missing)))
+finally:
+    session.close()
+"#;
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -237,7 +273,8 @@ async fn check_venv(instance_id: &str) -> InstanceHealthCheck {
 
 async fn check_dependencies(instance_id: &str) -> InstanceHealthCheck {
     let core_dir = get_instance_core_dir(instance_id);
-    if !core_dir.join("requirements.txt").is_file() {
+    let requirements_path = core_dir.join("requirements.txt");
+    if !requirements_path.is_file() {
         return InstanceHealthCheck::fail(
             InstanceHealthCheckKey::Dependencies,
             InstanceHealthDetailCode::RequirementsMissing,
@@ -254,55 +291,114 @@ async fn check_dependencies(instance_id: &str) -> InstanceHealthCheck {
         );
     }
 
-    match run_command(&executable, &["-m", "pip", "check"]).await {
-        Ok(output) if output.status.success() => InstanceHealthCheck::pass(
-            InstanceHealthCheckKey::Dependencies,
-            InstanceHealthDetailCode::DependenciesReady,
-            None,
-        ),
-        Ok(output) => {
-            let diagnostics = format!(
-                "{}{}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
+    let pip_check = match run_command(&executable, &["-m", "pip", "check"]).await {
+        Ok(output) => output,
+        Err(CommandFailure::TimedOut) => {
+            return InstanceHealthCheck::warning(
+                InstanceHealthCheckKey::Dependencies,
+                InstanceHealthDetailCode::DependenciesTimeout,
+                None,
             );
-            if diagnostics.contains("No module named pip") {
-                InstanceHealthCheck::warning(
-                    InstanceHealthCheckKey::Dependencies,
-                    InstanceHealthDetailCode::PipUnavailable,
-                    None,
-                )
-            } else {
-                let issue_count = diagnostics
-                    .lines()
-                    .filter(|line| !line.trim().is_empty())
-                    .count();
-                if issue_count == 0 {
-                    InstanceHealthCheck::fail(
-                        InstanceHealthCheckKey::Dependencies,
-                        InstanceHealthDetailCode::DependenciesCheckFailed,
-                        None,
-                    )
-                } else {
-                    InstanceHealthCheck::fail(
-                        InstanceHealthCheckKey::Dependencies,
-                        InstanceHealthDetailCode::DependenciesIssues,
-                        Some(issue_count.to_string()),
-                    )
-                }
-            }
         }
-        Err(CommandFailure::TimedOut) => InstanceHealthCheck::warning(
+        Err(CommandFailure::Unavailable) => {
+            return InstanceHealthCheck::fail(
+                InstanceHealthCheckKey::Dependencies,
+                InstanceHealthDetailCode::DependenciesCheckFailed,
+                None,
+            );
+        }
+    };
+
+    let pip_diagnostics = format!(
+        "{}{}",
+        String::from_utf8_lossy(&pip_check.stdout),
+        String::from_utf8_lossy(&pip_check.stderr)
+    );
+    if pip_diagnostics.contains("No module named pip") {
+        return InstanceHealthCheck::warning(
             InstanceHealthCheckKey::Dependencies,
-            InstanceHealthDetailCode::DependenciesTimeout,
+            InstanceHealthDetailCode::PipUnavailable,
             None,
-        ),
-        Err(CommandFailure::Unavailable) => InstanceHealthCheck::fail(
+        );
+    }
+    let pip_issue_count = if pip_check.status.success() {
+        0
+    } else {
+        pip_diagnostics
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count()
+            .max(1)
+    };
+
+    let Some(requirements_path) = requirements_path.to_str() else {
+        return InstanceHealthCheck::fail(
             InstanceHealthCheckKey::Dependencies,
             InstanceHealthDetailCode::DependenciesCheckFailed,
             None,
-        ),
+        );
+    };
+    let audit = match run_command(
+        &executable,
+        &["-c", REQUIREMENTS_AUDIT_SCRIPT, requirements_path],
+    )
+    .await
+    {
+        Ok(output) => output,
+        Err(CommandFailure::TimedOut) => {
+            return InstanceHealthCheck::warning(
+                InstanceHealthCheckKey::Dependencies,
+                InstanceHealthDetailCode::DependenciesTimeout,
+                None,
+            );
+        }
+        Err(CommandFailure::Unavailable) => {
+            return InstanceHealthCheck::fail(
+                InstanceHealthCheckKey::Dependencies,
+                InstanceHealthDetailCode::DependenciesCheckFailed,
+                None,
+            );
+        }
+    };
+    if !audit.status.success() {
+        return InstanceHealthCheck::fail(
+            InstanceHealthCheckKey::Dependencies,
+            InstanceHealthDetailCode::DependenciesCheckFailed,
+            None,
+        );
     }
+
+    let Some(missing_count) = missing_requirement_count(&audit.stdout) else {
+        return InstanceHealthCheck::fail(
+            InstanceHealthCheckKey::Dependencies,
+            InstanceHealthDetailCode::DependenciesCheckFailed,
+            None,
+        );
+    };
+    dependency_check_result(pip_issue_count, missing_count)
+}
+
+fn dependency_check_result(pip_issue_count: usize, missing_count: usize) -> InstanceHealthCheck {
+    let issue_count = pip_issue_count.max(missing_count);
+    if issue_count > 0 {
+        InstanceHealthCheck::fail(
+            InstanceHealthCheckKey::Dependencies,
+            InstanceHealthDetailCode::DependenciesIssues,
+            Some(issue_count.to_string()),
+        )
+    } else {
+        InstanceHealthCheck::pass(
+            InstanceHealthCheckKey::Dependencies,
+            InstanceHealthDetailCode::DependenciesReady,
+            None,
+        )
+    }
+}
+
+fn missing_requirement_count(output: &[u8]) -> Option<usize> {
+    serde_json::from_slice::<Vec<String>>(output)
+        .ok()
+        .map(|missing| missing.len())
 }
 
 fn check_port(
@@ -661,6 +757,32 @@ mod tests {
             check_disk_space_bytes(DISK_WARNING_BYTES).status,
             InstanceHealthCheckStatus::Pass
         );
+    }
+
+    #[test]
+    fn dependency_check_fails_when_requirements_are_missing() {
+        assert_eq!(
+            missing_requirement_count(br#"["astrbot","aiohttp"]"#),
+            Some(2)
+        );
+        let check = dependency_check_result(0, 2);
+
+        assert_eq!(check.status, InstanceHealthCheckStatus::Fail);
+        assert_eq!(
+            check.detail_code,
+            InstanceHealthDetailCode::DependenciesIssues
+        );
+        assert_eq!(check.value.as_deref(), Some("2"));
+    }
+
+    #[test]
+    fn dependency_check_passes_when_no_issues_are_found() {
+        assert_eq!(missing_requirement_count(b"[]"), Some(0));
+        assert_eq!(
+            dependency_check_result(0, 0).status,
+            InstanceHealthCheckStatus::Pass
+        );
+        assert_eq!(missing_requirement_count(b"not json"), None);
     }
 
     #[test]
