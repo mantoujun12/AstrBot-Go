@@ -460,7 +460,7 @@ const zhCN = {
       "deleteInstance": "删除实例",
       "upgrade": "升级",
       "upgradeAll": "全部升级",
-      "healthCheck": "一键体检"
+      "healthCheck": "健康诊断"
     },
     "health": {
       "title": "{instance} · 实例体检",

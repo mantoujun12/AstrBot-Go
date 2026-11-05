@@ -465,7 +465,7 @@ const enUS = {
       deleteInstance: "Delete Instance",
       upgrade: "Upgrade",
       upgradeAll: "Upgrade All",
-      healthCheck: "Run Health Check",
+      healthCheck: "Health Check",
     },
     health: {
       title: "{instance} · Health Check",

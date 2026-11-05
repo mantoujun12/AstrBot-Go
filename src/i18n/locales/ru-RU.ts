@@ -482,7 +482,7 @@ const ruRU = {
       deleteInstance: "Удалить экземпляр",
       upgrade: "Обновить",
       upgradeAll: "Обновить все",
-      healthCheck: "Проверить экземпляр",
+      healthCheck: "Диагностика экземпляра",
     },
     health: {
       title: "{instance} · Проверка состояния",

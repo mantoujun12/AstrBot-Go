@@ -465,7 +465,7 @@ const jaJP = {
       deleteInstance: "インスタンスを削除",
       upgrade: "アップグレード",
       upgradeAll: "すべてアップグレード",
-      healthCheck: "インスタンスを診断",
+      healthCheck: "健康診断",
     },
     health: {
       title: "{instance} · インスタンス診断",
