@@ -82,6 +82,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/auto-release.yml"
       - "src/**"
       - "public/**"
       - "src-tauri/**"
