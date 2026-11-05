@@ -27,6 +27,7 @@ use std::time::Duration;
 
 use reqwest::Client;
 use tauri::Manager as _;
+#[cfg(not(target_os = "macos"))]
 use tauri_plugin_decorum::WebviewWindowExt as _;
 use tauri_plugin_log::{fern, Target, TargetKind};
 use tauri_plugin_window_state::StateFlags;
@@ -106,6 +107,18 @@ fn recreate_main_window(app_handle: &tauri::AppHandle) -> tauri::Result<()> {
 
 #[allow(clippy::expect_used)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[cfg(not(target_os = "macos"))]
+fn overlay_titlebar_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_plugin_decorum::init()
+}
+
+/// macOS gets its overlay titlebar from `titleBarStyle`, and decorum's
+/// traffic-light positioning panics when the window has no superview yet.
+#[cfg(target_os = "macos")]
+fn overlay_titlebar_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri::plugin::Builder::new("decorum-disabled").build()
+}
+
 pub fn run() {
     #[cfg(target_os = "linux")]
     {
@@ -169,7 +182,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_decorum::init())
+        .plugin(overlay_titlebar_plugin())
         .plugin(webview_shortcuts::plugin())
         .manage(setup::StartupWindowState::new())
         .manage(updater::LauncherUpdateState::default())
@@ -195,6 +208,7 @@ pub fn run() {
         })
         .setup(|app| {
             let main_window = setup::create_main_window(app.handle())?;
+            #[cfg(not(target_os = "macos"))]
             main_window.create_overlay_titlebar()?;
             setup::on_setup(app)
         })
