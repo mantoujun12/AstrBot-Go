@@ -12,6 +12,7 @@ import PageHeader from "../components/common/PageHeader.vue";
 import StatusChip from "../components/common/StatusChip.vue";
 import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import InstanceFormDialog from "../components/instances/InstanceFormDialog.vue";
+import HealthCheckDialog from "../components/instances/HealthCheckDialog.vue";
 import InstanceVersionBadge from "../components/instances/InstanceVersionBadge.vue";
 import RepairDialog from "../components/instances/RepairDialog.vue";
 import ResourceMonitorDialog from "../components/instances/ResourceMonitorDialog.vue";
@@ -29,6 +30,7 @@ import {
   clearInstanceData,
   clearInstanceVenv,
   clearPycache,
+  checkInstanceHealth,
   createInstance,
   deleteInstance,
   openInstanceCoreFolder,
@@ -48,6 +50,7 @@ import { showErrorToast, showToast } from "../stores/toast";
 import type {
   GitHubRelease,
   InstanceStatus,
+  InstanceHealthReport,
   InstanceUpdateCheckResult,
   InstanceUpdateInfo,
   RepairPreserveScope,
@@ -227,6 +230,12 @@ const repairOpen = ref(false);
 const repairTarget = ref<InstanceStatus | null>(null);
 const resourceOpen = ref(false);
 const resourceTarget = ref<InstanceStatus | null>(null);
+const healthOpen = ref(false);
+const healthTarget = ref<InstanceStatus | null>(null);
+const healthReport = ref<InstanceHealthReport | null>(null);
+const healthLoading = ref(false);
+const healthError = ref<string | null>(null);
+let healthRequest = 0;
 
 type ConfirmKind =
   | "delete"
@@ -974,6 +983,41 @@ function openLogs(instance: InstanceStatus): void {
   void router.push({ path: "/logs", query: { source: instance.id } });
 }
 
+async function loadHealthCheck(): Promise<void> {
+  const target = healthTarget.value;
+  if (!target) {
+    return;
+  }
+
+  const request = ++healthRequest;
+  healthLoading.value = true;
+  healthReport.value = null;
+  healthError.value = null;
+  try {
+    const report = await checkInstanceHealth(target.id);
+    if (request === healthRequest) {
+      healthReport.value = report;
+    }
+  } catch (cause) {
+    if (request === healthRequest) {
+      healthError.value = toUserMessage(cause);
+    }
+  } finally {
+    if (request === healthRequest) {
+      healthLoading.value = false;
+    }
+  }
+}
+
+function openHealthCheck(instance: InstanceStatus): void {
+  if (healthLoading.value || isInstanceInteractionDisabled(instance.id)) {
+    return;
+  }
+  healthTarget.value = instance;
+  healthOpen.value = true;
+  void loadHealthCheck();
+}
+
 function openResourceMonitor(instance: InstanceStatus): void {
   resourceTarget.value = instance;
   resourceOpen.value = true;
@@ -1336,6 +1380,14 @@ function openWebui(instance: InstanceStatus): void {
                   @click="openRepair(item)"
                 />
                 <v-list-item
+                  prepend-icon="mdi-heart-pulse"
+                  :title="t('instances.actions.healthCheck')"
+                  :disabled="
+                    healthLoading || isInstanceInteractionDisabled(item.id)
+                  "
+                  @click="openHealthCheck(item)"
+                />
+                <v-list-item
                   prepend-icon="mdi-text-box-outline"
                   :title="t('instances.actions.viewLogs')"
                   @click="openLogs(item)"
@@ -1413,6 +1465,15 @@ function openWebui(instance: InstanceStatus): void {
     <ResourceMonitorDialog
       v-model="resourceOpen"
       :instance="resourceTarget"
+    />
+
+    <HealthCheckDialog
+      v-model="healthOpen"
+      :instance-name="healthTarget?.name ?? ''"
+      :report="healthReport"
+      :loading="healthLoading"
+      :error="healthError"
+      @retry="loadHealthCheck"
     />
 
     <ConfirmDialog

@@ -18,7 +18,7 @@ use crate::utils::paths::{get_component_dir, get_node_exe_path, get_nodejs_shim_
 
 pub use node_shim::generate_shims;
 pub use nodejs::build_nodejs_env_vars;
-pub use python::{create_venv, pip_install_requirements};
+pub use python::{create_venv, get_python_for_version, pip_install_requirements};
 pub use types::{ComponentActionResult, ComponentId, ComponentsSnapshot};
 pub use uv::{clear_uv_cache, is_uv_installed, uv_sync};
 

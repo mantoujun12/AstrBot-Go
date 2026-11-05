@@ -20,7 +20,7 @@ use crate::github::{self, GitHubRelease};
 use crate::instance::{self, InstanceStatus};
 use crate::network_config::{self, NetworkSourceKind};
 use crate::platform;
-use crate::process::ProcessManager;
+use crate::process::{InstanceRuntimeInfo, ProcessManager};
 use crate::tasks::{self, TaskKind, TaskRecord, TaskSpec};
 use crate::update_check::{self, InstanceUpdateCheckResult};
 use crate::utils::index_url::normalize_default_index;
@@ -952,6 +952,34 @@ pub async fn get_instance_port(instance_id: String, state: State<'_, AppState>) 
         .process_manager
         .get_port(&instance_id)
         .ok_or_else(AppError::instance_not_running)
+}
+
+#[tauri::command]
+pub async fn check_instance_health(
+    instance_id: String,
+    state: State<'_, AppState>,
+) -> Result<instance::InstanceHealthReport> {
+    validate_instance_id(&instance_id)?;
+    let manifest = load_manifest()?;
+    let instance_config = manifest
+        .instances
+        .get(&instance_id)
+        .ok_or_else(|| AppError::instance_not_found(&instance_id))?
+        .clone();
+    let runtime_info = state.process_manager.get_runtime_info();
+    let (running_port, is_transitioning) = match runtime_info.get(&instance_id) {
+        Some(InstanceRuntimeInfo::Live { port, .. }) => (Some(*port), false),
+        Some(InstanceRuntimeInfo::Starting | InstanceRuntimeInfo::Stopping { .. }) => (None, true),
+        None => (None, false),
+    };
+
+    Ok(instance::check_instance_health(
+        &instance_id,
+        &instance_config,
+        running_port,
+        is_transitioning,
+    )
+    .await)
 }
 
 // === Resource Monitoring ===

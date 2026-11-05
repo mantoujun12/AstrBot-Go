@@ -9,12 +9,16 @@
 mod cleanup;
 mod crud;
 mod deploy;
+mod health;
 pub(crate) mod lifecycle;
 mod rebuild;
 mod types;
 
 // Re-export types
+pub use health::InstanceHealthReport;
 pub use types::InstanceStatus;
+
+pub(crate) use health::check_instance_health;
 
 // Re-export CRUD operations
 pub use crud::{create_instance, delete_instance, list_instances, update_instance};

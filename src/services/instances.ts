@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   LockCheckTarget,
+  InstanceHealthReport,
   RebuildInstanceManifestResult,
   RepairPreserveScope,
   UpdateInstanceRequest,
@@ -45,6 +46,12 @@ export function restartInstance(instanceId: string): Promise<number> {
 
 export function getInstancePort(instanceId: string): Promise<number> {
   return invoke<number>("get_instance_port", { instanceId });
+}
+
+export function checkInstanceHealth(
+  instanceId: string,
+): Promise<InstanceHealthReport> {
+  return invoke<InstanceHealthReport>("check_instance_health", { instanceId });
 }
 
 export function openInstanceCoreFolder(instanceId: string): Promise<void> {
