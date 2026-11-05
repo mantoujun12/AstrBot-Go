@@ -93,36 +93,41 @@ jobs:
           pnpm tauri build --debug \
             --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
+      - name: Set screen resolution
+        run: |
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          brew install displayplacer > /dev/null 2>&1 || true
+          if command -v displayplacer > /dev/null 2>&1; then
+            displayplacer "res:1920x1080" || displayplacer list || true
+          fi
+
       - name: Launch app and capture window
         run: |
           set -u
           APP="src-tauri/target/debug/bundle/macos/AstrBot Launcher.app"
           test -d "$APP"
-          open "$APP"
-          for _ in $(seq 1 30); do
-            if pgrep -f "AstrBot Launcher" > /dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          sleep 8
+          BIN="$APP/Contents/MacOS/astrbot-launcher-vue"
+          test -x "$BIN"
           mkdir -p shots
+          "$BIN" > app.log 2>&1 &
+          sleep 15
+          echo "--- app.log ---"
+          cat app.log || true
+          pgrep -fl astrbot || echo "no astrbot process"
           screencapture -x shots/macos-window.png || true
           ls -l shots
           if [ ! -s shots/macos-window.png ]; then
             echo "screencapture produced no image"
             exit 1
           fi
-          if command -v magick > /dev/null; then
-            magick shots/macos-window.png -colorspace Gray \
-              -format "mean=%[fx:mean]\n" info:
-          fi
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: macos-native
-          path: shots/*.png
+          path: |
+            shots/*.png
+            app.log
           if-no-files-found: warn
 
   windows-native:
@@ -144,6 +149,80 @@ jobs:
 
       - name: Build app
         run: pnpm tauri build --debug --no-bundle
+
+      - name: Set screen resolution
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+
+          public class Disp {
+              [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+              public struct DEVMODE {
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+                  public string dmDeviceName;
+                  public short dmSpecVersion;
+                  public short dmDriverVersion;
+                  public short dmSize;
+                  public short dmDriverExtra;
+                  public int dmFields;
+                  public int dmPositionX;
+                  public int dmPositionY;
+                  public int dmDisplayOrientation;
+                  public int dmDisplayFixedOutput;
+                  public short dmColor;
+                  public short dmDuplex;
+                  public short dmYResolution;
+                  public short dmTTOption;
+                  public short dmCollate;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+                  public string dmFormName;
+                  public short dmLogPixels;
+                  public int dmBitsPerPel;
+                  public int dmPelsWidth;
+                  public int dmPelsHeight;
+                  public int dmDisplayFlags;
+                  public int dmDisplayFrequency;
+                  public int dmICMMethod;
+                  public int dmICMIntent;
+                  public int dmMediaType;
+                  public int dmDitherType;
+                  public int dmReserved1;
+                  public int dmReserved2;
+                  public int dmPanningWidth;
+                  public int dmPanningHeight;
+              }
+
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+              public static extern bool EnumDisplaySettings(
+                  string deviceName, int modeNum, ref DEVMODE devMode);
+
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+              public static extern int ChangeDisplaySettings(
+                  ref DEVMODE devMode, int flags);
+
+              public static string Apply(int width, int height) {
+                  DEVMODE dm = new DEVMODE();
+                  dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+                  for (int i = 0;
+                       EnumDisplaySettings(null, i, ref dm); i++) {
+                      if (dm.dmPelsWidth == width
+                          && dm.dmPelsHeight == height) {
+                          dm.dmFields = 0x80000 | 0x100000;
+                          int r = ChangeDisplaySettings(ref dm, 0);
+                          return "result=" + r;
+                      }
+                  }
+                  return "mode not found";
+              }
+          }
+          '@
+          [Disp]::Apply(1920, 1080)
+          Start-Sleep -Seconds 3
+          Add-Type -AssemblyName System.Windows.Forms
+          $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
+          Write-Host "screen: $($vs.Width)x$($vs.Height)"
 
       - name: Launch app and capture screen
         shell: pwsh
