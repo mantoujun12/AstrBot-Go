@@ -106,16 +106,16 @@ jobs:
           set -u
           APP="src-tauri/target/debug/bundle/macos/AstrBot Launcher.app"
           test -d "$APP"
-          BIN="$APP/Contents/MacOS/astrbot-launcher-vue"
-          test -x "$BIN"
-          mkdir -p shots
-          "$BIN" > app.log 2>&1 &
-          sleep 15
-          echo "--- app.log ---"
-          cat app.log || true
+          codesign --force --deep --sign - "$APP"
+          mkdir -p shots crash
+          open "$APP"
+          sleep 20
+          echo "--- processes ---"
           pgrep -fl astrbot || echo "no astrbot process"
           screencapture -x shots/macos-window.png || true
-          ls -l shots
+          find ~/Library/Logs/DiagnosticReports -name "*.ips" \
+            -mmin -10 -exec cp {} crash/ \; 2>/dev/null || true
+          ls -l shots crash
           if [ ! -s shots/macos-window.png ]; then
             echo "screencapture produced no image"
             exit 1
@@ -127,7 +127,7 @@ jobs:
           name: macos-native
           path: |
             shots/*.png
-            app.log
+            crash/*.ips
           if-no-files-found: warn
 
   windows-native:
