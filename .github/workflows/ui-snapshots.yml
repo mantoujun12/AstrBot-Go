@@ -1,0 +1,172 @@
+name: UI Snapshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      sizes:
+        description: "Viewport sizes, for example: 640,480 1280,720 1920,1080"
+        required: false
+        default: "640,480 960,640 1280,720 1440,900 1920,1080"
+
+jobs:
+  snapshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Install Playwright
+        run: |
+          npm i -g playwright@1
+          playwright install --with-deps chromium
+
+      - name: Start preview server
+        run: |
+          pnpm preview --port 4173 --strictPort --host 127.0.0.1 \
+            > preview.log 2>&1 &
+          ready=0
+          for _ in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:4173/ > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then
+            cat preview.log
+            exit 1
+          fi
+
+      - name: Capture screenshots
+        env:
+          SIZES: ${{ github.event.inputs.sizes }}
+        run: |
+          mkdir -p shots
+          for size in $SIZES; do
+            playwright screenshot \
+              --viewport-size="$size" \
+              --wait-for-timeout=2500 \
+              --timeout=30000 \
+              "http://127.0.0.1:4173/" \
+              "shots/window-${size/,/x}.png"
+          done
+          ls -l shots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-snapshots
+          path: shots/*.png
+          if-no-files-found: error
+
+  macos-native:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build app bundle
+        run: pnpm tauri build --debug
+
+      - name: Launch app and capture window
+        run: |
+          set -u
+          APP="src-tauri/target/debug/bundle/macos/AstrBot Launcher.app"
+          test -d "$APP"
+          open "$APP"
+          for _ in $(seq 1 30); do
+            if pgrep -f "AstrBot Launcher" > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          sleep 8
+          mkdir -p shots
+          screencapture -x shots/macos-window.png || true
+          ls -l shots
+          if [ ! -s shots/macos-window.png ]; then
+            echo "screencapture produced no image"
+            exit 1
+          fi
+          if command -v magick > /dev/null; then
+            magick shots/macos-window.png -colorspace Gray \
+              -format "mean=%[fx:mean]\n" info:
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-native
+          path: shots/*.png
+          if-no-files-found: warn
+
+  windows-native:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build app
+        run: pnpm tauri build --debug
+
+      - name: Launch app and capture screen
+        shell: pwsh
+        run: |
+          $exe = "src-tauri/target/debug/astrbot-launcher-vue.exe"
+          if (-not (Test-Path $exe)) { throw "binary not found: $exe" }
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 12
+          if ($p.HasExited) { throw "process exited: $($p.ExitCode)" }
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
+          Write-Host "screen: $($vs.Width)x$($vs.Height)"
+          New-Item -ItemType Directory -Force -Path shots | Out-Null
+          $bmp = New-Object System.Drawing.Bitmap $vs.Width, $vs.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($vs.Left, $vs.Top, 0, 0, $bmp.Size)
+          $bmp.Save("$PWD\shots\windows-window.png")
+          $g.Dispose()
+          $bmp.Dispose()
+          Get-ChildItem shots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-native
+          path: shots/*.png
+          if-no-files-found: warn
