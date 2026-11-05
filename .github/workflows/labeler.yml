@@ -1,7 +1,12 @@
+# 按改动路径给 PR 打区域标签（frontend、backend、i18n、dependencies）。
+# pull_request_target 才能拿到写权限并覆盖来自 fork 的 PR；本 workflow 不 checkout、不执行 PR 代码。
+# edited 覆盖改基分支；sync-labels 让标签跟随改动增删，但只动本配置里声明的标签。
+
 name: PR Labeler
 
 on:
   pull_request_target:
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -12,3 +17,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
+        with:
+          sync-labels: true
