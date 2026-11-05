@@ -1,8 +1,4 @@
-# 按改动路径给 PR 打区域标签（frontend、backend、i18n、dependencies）。
-# pull_request_target 才能拿到写权限并覆盖来自 fork 的 PR；本 workflow 不 checkout、不执行 PR 代码。
-# edited 覆盖改基分支；sync-labels 让标签跟随改动增删，但只动本配置里声明的标签。
-
-name: PR Labeler
+name: Pull Request Labeler
 
 on:
   pull_request_target:
