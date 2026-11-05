@@ -89,7 +89,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build app bundle
-        run: pnpm tauri build --debug
+        run: |
+          pnpm tauri build --debug \
+            --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Launch app and capture window
         run: |
@@ -141,14 +143,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build app
-        run: pnpm tauri build --debug
+        run: pnpm tauri build --debug --no-bundle
 
       - name: Launch app and capture screen
         shell: pwsh
         run: |
           $exe = "src-tauri/target/debug/astrbot-launcher-vue.exe"
           if (-not (Test-Path $exe)) { throw "binary not found: $exe" }
-          $p = Start-Process -FilePath $exe -PassThru
+          $p = Start-Process -FilePath (Resolve-Path $exe).Path -PassThru
           Start-Sleep -Seconds 12
           if ($p.HasExited) { throw "process exited: $($p.ExitCode)" }
           Add-Type -AssemblyName System.Windows.Forms
