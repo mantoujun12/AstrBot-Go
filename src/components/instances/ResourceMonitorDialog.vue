@@ -670,6 +670,7 @@ onBeforeUnmount(stopPolling);
 
 .resource-dialog__body {
   display: grid;
+  grid-auto-rows: max-content;
   gap: 16px;
   padding: 0 20px 4px;
 }
