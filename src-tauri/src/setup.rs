@@ -92,7 +92,15 @@ pub fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<tauri::Webvie
         theme_preference_value(preference)
     );
 
-    let window = tauri::WebviewWindowBuilder::from_config(app, &window_config)?
+    // The config disables decorations for the custom title bar on every
+    // platform. macOS still needs the native title bar so its traffic lights
+    // stay reachable, and `titleBarStyle: Overlay` keeps the content below it.
+    #[cfg(target_os = "macos")]
+    let builder = tauri::WebviewWindowBuilder::from_config(app, &window_config)?.decorations(true);
+    #[cfg(not(target_os = "macos"))]
+    let builder = tauri::WebviewWindowBuilder::from_config(app, &window_config)?;
+
+    let window = builder
         .initialization_script(initialization_script)
         .build()?;
     configure_main_window(&window);
