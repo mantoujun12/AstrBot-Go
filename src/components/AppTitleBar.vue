@@ -13,6 +13,10 @@ import TitleBarTabs from "./TitleBarTabs.vue";
 
 const { t } = useI18n();
 
+// macOS keeps its native traffic lights, so the custom controls are hidden and
+// the title bar reserves room for them.
+const isMac = navigator.userAgent.includes("Mac");
+
 const isMaximized = ref(false);
 let snapOverlayTimer: ReturnType<typeof setTimeout> | undefined;
 let unlistenResize: (() => void) | undefined;
@@ -95,6 +99,7 @@ onBeforeUnmount(() => {
 <template>
   <header
     class="app-titlebar"
+    :class="{ 'app-titlebar--mac': isMac }"
     data-tauri-decorum-tb
     :aria-label="t('shell.titleBar.label')"
   >
@@ -104,7 +109,7 @@ onBeforeUnmount(() => {
       data-tauri-drag-region
       aria-hidden="true"
     ></div>
-    <div class="app-titlebar__controls">
+    <div v-if="!isMac" class="app-titlebar__controls">
       <button
         id="decorum-tb-minimize"
         class="decorum-tb-btn app-titlebar__control"
@@ -161,6 +166,10 @@ onBeforeUnmount(() => {
   background: rgb(var(--v-theme-surface));
   border-bottom: 0;
   user-select: none;
+}
+
+.app-titlebar--mac {
+  padding-inline-start: 80px;
 }
 
 .app-titlebar__drag {
