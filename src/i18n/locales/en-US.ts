@@ -332,11 +332,11 @@ const enUS = {
     },
     empty: "No task records",
     titles: {
-      downloadVersion: "Download {version}",
-      deployInstance: "Deploy {instance}",
-      createBackup: "Create backup for {instance}",
-      restoreBackup: "Restore backup for {instance}",
-      repairInstance: "Repair {instance}",
+      downloadVersion: "Download version",
+      deployInstance: "Deploy instance",
+      createBackup: "Create backup",
+      restoreBackup: "Restore backup",
+      repairInstance: "Repair instance",
     },
     status: {
       queued: "Queued",
