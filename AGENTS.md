@@ -19,6 +19,12 @@ Reference links:
 - [AstrBot upstream repository](https://github.com/AstrBotDevs/AstrBot)
 - [Vuetify documentation](https://vuetifyjs.com)
 
+Repository documentation layout:
+
+- `README.md` (English) and `README_zh.md` (Simplified Chinese): keep both files synchronized when features, platform support, tech stack, commands, links, or licensing details change.
+- `CONTRIBUTING.md`: bilingual contribution guide in a single file; English comes first (`## English`), followed by Simplified Chinese (`## 中文`), separated cleanly rather than mixed line-by-line.
+- `CODE_OF_CONDUCT.md` (English) and `CODE_OF_CONDUCT_zh.md` (Simplified Chinese): community code of conduct in separate language files.
+
 ## Tech Stack
 
 - Tauri 2
@@ -100,6 +106,7 @@ cargo clippy --all-targets -- -D warnings
 - Russian copy uses native typography such as `«»` and `—`; Japanese copy uses full-width punctuation such as `、。：「」`.
 - Only adjust punctuation in comments, docstrings, and string literals. Punctuation that is part of code syntax must not be changed.
 - Keep locale keys synchronized across `zh-CN`, `en-US`, `ru-RU`, and `ja-JP` when adding, removing, or modifying entries. Do not leave visible copy that exists in only some languages.
+- When writing bilingual Markdown documents in a single file (such as `CONTRIBUTING.md` and `changelogs/*.md`), present English first and Simplified Chinese second in separate top-level language sections (`## English` and `## 中文`) rather than mixing both languages in the same paragraph or list item.
 - Do not mechanically replace punctuation in URLs, regular expressions, version numbers, format placeholders, or code snippets.
 
 ## Verification Requirements
@@ -121,6 +128,7 @@ References:
 - Follow the rules described in `changelogs/README.md`.
 - During development, add user-facing changes to `changelogs/unreleased.md` in the same pull request, under `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security` as applicable. Internal refactors, CI changes, and documentation-only changes may skip it.
 - Keep each entry short and focused on the most important user-visible change. One pull request contributes exactly one logical entry (one English bullet and its matching Chinese bullet in the same section), not one entry per section. Do not split one pull request across multiple entries; when it spans several areas, choose the most user-visible change.
+- Keep `changelogs/*.md` bilingual with `## English` first and `## 中文` second, and omit empty sections instead of leaving placeholder headings.
 - `changelogs/unreleased.md` is a working draft. Leave its entries unannotated during development; pull request links are added only in the version update pull request. It is not used as release notes until it is renamed.
 - Versions follow [Semantic Versioning](https://semver.org/); changelog entries follow [Keep a Changelog](https://keepachangelog.com/).
 - After a release, continue development and keep adding entries to `changelogs/unreleased.md`; do not bump the version until you are ready to release.

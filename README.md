@@ -14,68 +14,70 @@
 
 <!-- badge -->
 
-基于 Tauri 与 Vuetify 构建的 AstrBot 桌面启动器
+Desktop launcher for AstrBot built with Tauri and Vuetify
 
-用于集中管理本地实例，提供版本下载、数据备份和 Python 等运行环境配置
+Centralizes local instance management, version downloads, data backups, and Python runtime setup
+
+English | [简体中文](./README_zh.md)
 
 </div>
 
-## 功能
+## Features
 
-- 管理多个 AstrBot 实例
-- 下载并切换 AstrBot 版本
-- 备份与恢复实例数据
-- 自动配置 Python / Node.js / uv 运行环境
+- Manage multiple AstrBot instances
+- Download and switch AstrBot versions
+- Back up and restore instance data
+- Automatically configure Python / Node.js / uv runtime environments
 
-## 平台支持
+## Platform Support
 
-| 平台 | 支持情况 | 支持架构 | 说明 |
+| Platform | Support | Architectures | Notes |
 | --- | --- | --- | --- |
-| Windows | 🟢支持 | x64、ARM64 | 需要 WebView2；Windows ARM64 通过 x64 Python 运行环境兼容 |
-| Linux | 🟡半支持 | x64、ARM64 | 需要 WebKitGTK 4.1 等 [Tauri 系统依赖](https://v2.tauri.app/start/prerequisites/#linux) |
-| macOS | 🟡半支持 | Intel、Apple Silicon | 仅窗口适配，构建时需要 Xcode 及其命令行工具 |
+| Windows | 🟢 Supported | x64, ARM64 | Requires WebView2; Windows ARM64 runs via an x64-compatible Python runtime |
+| Linux | 🟡 Partial | x64, ARM64 | Requires WebKitGTK 4.1 and other [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/#linux) |
+| macOS | 🟡 Partial | Intel, Apple Silicon | Window adaptation only; building requires Xcode and its Command Line Tools |
 
-平台相关能力通过 Rust 条件编译和 Tauri 构建配置分别适配。仓库目前尚未配置跨平台 CI，Linux 和 macOS 安装包发布前仍应在对应平台或 CI runner 上完成构建与运行验证。
+Platform-specific capabilities are adapted through Rust conditional compilation and Tauri build configuration. Cross-platform CI is not configured yet, so Linux and macOS packages should still be built and verified on target platforms or CI runners before release.
 
-## 技术栈
+## Tech Stack
 
-- 桌面框架：[Tauri 2](https://v2.tauri.app/)
-- 前端：[Vue 3](https://vuejs.org/)、[Vuetify 4](https://vuetifyjs.com/)、[TypeScript](https://www.typescriptlang.org/)
-- 构建与包管理：[Vite](https://vite.dev/)、[pnpm](https://pnpm.io/)
-- 原生后端：[Rust](https://www.rust-lang.org/)
+- Desktop framework: [Tauri 2](https://v2.tauri.app/)
+- Frontend: [Vue 3](https://vuejs.org/), [Vuetify 4](https://vuetifyjs.com/), [TypeScript](https://www.typescriptlang.org/)
+- Build and package manager: [Vite](https://vite.dev/), [pnpm](https://pnpm.io/)
+- Native backend: [Rust](https://www.rust-lang.org/)
 
-## 开发环境
+## Prerequisites
 
-- Node.js 与 pnpm
-- Rust 工具链
-- Tauri 所需的系统依赖，参见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+- Node.js and pnpm
+- Rust toolchain
+- System dependencies required by Tauri; see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
-## 本地开发
+## Local Development
 
 ```
 pnpm install
 pnpm tauri dev
 ```
 
-仅调试前端时可运行 `pnpm dev`。完整构建使用：
+Run `pnpm dev` when debugging the frontend only. For a full production build:
 
 ```
 pnpm build
 pnpm tauri build
 ```
 
-## 相关链接
+## Links
 
-- 项目与技术文档：[AstrBot](https://github.com/AstrBotDevs/AstrBot)、[Tauri 文档](https://v2.tauri.app/)、[Vue 文档](https://vuejs.org/guide/introduction.html)、[Vuetify 文档](https://vuetifyjs.com/)
-- 开发与构建：[Tauri 环境要求](https://v2.tauri.app/start/prerequisites/)、[Vite 文档](https://vite.dev/guide/)、[Rust 安装指南](https://www.rust-lang.org/tools/install)、[pnpm 文档](https://pnpm.io/)
-- 上游项目：[AstrBot](https://github.com/AstrBotDevs/AstrBot)、[astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher)
+- Project and technical docs: [AstrBot](https://github.com/AstrBotDevs/AstrBot), [Tauri Docs](https://v2.tauri.app/), [Vue Docs](https://vuejs.org/guide/introduction.html), [Vuetify Docs](https://vuetifyjs.com/)
+- Development and build: [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/), [Vite Guide](https://vite.dev/guide/), [Rust Installation Guide](https://www.rust-lang.org/tools/install), [pnpm Docs](https://pnpm.io/)
+- Upstream projects: [AstrBot](https://github.com/AstrBotDevs/AstrBot), [astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher)
 
-## 许可证与来源
+## License and Attribution
 
-本项目采用 [MIT License](./LICENSE)。
+This project is licensed under the [MIT License](./LICENSE).
 
-前端由本项目独立实现。
+The frontend is independently implemented by this project.
 
-后端 `src-tauri/` 基于 [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher) 的 MIT 许可代码修改，原始版权归 Raven95676 所有。
+The backend in `src-tauri/` is modified from MIT-licensed code in [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher), with original copyright held by Raven95676.
 
-相关声明和许可证全文见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) for the full notices and license texts.
