@@ -327,11 +327,11 @@ const zhCN = {
     },
     "empty": "暂无任务记录",
     "titles": {
-      "downloadVersion": "下载版本 {version}",
-      "deployInstance": "部署实例 {instance}",
-      "createBackup": "创建备份 {instance}",
-      "restoreBackup": "还原备份 {instance}",
-      "repairInstance": "修复实例 {instance}"
+      "downloadVersion": "下载版本",
+      "deployInstance": "部署实例",
+      "createBackup": "创建备份",
+      "restoreBackup": "还原备份",
+      "repairInstance": "修复实例"
     },
     "status": {
       "queued": "排队中",

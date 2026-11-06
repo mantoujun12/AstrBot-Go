@@ -347,11 +347,11 @@ const ruRU = {
     },
     empty: "Нет записей о задачах",
     titles: {
-      downloadVersion: "Скачать {version}",
-      deployInstance: "Развернуть {instance}",
-      createBackup: "Создать резервную копию {instance}",
-      restoreBackup: "Восстановить резервную копию {instance}",
-      repairInstance: "Исправить {instance}",
+      downloadVersion: "Скачать версию",
+      deployInstance: "Развернуть экземпляр",
+      createBackup: "Создать резервную копию",
+      restoreBackup: "Восстановить резервную копию",
+      repairInstance: "Исправить экземпляр",
     },
     status: {
       queued: "В очереди",

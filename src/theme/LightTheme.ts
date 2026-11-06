@@ -28,6 +28,7 @@ const PurpleTheme: ThemeDefinition = {
     inputBorder: "#787878",
     containerBg: "#fffffff4",
     surface: "#ffffff",
+    "surface-variant": "#eef2f6",
     "on-background": "#1b1c1d",
     "on-surface": "#1b1c1d",
     "on-surface-variant": "#3a4148",

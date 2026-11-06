@@ -34,12 +34,14 @@ const filteredTasks = computed(() =>
 );
 
 function kindIcon(kind: TaskKind): string {
-  return {
-    download: "mdi-download-outline",
-    deploy: "mdi-rocket-launch-outline",
-    backup: "mdi-archive-outline",
-    repair: "mdi-wrench-outline",
-  }[kind];
+  return (
+    {
+      download: "mdi-download-outline",
+      deploy: "mdi-rocket-launch-outline",
+      backup: "mdi-archive-outline",
+      repair: "mdi-wrench-outline",
+    }[kind] ?? "mdi-clipboard-text-outline"
+  );
 }
 
 function statusColor(status: TaskStatus): string {
@@ -64,8 +66,42 @@ function taskTitle(task: TaskRecord): string {
 }
 
 function taskMessage(task: TaskRecord): string {
+  if (!task.message_key && !task.message) {
+    return "";
+  }
   const translated = t(task.message_key);
-  return translated === task.message_key ? task.message : translated;
+  const text = (translated === task.message_key ? task.message : translated).trim();
+  const statusText = t(`tasks.status.${task.status}`).trim();
+  if (!isActive(task) && text === statusText) {
+    return "";
+  }
+  return text;
+}
+
+function progressLabel(task: TaskRecord): string | null {
+  if (task.progress === null || !Number.isFinite(task.progress)) {
+    return null;
+  }
+  const clamped = Math.min(100, Math.max(0, Math.round(task.progress)));
+  return `${clamped}%`;
+}
+
+function taskDuration(task: TaskRecord): string | null {
+  if (!task.started_at || !task.finished_at) {
+    return null;
+  }
+  const start = Date.parse(task.started_at);
+  const end = Date.parse(task.finished_at);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) {
+    return null;
+  }
+  const totalSeconds = Math.max(1, Math.round((end - start) / 1000));
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
 }
 
 function targetLabel(task: TaskRecord): string {
@@ -90,7 +126,7 @@ function errorText(task: TaskRecord): string {
 </script>
 
 <template>
-  <div class="tasks-view">
+  <div class="page-shell tasks-view">
     <PageHeader :title="t('tasks.title')">
       <template #actions>
         <v-btn
@@ -118,7 +154,7 @@ function errorText(task: TaskRecord): string {
       </v-btn>
     </v-btn-toggle>
 
-    <v-card variant="flat" class="tasks-view__card">
+    <v-card variant="flat" class="page-table-card tasks-view__card">
       <v-progress-linear
         v-if="!loaded"
         indeterminate
@@ -133,44 +169,62 @@ function errorText(task: TaskRecord): string {
       >
         {{ error }}
       </v-alert>
-      <v-list
+      <div
         v-else-if="filteredTasks.length > 0"
-        lines="two"
         class="tasks-view__list"
       >
-        <v-list-item
+        <div
           v-for="task in filteredTasks"
           :key="task.id"
           class="task-item"
         >
-          <template #prepend>
-            <v-avatar color="surface-variant" size="38">
-              <v-icon :icon="kindIcon(task.kind)" size="20" />
-            </v-avatar>
-          </template>
+          <v-avatar
+            :color="statusColor(task.status)"
+            variant="tonal"
+            size="38"
+            class="task-item__avatar"
+          >
+            <v-icon :icon="kindIcon(task.kind)" size="20" />
+          </v-avatar>
 
-          <v-list-item-title class="task-item__title">
-            <span>{{ taskTitle(task) }}</span>
-            <v-chip
-              :color="statusColor(task.status)"
-              size="x-small"
-              variant="tonal"
-              label
-            >
-              {{ t(`tasks.status.${task.status}`) }}
-            </v-chip>
-          </v-list-item-title>
+          <div class="task-item__body">
+            <div class="task-item__header">
+              <span class="task-item__title">{{ taskTitle(task) }}</span>
+              <v-chip
+                :color="statusColor(task.status)"
+                size="x-small"
+                variant="tonal"
+                label
+              >
+                {{ t(`tasks.status.${task.status}`) }}
+              </v-chip>
+            </div>
 
-          <v-list-item-subtitle>
-            <div class="task-item__message">{{ taskMessage(task) }}</div>
-            <v-progress-linear
-              :model-value="task.progress ?? 0"
-              :indeterminate="isActive(task) && task.progress === null"
-              :color="statusColor(task.status)"
-              height="5"
-              rounded
-              class="task-item__progress"
-            />
+            <div v-if="taskMessage(task)" class="task-item__message">
+              {{ taskMessage(task) }}
+            </div>
+
+            <div v-if="isActive(task)" class="task-item__progress-row">
+              <v-progress-linear
+                :model-value="task.progress ?? 0"
+                :indeterminate="task.progress === null"
+                :color="statusColor(task.status)"
+                height="6"
+                rounded
+                class="task-item__progress"
+              />
+              <span
+                v-if="progressLabel(task)"
+                class="task-item__progress-value"
+              >
+                {{ progressLabel(task) }}
+              </span>
+            </div>
+
+            <div v-if="task.error" class="task-item__error">
+              {{ errorText(task) }}
+            </div>
+
             <div class="task-item__meta">
               <span>
                 {{
@@ -179,52 +233,52 @@ function errorText(task: TaskRecord): string {
                   })
                 }}
               </span>
+              <template v-if="taskDuration(task)">
+                <span class="task-item__dot" aria-hidden="true">·</span>
+                <span>{{ taskDuration(task) }}</span>
+              </template>
+              <span class="task-item__dot" aria-hidden="true">·</span>
               <span>{{ formatDateTime(task.updated_at) }}</span>
             </div>
-            <div v-if="task.error" class="task-item__error">
-              {{ errorText(task) }}
-            </div>
-          </v-list-item-subtitle>
+          </div>
 
-          <template #append>
-            <div class="task-item__actions">
-              <v-btn
-                v-if="task.pausable && task.status === 'running'"
-                icon="mdi-pause"
-                size="small"
-                variant="text"
-                :aria-label="t('tasks.actions.pause')"
-                @click="pauseTask(task.id)"
-              />
-              <v-btn
-                v-if="task.pausable && task.status === 'paused'"
-                icon="mdi-play"
-                size="small"
-                variant="text"
-                :aria-label="t('tasks.actions.resume')"
-                @click="resumeTask(task.id)"
-              />
-              <v-btn
-                v-if="task.cancellable && isActive(task)"
-                icon="mdi-close"
-                size="small"
-                variant="text"
-                :aria-label="t('tasks.actions.cancel')"
-                :loading="task.status === 'cancelling'"
-                @click="cancelTask(task.id)"
-              />
-              <v-btn
-                v-if="!isActive(task)"
-                icon="mdi-delete-outline"
-                size="small"
-                variant="text"
-                :aria-label="t('tasks.actions.remove')"
-                @click="removeTask(task.id)"
-              />
-            </div>
-          </template>
-        </v-list-item>
-      </v-list>
+          <div class="task-item__actions">
+            <v-btn
+              v-if="task.pausable && task.status === 'running'"
+              icon="mdi-pause"
+              size="small"
+              variant="text"
+              :aria-label="t('tasks.actions.pause')"
+              @click="pauseTask(task.id)"
+            />
+            <v-btn
+              v-if="task.pausable && task.status === 'paused'"
+              icon="mdi-play"
+              size="small"
+              variant="text"
+              :aria-label="t('tasks.actions.resume')"
+              @click="resumeTask(task.id)"
+            />
+            <v-btn
+              v-if="task.cancellable && isActive(task)"
+              icon="mdi-close"
+              size="small"
+              variant="text"
+              :aria-label="t('tasks.actions.cancel')"
+              :loading="task.status === 'cancelling'"
+              @click="cancelTask(task.id)"
+            />
+            <v-btn
+              v-if="!isActive(task)"
+              icon="mdi-delete-outline"
+              size="small"
+              variant="text"
+              :aria-label="t('tasks.actions.remove')"
+              @click="removeTask(task.id)"
+            />
+          </div>
+        </div>
+      </div>
       <EmptyState
         v-else
         :text="t('tasks.empty')"
@@ -244,8 +298,12 @@ function errorText(task: TaskRecord): string {
 }
 
 .tasks-view__card {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tasks-view__list {
+  display: flex;
+  flex-direction: column;
 }
 
 .tasks-view__error {
@@ -253,44 +311,95 @@ function errorText(task: TaskRecord): string {
 }
 
 .task-item {
-  padding-block: 12px;
-  align-items: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
 }
 
-.task-item__title {
+.task-item + .task-item {
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.task-item__avatar {
+  flex-shrink: 0;
+}
+
+.task-item__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.task-item__header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.task-item__title {
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .task-item__message {
-  margin-bottom: 8px;
-  color: rgba(var(--v-theme-on-surface), 0.72);
+  margin-top: 3px;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.task-item__progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 440px;
+  margin-top: 8px;
 }
 
 .task-item__progress {
-  max-width: 420px;
-  margin-bottom: 8px;
+  flex: 1 1 auto;
+}
+
+.task-item__progress-value {
+  flex-shrink: 0;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .task-item__meta {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
   color: rgba(var(--v-theme-on-surface), 0.52);
   font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.task-item__dot {
+  opacity: 0.6;
 }
 
 .task-item__error {
   margin-top: 4px;
   color: rgb(var(--v-theme-error));
   font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .task-item__actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 2px;
+  margin-left: auto;
 }
 </style>

@@ -332,11 +332,11 @@ const jaJP = {
     },
     empty: "タスク記録はありません",
     titles: {
-      downloadVersion: "{version} をダウンロード",
-      deployInstance: "{instance} をデプロイ",
-      createBackup: "{instance} のバックアップを作成",
-      restoreBackup: "{instance} のバックアップを復元",
-      repairInstance: "{instance} を修復",
+      downloadVersion: "バージョンをダウンロード",
+      deployInstance: "インスタンスをデプロイ",
+      createBackup: "バックアップを作成",
+      restoreBackup: "バックアップを復元",
+      repairInstance: "インスタンスを修復",
     },
     status: {
       queued: "待機中",
