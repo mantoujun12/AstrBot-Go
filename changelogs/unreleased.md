@@ -7,7 +7,7 @@
 
 ### Changed
 
-- The instance list no longer shows an update summary banner or per-instance status chips; versions render as plain text and the upgrade action only appears for instances that can be upgraded.
+- The instance list no longer shows an update summary banner or per-instance status chips; versions render as plain text and the batch upgrade action only appears when there is something to upgrade.
 
 ### Fixed
 
@@ -25,7 +25,7 @@
 
 ### 变更
 
-- 实例列表不再显示更新汇总横幅与实例级状态标签，版本号以纯文本呈现，升级入口仅在实例可升级时出现。
+- 实例列表不再显示更新汇总横幅与实例级状态标签，版本号以纯文本呈现，批量升级入口仅在存在可升级实例时显示。
 
 ### 修复
 
