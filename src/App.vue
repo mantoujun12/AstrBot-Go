@@ -8,6 +8,7 @@ import DefaultCredentialsDialog from "./components/common/DefaultCredentialsDial
 import AppTitleBar from "./components/AppTitleBar.vue";
 import LauncherMain from "./components/LauncherMain.vue";
 import LauncherSidebar from "./components/LauncherSidebar.vue";
+import { setReduceMotionPreference } from "./composables/useReduceMotion";
 import { useTabShortcuts } from "./composables/useTabShortcuts";
 import { applyLanguagePreference, i18n } from "./i18n";
 import { isSupportedLocale } from "./i18n/locale";
@@ -138,6 +139,17 @@ watch(
       return;
     }
     applyLanguagePreference(preference);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => config.value?.reduce_motion_preference,
+  (preference) => {
+    if (!preference) {
+      return;
+    }
+    setReduceMotionPreference(preference);
   },
   { immediate: true },
 );

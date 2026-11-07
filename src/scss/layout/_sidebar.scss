@@ -233,12 +233,3 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .leftSidebar {
-    .rail-group,
-    .sidebar-footer-btn,
-    .sidebar-footer-icon-btn {
-      transition: none !important;
-    }
-  }
-}

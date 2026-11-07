@@ -128,7 +128,12 @@ function onAuxClick(event: MouseEvent, id: string): void {
       <img :src="logoUrl" alt="" class="titlebar-tabs__logo" />
     </button>
 
-    <div class="titlebar-tabs__scroll" role="presentation">
+    <TransitionGroup
+      tag="div"
+      name="titlebar-tab"
+      class="titlebar-tabs__scroll"
+      role="presentation"
+    >
       <div
         v-for="tab in tabs"
         :key="tab.id"
@@ -163,7 +168,7 @@ function onAuxClick(event: MouseEvent, id: string): void {
           <v-icon icon="mdi-close" size="14" />
         </button>
       </div>
-    </div>
+    </TransitionGroup>
   </div>
 </template>
 
@@ -235,11 +240,23 @@ function onAuxClick(event: MouseEvent, id: string): void {
   max-width: 200px;
   height: 30px;
   margin-inline-end: 2px;
+  overflow: hidden;
   border-radius: 8px;
   color: rgba(var(--v-theme-on-surface), 0.68);
   transition:
+    flex-grow var(--motion-duration-base) var(--motion-ease),
+    flex-basis var(--motion-duration-base) var(--motion-ease),
+    min-width var(--motion-duration-base) var(--motion-ease),
+    opacity var(--motion-duration-base) var(--motion-ease),
     background-color 120ms ease,
     color 120ms ease;
+}
+
+.titlebar-tab-enter-from,
+.titlebar-tab-leave-to {
+  flex: 0 1 0;
+  min-width: 0;
+  opacity: 0;
 }
 
 .titlebar-tabs__tab:hover {

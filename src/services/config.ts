@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LanguagePreference, ThemePreference } from "../types/launcher";
+import type {
+  LanguagePreference,
+  ReduceMotionPreference,
+  ThemePreference,
+} from "../types/launcher";
 
 export interface ProxySettings {
   proxyUrl: string;
@@ -85,6 +89,12 @@ export function saveLanguagePreference(
   languagePreference: LanguagePreference,
 ): Promise<void> {
   return invoke("save_language_preference", { languagePreference });
+}
+
+export function saveReduceMotionPreference(
+  reduceMotionPreference: ReduceMotionPreference,
+): Promise<void> {
+  return invoke("save_reduce_motion_preference", { reduceMotionPreference });
 }
 
 export function savePythonMirror(pythonMirror: string): Promise<void> {

@@ -252,10 +252,4 @@ const toggleLabel = computed(() =>
   justify-content: center;
   gap: 4px;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .launcher-sidebar {
-    transition: none;
-  }
-}
 </style>

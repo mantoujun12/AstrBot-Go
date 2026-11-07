@@ -73,10 +73,6 @@ const backupRangeOptions = computed<
   { value: 12, label: t("overview.backups.rangeMonths", { count: 12 }) },
 ]);
 
-const prefersReducedMotion =
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 const isDark = computed(() => theme.global.current.value.dark);
 
 const themePalette = computed(() => {
@@ -377,7 +373,7 @@ const donutConfig = computed<ChartConfiguration<"doughnut", number[], string>>(
         responsive: true,
         maintainAspectRatio: false,
         cutout: "72%",
-        animation: prefersReducedMotion ? false : { duration: 350 },
+        animation: { duration: 350 },
         font: { family: CHART_FONT_FAMILY, size: 12 },
         color: mutedText,
         plugins: {
@@ -426,7 +422,7 @@ const backupConfig = computed<ChartConfiguration<"bar", number[], string>>(
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: prefersReducedMotion ? false : { duration: 350 },
+        animation: { duration: 350 },
         font: { family: CHART_FONT_FAMILY, size: 12 },
         color: mutedText,
         layout: { padding: { top: 8 } },
@@ -601,7 +597,12 @@ function retry(): void {
               :text="t('overview.empty.instances')"
               icon="mdi-robot-off-outline"
             />
-            <div v-else class="instance-list">
+            <TransitionGroup
+              v-else
+              name="motion-list"
+              tag="div"
+              class="instance-list"
+            >
               <button
                 v-for="instance in instances"
                 :key="instance.id"
@@ -632,7 +633,7 @@ function retry(): void {
                   aria-hidden="true"
                 />
               </button>
-            </div>
+            </TransitionGroup>
           </section>
         </div>
       </section>
@@ -1152,17 +1153,6 @@ function retry(): void {
 
   .skeleton-panel {
     height: 260px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton {
-    animation: none;
-  }
-
-  .instance-row,
-  .range-chip {
-    transition: none;
   }
 }
 </style>

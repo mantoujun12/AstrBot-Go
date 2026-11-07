@@ -14,9 +14,11 @@ import {
   PointElement,
   Tooltip,
   type ChartConfiguration,
+  type ChartOptions,
   type ChartType,
 } from "chart.js";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useReduceMotion } from "../../composables/useReduceMotion";
 
 Chart.register(
   ArcElement,
@@ -39,6 +41,7 @@ const props = defineProps<{
 }>();
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+const { reduced } = useReduceMotion();
 let chart: Chart<TType> | null = null;
 let observer: ResizeObserver | null = null;
 
@@ -50,12 +53,30 @@ function hasLayoutSize(element: HTMLElement | null): boolean {
   return element !== null && element.clientWidth > 0 && element.clientHeight > 0;
 }
 
+function resolvedOptions(): ChartOptions<TType> | undefined {
+  const base = props.config.options;
+  if (!base || !reduced.value) {
+    return base;
+  }
+  return { ...base, animation: false };
+}
+
+function applyOptions(): void {
+  if (!chart) {
+    return;
+  }
+  const options = resolvedOptions();
+  if (options) {
+    chart.options = options;
+  }
+}
+
 function createChart(): void {
   const canvas = canvasRef.value;
   if (!canvas || chart || !hasLayoutSize(canvas.parentElement)) {
     return;
   }
-  chart = new Chart(canvas, props.config);
+  chart = new Chart(canvas, { ...props.config, options: resolvedOptions() });
 }
 
 onMounted(() => {
@@ -87,9 +108,15 @@ watch(
     if (config.options) {
       chart.options = config.options;
     }
+    applyOptions();
     chart.update();
   },
 );
+
+watch(reduced, () => {
+  applyOptions();
+  chart?.update("none");
+});
 
 watch(
   () => props.height,

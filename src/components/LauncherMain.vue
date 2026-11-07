@@ -61,11 +61,15 @@ watch(
         v-show="isHome"
         id="tabpanel-home"
         ref="homePane"
-        class="launcher-home-pane"
+        class="launcher-home-pane motion-fade-in"
         role="tabpanel"
         :aria-label="t('shell.main.home')"
       >
-        <router-view />
+        <router-view v-slot="{ Component, route: currentRoute }">
+          <Transition name="route-fade" mode="out-in">
+            <component :is="Component" :key="currentRoute.path" />
+          </Transition>
+        </router-view>
       </div>
 
       <div
@@ -73,7 +77,7 @@ watch(
         :key="tab.id"
         v-show="activeTab === tab.id"
         :id="`tabpanel-${tab.id}`"
-        class="launcher-instance-pane"
+        class="launcher-instance-pane motion-fade-in"
         role="tabpanel"
       >
         <InstanceWebuiView v-if="tab.exists" :instance-id="tab.id" />

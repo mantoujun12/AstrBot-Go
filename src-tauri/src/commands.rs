@@ -11,7 +11,8 @@ use crate::component;
 use crate::component::{ComponentActionResult, ComponentsSnapshot};
 use crate::config::{
     load_config, load_manifest, reload_config, reload_manifest, with_config_mut, with_manifest_mut,
-    AppConfig, AppManifest, BackupInfo, InstalledVersion, LanguagePreference, ThemePreference,
+    AppConfig, AppManifest, BackupInfo, InstalledVersion, LanguagePreference,
+    ReduceMotionPreference, ThemePreference,
 };
 use crate::download;
 use crate::download_control;
@@ -448,6 +449,11 @@ define_save_config_command!(
     save_theme_preference,
     theme_preference: ThemePreference,
     theme_preference
+);
+define_save_config_command!(
+    save_reduce_motion_preference,
+    reduce_motion_preference: ReduceMotionPreference,
+    reduce_motion_preference
 );
 
 #[tauri::command]

@@ -789,10 +789,4 @@ onBeforeUnmount(stopPolling);
     gap: 2px;
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .resource-panel__skeleton {
-    animation: none;
-  }
-}
 </style>

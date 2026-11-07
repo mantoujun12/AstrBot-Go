@@ -244,6 +244,7 @@ pub fn run() {
             commands::save_use_short_instance_id,
             commands::save_lock_check_extension_whitelist,
             commands::save_theme_preference,
+            commands::save_reduce_motion_preference,
             commands::save_language_preference,
             commands::test_network_source,
             commands::test_http_proxy,

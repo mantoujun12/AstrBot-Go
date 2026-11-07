@@ -169,8 +169,10 @@ function errorText(task: TaskRecord): string {
       >
         {{ error }}
       </v-alert>
-      <div
+      <TransitionGroup
         v-else-if="filteredTasks.length > 0"
+        name="motion-list"
+        tag="div"
         class="tasks-view__list"
       >
         <div
@@ -278,7 +280,7 @@ function errorText(task: TaskRecord): string {
             />
           </div>
         </div>
-      </div>
+      </TransitionGroup>
       <EmptyState
         v-else
         :text="t('tasks.empty')"
