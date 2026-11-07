@@ -83,7 +83,7 @@ const ruRU = {
         persistInstanceState: "Запоминать состояние экземпляров",
         persistInstanceStateHint:
           "Сохранять список работающих экземпляров при выходе и автоматически запускать их при следующем старте",
-        ignoreExternalPath: "Игнорировать внешние пути PATH",
+        ignoreExternalPath: "Игнорировать внешние пути (системный PATH)",
         ignoreExternalPathHint:
           "Использовать только встроенные компоненты лаунчера и не наследовать системную переменную PATH",
         useShortInstanceId: "Использовать короткий ID экземпляра",
@@ -170,7 +170,7 @@ const ruRU = {
     about: {
       appName: "Название приложения",
       version: "Версия",
-      launcherRepoDescription: "Основной репозиторий менеджера AstrBot для компьютера.",
+      launcherRepoDescription: "Основной репозиторий десктопного лаунчера AstrBot.",
       currentRepoDescription: "Текущая реализация для компьютера на Tauri 2 и Vue 3.",
       astrbotRepoDescription: "Вышестоящий основной репозиторий AstrBot.",
       openLauncherRepo: "Открыть основной репозиторий astrbot-launcher",

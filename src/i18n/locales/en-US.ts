@@ -165,7 +165,7 @@ const enUS = {
     about: {
       appName: "App name",
       version: "Version",
-      launcherRepoDescription: "Main repository for the AstrBot desktop manager.",
+      launcherRepoDescription: "Main repository for the AstrBot desktop launcher.",
       currentRepoDescription: "Current Tauri 2 + Vue 3 desktop implementation.",
       astrbotRepoDescription: "Upstream AstrBot core repository.",
       openLauncherRepo: "Open the main astrbot-launcher repository",

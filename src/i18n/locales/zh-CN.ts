@@ -79,7 +79,7 @@ const zhCN = {
         "ignoreExternalPath": "忽略外部路径",
         "ignoreExternalPathHint": "运行实例与安装依赖时仅使用启动器内置组件，不继承系统 PATH 环境变量",
         "useShortInstanceId": "使用短实例 ID",
-        "useShortInstanceIdHint": "新建实例时使用 16 位短字符代替 UUID 作为目录名，缩短文件路径长度（仅对新建实例生效）",
+        "useShortInstanceIdHint": "新建实例时使用 16 位短 ID 代替 UUID 作为目录名，缩短文件路径长度（仅对新建实例生效）",
         "lockCheckExtensionWhitelist": "文件锁扩展名白名单",
         "lockCheckExtensionWhitelistHint": "检测文件占用时仅扫描代码、配置和数据库等关键文件，提升操作前检查速度（仅 Windows）",
         "useUvForDeps": "使用 uv 安装依赖",
