@@ -50,6 +50,7 @@ const jaJP = {
       reduceMotion: "動きを減らす",
       reduceMotionOn: "オン",
       reduceMotionOff: "オフ",
+      reduceMotionHint: "ページ切り替えやインターフェースのアニメーション効果を抑えます",
     },
     title: "設定",
     loading: "設定を読み込み中",
@@ -67,16 +68,32 @@ const jaJP = {
       autostart: "自動起動",
       autostartUnavailable: "このプラットフォームでは利用できません",
       autostartReadFailed: "自動起動の状態を読み取れません：{detail}",
+      autostartHint: "システムへのサインイン時にランチャーを自動起動します",
       toggles: {
         closeToTray: "閉じるときにトレイへ最小化",
+        closeToTrayHint:
+          "閉じる操作で終了せず、メインウィンドウをシステムトレイに隠してバックグラウンド実行を続けます",
         autostartMinimizeToTray: "自動起動後にトレイへ最小化",
+        autostartMinimizeToTrayHint:
+          "自動起動時はメインウィンドウを表示せず、システムトレイに格納した状態で起動します",
         checkInstanceUpdate: "インスタンスの更新を確認",
+        checkInstanceUpdateHint:
+          "インスタンスで利用可能な新しい AstrBot バージョンを自動確認し、アップグレード操作を表示します",
         persistInstanceState: "インスタンスの実行状態を記憶",
-        ignoreExternalPath: "外部パスを許可",
+        persistInstanceStateHint:
+          "終了時に実行中だったインスタンスを記録し、次回起動時に自動で再起動します",
+        ignoreExternalPath: "外部パス（システム PATH）を無視",
+        ignoreExternalPathHint:
+          "インスタンスの実行や依存関係の導入時に内蔵コンポーネントのみを使用し、システムの PATH 環境変数を継承しません",
         useShortInstanceId: "短いインスタンス ID を使用",
+        useShortInstanceIdHint:
+          "新規インスタンス作成時に UUID の代わりに 16 文字の短い ID をディレクトリ名に使用し、パス長を短縮します（新規作成時のみ有効）",
         lockCheckExtensionWhitelist: "ファイルロックの拡張子ホワイトリスト",
+        lockCheckExtensionWhitelistHint:
+          "ファイル使用中チェック時にコード・設定・データベース等の主要ファイルのみを検査し、確認を高速化します（Windows のみ）",
         useUvForDeps: "uv で依存関係をインストール",
-        useUvForDepsHint: "uv のインストールが必要です",
+        useUvForDepsHint:
+          "デプロイや起動時に pip の代わりに uv を使用して Python 依存関係を高速に同期します（uv コンポーネントが必要）",
       },
     },
     network: {
@@ -126,15 +143,20 @@ const jaJP = {
     },
     data: {
       dataDirectory: "データディレクトリ",
+      dataDirectoryHint:
+        "インスタンス、ダウンロード済みバージョン、ランタイムコンポーネント、バックアップの保存先ディレクトリ",
       changeDirectory: "データディレクトリを変更",
       change: "変更",
       changeDirectoryMessage: "新しいディレクトリ：{path}\n再起動後に有効になります。",
       restartNotice: "データディレクトリを変更しました。再起動後に有効になります。",
       rebuildManifest: "インスタンスマニフェストを再構築",
+      rebuildManifestHint:
+        "データディレクトリをスキャンし、インスタンスとインストール済みバージョンの記録を再生成します",
       rebuildManifestMessage: "ディスク上の内容からインスタンスマニフェストを再構築します。",
       rebuild: "再構築",
       rebuildComplete: "{instances} 個のインスタンス、{versions} 個のバージョンを再構築しました",
       uvCache: "uv キャッシュ",
+      uvCacheHint: "uv が Python パッケージの取得やビルド時に保存したローカルキャッシュを削除します",
       clearUvCacheAria: "uv キャッシュをクリア",
       clear: "クリア",
       uvCacheCleared: "uv キャッシュをクリアしました",

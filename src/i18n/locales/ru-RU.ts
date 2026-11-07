@@ -50,6 +50,8 @@ const ruRU = {
       reduceMotion: "Уменьшить анимацию",
       reduceMotionOn: "Вкл.",
       reduceMotionOff: "Выкл.",
+      reduceMotionHint:
+        "Уменьшить или отключить анимацию переходов между страницами и элементами интерфейса",
     },
     title: "Настройки",
     loading: "Загрузка настроек",
@@ -67,17 +69,33 @@ const ruRU = {
       autostart: "Автозапуск",
       autostartUnavailable: "Недоступно на этой платформе",
       autostartReadFailed: "Не удалось получить состояние автозапуска: {detail}",
+      autostartHint: "Автоматически запускать лаунчер при входе в систему",
       toggles: {
         closeToTray: "Сворачивать в трей при закрытии",
+        closeToTrayHint:
+          "Скрывать главное окно в системный трей вместо выхода из программы при закрытии",
         autostartMinimizeToTray: "Сворачивать в трей после автозапуска",
+        autostartMinimizeToTrayHint:
+          "Запускаться в фоновом режиме в системном трее без открытия главного окна при автозапуске",
         checkInstanceUpdate: "Проверять обновления экземпляров",
+        checkInstanceUpdateHint:
+          "Автоматически проверять наличие новых версий AstrBot для экземпляров и предлагать обновление",
         persistInstanceState: "Запоминать состояние экземпляров",
-        ignoreExternalPath: "Разрешить внешние пути",
+        persistInstanceStateHint:
+          "Сохранять список работающих экземпляров при выходе и автоматически запускать их при следующем старте",
+        ignoreExternalPath: "Игнорировать внешние пути PATH",
+        ignoreExternalPathHint:
+          "Использовать только встроенные компоненты лаунчера и не наследовать системную переменную PATH",
         useShortInstanceId: "Использовать короткий ID экземпляра",
+        useShortInstanceIdHint:
+          "Использовать 16-символьный ID вместо UUID для папок новых экземпляров, чтобы сократить длину путей (только для новых)",
         lockCheckExtensionWhitelist:
           "Белый список расширений для проверки блокировки файлов",
+        lockCheckExtensionWhitelistHint:
+          "Проверять на занятость только ключевые файлы кода, конфигурации и баз данных для ускорения проверок в Windows",
         useUvForDeps: "Устанавливать зависимости через uv",
-        useUvForDepsHint: "Требуется установленный uv",
+        useUvForDepsHint:
+          "Использовать uv вместо pip для быстрой синхронизации зависимостей Python при развёртывании и запуске (требуется компонент uv)",
       },
     },
     network: {
@@ -127,6 +145,8 @@ const ruRU = {
     },
     data: {
       dataDirectory: "Каталог данных",
+      dataDirectoryHint:
+        "Корневой каталог для хранения экземпляров, загруженных версий, компонентов и резервных копий",
       changeDirectory: "Изменить каталог данных",
       change: "Изменить",
       changeDirectoryMessage:
@@ -134,12 +154,15 @@ const ruRU = {
       restartNotice:
         "Каталог данных изменён. Изменения вступят в силу после перезапуска лаунчера.",
       rebuildManifest: "Пересоздать манифест экземпляров",
+      rebuildManifestHint:
+        "Просканировать каталог данных на диске и заново сформировать записи об экземплярах и версиях",
       rebuildManifestMessage:
         "Манифест экземпляров будет пересоздан по содержимому диска.",
       rebuild: "Пересоздать",
       rebuildComplete:
         "Пересоздано экземпляров: {instances}, версий: {versions}",
       uvCache: "Кэш uv",
+      uvCacheHint: "Удалить локальный кэш пакетов Python, сохранённый uv",
       clearUvCacheAria: "Очистить кэш uv",
       clear: "Очистить",
       uvCacheCleared: "Кэш uv очищен",
