@@ -346,36 +346,43 @@ const toggleDefinitions: ToggleDefinition[] = [
   {
     key: "close_to_tray",
     titleKey: "settings.general.toggles.closeToTray",
+    subtitleKey: "settings.general.toggles.closeToTrayHint",
     save: saveCloseToTray,
   },
   {
     key: "autostart_minimize_to_tray",
     titleKey: "settings.general.toggles.autostartMinimizeToTray",
+    subtitleKey: "settings.general.toggles.autostartMinimizeToTrayHint",
     save: saveAutostartMinimizeToTray,
   },
   {
     key: "check_instance_update",
     titleKey: "settings.general.toggles.checkInstanceUpdate",
+    subtitleKey: "settings.general.toggles.checkInstanceUpdateHint",
     save: saveCheckInstanceUpdate,
   },
   {
     key: "persist_instance_state",
     titleKey: "settings.general.toggles.persistInstanceState",
+    subtitleKey: "settings.general.toggles.persistInstanceStateHint",
     save: savePersistInstanceState,
   },
   {
     key: "ignore_external_path",
     titleKey: "settings.general.toggles.ignoreExternalPath",
+    subtitleKey: "settings.general.toggles.ignoreExternalPathHint",
     save: saveIgnoreExternalPath,
   },
   {
     key: "use_short_instance_id",
     titleKey: "settings.general.toggles.useShortInstanceId",
+    subtitleKey: "settings.general.toggles.useShortInstanceIdHint",
     save: saveUseShortInstanceId,
   },
   {
     key: "lock_check_extension_whitelist",
     titleKey: "settings.general.toggles.lockCheckExtensionWhitelist",
+    subtitleKey: "settings.general.toggles.lockCheckExtensionWhitelistHint",
     save: saveLockCheckExtensionWhitelist,
   },
   {
@@ -835,9 +842,11 @@ onMounted(() => {
             <SettingsItem
               :title="t('settings.general.autostart')"
               :subtitle="
-                autostartUnavailable
-                  ? t('settings.general.autostartUnavailable')
-                  : ''
+                autostartLoading
+                  ? ''
+                  : autostartUnavailable
+                    ? t('settings.general.autostartUnavailable')
+                    : t('settings.general.autostartHint')
               "
               label-for="setting-autostart"
             >
@@ -917,7 +926,11 @@ onMounted(() => {
               </v-radio-group>
             </SettingsItem>
 
-            <SettingsItem :title="t('settings.appearance.reduceMotion')" wide>
+            <SettingsItem
+              :title="t('settings.appearance.reduceMotion')"
+              :subtitle="t('settings.appearance.reduceMotionHint')"
+              wide
+            >
               <v-radio-group
                 :model-value="reduceMotionPreference"
                 :disabled="reduceMotionSaving"
@@ -1174,7 +1187,11 @@ onMounted(() => {
           </h2>
 
           <div class="settings-list-card">
-            <SettingsItem :title="t('settings.data.dataDirectory')" stacked>
+            <SettingsItem
+              :title="t('settings.data.dataDirectory')"
+              :subtitle="t('settings.data.dataDirectoryHint')"
+              stacked
+            >
               <div class="settings-path-row">
                 <code class="settings-path">{{ dataDir || "—" }}</code>
                 <v-btn
@@ -1190,7 +1207,10 @@ onMounted(() => {
               </div>
             </SettingsItem>
 
-            <SettingsItem :title="t('settings.data.rebuildManifest')">
+            <SettingsItem
+              :title="t('settings.data.rebuildManifest')"
+              :subtitle="t('settings.data.rebuildManifestHint')"
+            >
               <v-btn
                 color="primary"
                 variant="tonal"
@@ -1202,7 +1222,10 @@ onMounted(() => {
               </v-btn>
             </SettingsItem>
 
-            <SettingsItem :title="t('settings.data.uvCache')">
+            <SettingsItem
+              :title="t('settings.data.uvCache')"
+              :subtitle="t('settings.data.uvCacheHint')"
+            >
               <v-btn
                 color="primary"
                 variant="tonal"

@@ -50,9 +50,11 @@ const enUS = {
       reduceMotion: "Reduce motion",
       reduceMotionOn: "On",
       reduceMotionOff: "Off",
+      reduceMotionHint:
+        "Minimize or disable page transitions and interface animations",
     },
     title: "Settings",
-    loading: "Loading settings",
+    loading: "Loading settings…",
     loadFailed: "Failed to load settings",
     saved: "Saved",
     nav: {
@@ -67,16 +69,32 @@ const enUS = {
       autostart: "Start on boot",
       autostartUnavailable: "Not available on this platform",
       autostartReadFailed: "Failed to read autostart status: {detail}",
+      autostartHint: "Automatically launch the app when signing in to the system",
       toggles: {
         closeToTray: "Minimize to tray on close",
+        closeToTrayHint:
+          "Hide the main window to the system tray instead of quitting when closing",
         autostartMinimizeToTray: "Minimize to tray when launched at startup",
+        autostartMinimizeToTrayHint:
+          "Start silently in the system tray without opening the main window on system startup",
         checkInstanceUpdate: "Check for instance updates",
+        checkInstanceUpdateHint:
+          "Automatically check for newer AstrBot releases for instances and show upgrade actions",
         persistInstanceState: "Remember instance running state",
-        ignoreExternalPath: "Allow external paths",
+        persistInstanceStateHint:
+          "Record running instances on exit and automatically restart them next time the launcher starts",
+        ignoreExternalPath: "Ignore external PATH",
+        ignoreExternalPathHint:
+          "Use only launcher-managed runtime components and exclude the system PATH environment variable",
         useShortInstanceId: "Use short instance IDs",
+        useShortInstanceIdHint:
+          "Use 16-character IDs instead of UUIDs for new instance folders to shorten file paths (new instances only)",
         lockCheckExtensionWhitelist: "File lock extension whitelist",
+        lockCheckExtensionWhitelistHint:
+          "Scan only key code, config, and database files during file lock checks to speed up pre-operation checks on Windows",
         useUvForDeps: "Install dependencies with uv",
-        useUvForDepsHint: "Requires uv to be installed",
+        useUvForDepsHint:
+          "Use uv instead of pip to sync Python dependencies faster during deployment and startup (requires the uv component)",
       },
     },
     network: {
@@ -126,15 +144,20 @@ const enUS = {
     },
     data: {
       dataDirectory: "Data directory",
+      dataDirectoryHint:
+        "Root directory for storing instances, downloaded versions, runtime components, and backups",
       changeDirectory: "Change data directory",
       change: "Change",
       changeDirectoryMessage: "New directory: {path}\nRestart the launcher to apply.",
       restartNotice: "Data directory changed. Restart the launcher to apply.",
       rebuildManifest: "Rebuild instance manifest",
+      rebuildManifestHint:
+        "Scan the data directory on disk to resync instance and installed version records",
       rebuildManifestMessage: "Rebuild the instance manifest from disk contents.",
       rebuild: "Rebuild",
       rebuildComplete: "Rebuilt {instances} instances, {versions} versions",
       uvCache: "uv cache",
+      uvCacheHint: "Remove cached Python packages and build artifacts stored by uv",
       clearUvCacheAria: "Clear uv cache",
       clear: "Clear",
       uvCacheCleared: "uv cache cleared",
@@ -142,7 +165,7 @@ const enUS = {
     about: {
       appName: "App name",
       version: "Version",
-      launcherRepoDescription: "Main repository for the AstrBot desktop manager.",
+      launcherRepoDescription: "Main repository for the AstrBot desktop launcher.",
       currentRepoDescription: "Current Tauri 2 + Vue 3 desktop implementation.",
       astrbotRepoDescription: "Upstream AstrBot core repository.",
       openLauncherRepo: "Open the main astrbot-launcher repository",
@@ -153,15 +176,15 @@ const enUS = {
       updater: {
         title: "Automatic updates",
         check: "Check for updates",
-        checking: "Checking for updates...",
+        checking: "Checking for updates…",
         unsupported: "Automatic updates are not available on this platform",
         upToDate: "You're using the latest version",
         available: "Version {version} is available",
         download: "Download update",
-        downloading: "Downloading update...",
+        downloading: "Downloading update…",
         downloaded: "Update ready to install",
         installAndRestart: "Restart and install",
-        installing: "Preparing installer...",
+        installing: "Preparing installer…",
       },
     },
   },
@@ -377,6 +400,8 @@ const enUS = {
       port_occupied: "Port is occupied",
       invalid_host: "Host address is invalid",
       startup_timeout: "Instance startup timed out",
+      download_cancelled: "Download cancelled",
+      launcher_update: "Launcher update failed",
     },
   },
   shell: {
@@ -411,7 +436,7 @@ const enUS = {
     },
   },
   overview: {
-    loading: "Loading",
+    loading: "Loading…",
     stats: {
       ariaLabel: "{label}: {value}",
       instances: "Total instances",
@@ -458,7 +483,7 @@ const enUS = {
   },
   instances: {
     title: "Instances",
-    loading: "Loading",
+    loading: "Loading…",
     actions: {
       create: "Create Instance",
       start: "Start",
@@ -711,7 +736,7 @@ const enUS = {
     instanceFilter: "Instance",
     allInstances: "All instances",
     searchPlaceholder: "Search file names or notes",
-    loading: "Loading",
+    loading: "Loading…",
     empty: "No backups",
     noMatches: "No matching backups",
     autoGenerated: "Auto-created",
