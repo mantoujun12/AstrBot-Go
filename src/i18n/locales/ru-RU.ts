@@ -29,6 +29,13 @@ const ruRU = {
       stopped: "Остановлен",
     },
   },
+  launcherUpdate: {
+    title: "Доступна новая версия {version}",
+    update: "Обновить сейчас",
+    remindLater: "Напомнить позже",
+    ignore: "Игнорировать эту версию",
+    noNotes: "Примечания к выпуску отсутствуют",
+  },
   settings: {
     appearance: {
       language: "Язык",

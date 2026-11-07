@@ -446,6 +446,11 @@ define_save_config_command!(
     lock_check_extension_whitelist
 );
 define_save_config_command!(
+    save_ignored_launcher_version,
+    ignored_launcher_version: String,
+    ignored_launcher_version
+);
+define_save_config_command!(
     save_theme_preference,
     theme_preference: ThemePreference,
     theme_preference

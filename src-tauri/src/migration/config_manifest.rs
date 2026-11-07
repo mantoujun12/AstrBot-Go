@@ -87,6 +87,7 @@ impl LegacyAppConfig {
             theme_preference: self.theme_preference,
             language_preference: LanguagePreference::System,
             reduce_motion_preference: ReduceMotionPreference::default(),
+            ignored_launcher_version: String::new(),
         }
     }
 

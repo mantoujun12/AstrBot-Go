@@ -29,6 +29,13 @@ const enUS = {
       stopped: "Stopped",
     },
   },
+  launcherUpdate: {
+    title: "New version {version} is available",
+    update: "Update now",
+    remindLater: "Remind me later",
+    ignore: "Ignore this version",
+    noNotes: "No release notes for this version",
+  },
   settings: {
     appearance: {
       language: "Language",

@@ -3,6 +3,7 @@
 ### Added
 
 - Added page transitions and a reduce-motion setting (follow system, on, off).
+- Added a startup launcher update check that shows a dialog with release notes, letting you update now, remind later, or ignore this version.
 
 ### Fixed
 
@@ -16,6 +17,7 @@
 ### 新增
 
 - 新增页面切换过渡动画与减少动态设置（跟随系统、开启、关闭）。
+- 新增启动时检测启动器更新，发现新版本后弹出对话框显示发行版说明，可选择立即更新、稍后提醒或忽略本次版本。
 
 ### 修复
 

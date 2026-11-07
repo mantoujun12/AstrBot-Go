@@ -5,6 +5,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useDisplay, useLocale as useVuetifyLocale, useTheme } from "vuetify";
 import AppSnackbar from "./components/common/AppSnackbar.vue";
 import DefaultCredentialsDialog from "./components/common/DefaultCredentialsDialog.vue";
+import LauncherUpdatePrompt from "./components/common/LauncherUpdatePrompt.vue";
 import AppTitleBar from "./components/AppTitleBar.vue";
 import LauncherMain from "./components/LauncherMain.vue";
 import LauncherSidebar from "./components/LauncherSidebar.vue";
@@ -239,6 +240,7 @@ onBeforeUnmount(() => {
         v-model="credentialsOpen"
         :credentials="credentials"
       />
+      <LauncherUpdatePrompt />
     </div>
   </v-app>
 </template>

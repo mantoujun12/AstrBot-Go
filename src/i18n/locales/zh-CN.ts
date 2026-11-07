@@ -27,6 +27,13 @@ const zhCN = {
       "stopped": "已停止"
     }
   },
+  "launcherUpdate": {
+    "title": "发现新版本 {version}",
+    "update": "立即更新",
+    "remindLater": "稍后提醒",
+    "ignore": "忽略本次版本",
+    "noNotes": "此版本暂无更新说明"
+  },
   "settings": {
     "appearance": {
       "language": "语言",
