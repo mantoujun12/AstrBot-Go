@@ -8,6 +8,7 @@
 ### Changed
 
 - The instance list no longer shows an update summary banner or per-instance status chips; versions render as plain text and the batch upgrade action only appears when there is something to upgrade.
+- Refined i18n copy across all locales and added descriptions for configuration items in Settings.
 
 ### Fixed
 
@@ -26,6 +27,7 @@
 ### 变更
 
 - 实例列表不再显示更新汇总横幅与实例级状态标签，版本号以纯文本呈现，批量升级入口仅在存在可升级实例时显示。
+- 优化多语言文案，并补充“设置”中各配置项的说明文案。
 
 ### 修复
 
