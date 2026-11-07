@@ -13,7 +13,6 @@ import StatusChip from "../components/common/StatusChip.vue";
 import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import InstanceFormDialog from "../components/instances/InstanceFormDialog.vue";
 import HealthCheckDialog from "../components/instances/HealthCheckDialog.vue";
-import InstanceVersionBadge from "../components/instances/InstanceVersionBadge.vue";
 import RepairDialog from "../components/instances/RepairDialog.vue";
 import ResourceMonitorDialog from "../components/instances/ResourceMonitorDialog.vue";
 import { useOperation } from "../composables/useOperation";
@@ -140,10 +139,6 @@ const latestRelease = computed(
   () => updateCheck.value?.latest_release ?? null,
 );
 
-const updatesEnabled = computed(
-  () => snapshot.value?.config.check_instance_update ?? false,
-);
-
 const updateAvailableInstances = computed(() =>
   instances.value.filter(
     (instance) => updateInfoFor(instance.id)?.state === "available",
@@ -210,10 +205,6 @@ function handleRefresh(): void {
 
 function retryUpdateCheck(): void {
   void loadUpdateCheck(true);
-}
-
-function openSettings(): void {
-  void router.push("/settings");
 }
 
 const formOpen = ref(false);
@@ -1043,11 +1034,12 @@ function openWebui(instance: InstanceStatus): void {
           {{ t("common.actions.refresh") }}
         </v-btn>
         <v-btn
+          v-if="batchUpgradeRunning || batchUpgradeTargets.length > 0"
           color="primary"
-          variant="tonal"
+          variant="text"
           prepend-icon="mdi-update"
           :loading="batchUpgradeRunning"
-          :disabled="snapshot === null || batchUpgradeTargets.length === 0"
+          :disabled="batchUpgradeRunning || updatesLoading"
           @click="askUpgradeAll"
         >
           {{ t("instances.actions.upgradeAll") }}
@@ -1084,103 +1076,25 @@ function openWebui(instance: InstanceStatus): void {
       </div>
     </v-alert>
 
-    <template v-if="snapshot !== null">
-      <v-alert
-        v-if="updatesError"
-        type="warning"
-        variant="tonal"
-        density="comfortable"
-        class="instances-alert"
-      >
-        <div class="instances-alert__body">
-          <span>{{ updatesError }}</span>
-          <v-btn
-            size="small"
-            variant="text"
-            :loading="updatesLoading"
-            @click="retryUpdateCheck"
-          >
-            {{ t("common.actions.retry") }}
-          </v-btn>
-        </div>
-      </v-alert>
-
-      <v-alert
-        v-else-if="!updatesEnabled"
-        type="info"
-        variant="tonal"
-        density="comfortable"
-        class="instances-alert"
-      >
-        <div class="instances-alert__body">
-          <span>{{ t("instances.updates.disabled") }}</span>
-          <v-btn size="small" variant="text" @click="openSettings">
-            {{ t("instances.updates.openSettings") }}
-          </v-btn>
-        </div>
-      </v-alert>
-
-      <div v-else class="instance-update-summary">
-        <div class="instance-update-summary__main">
-          <v-icon icon="mdi-update" size="20" aria-hidden="true" />
-          <span v-if="latestRelease">
-            {{
-              t("instances.updates.latest", {
-                version: latestRelease.tag_name,
-              })
-            }}
-          </span>
-          <span v-else-if="updatesLoading">
-            {{ t("instances.updates.loading") }}
-          </span>
-          <span v-else>{{ t("instances.updates.noRelease") }}</span>
-
-          <v-chip
-            v-if="latestRelease && updateAvailableInstances.length > 0"
-            color="warning"
-            variant="tonal"
-            size="small"
-            label
-          >
-            {{
-              t("instances.updates.availableCount", {
-                count: updateAvailableInstances.length,
-              })
-            }}
-          </v-chip>
-          <v-chip
-            v-else-if="latestRelease && !updatesLoading"
-            color="success"
-            variant="tonal"
-            size="small"
-            label
-          >
-            {{ t("instances.updates.allUpToDate") }}
-          </v-chip>
-          <v-chip
-            v-if="skippedUpgradeCount > 0"
-            color="secondary"
-            variant="tonal"
-            size="small"
-            label
-          >
-            {{
-              t("instances.updates.notStopped", {
-                count: skippedUpgradeCount,
-              })
-            }}
-          </v-chip>
-        </div>
-        <v-progress-circular
-          v-if="updatesLoading"
-          indeterminate
-          size="16"
-          width="2"
-          color="primary"
-          :aria-label="t('instances.updates.loading')"
-        />
+    <v-alert
+      v-if="snapshot !== null && updatesError"
+      type="warning"
+      variant="tonal"
+      density="comfortable"
+      class="instances-alert"
+    >
+      <div class="instances-alert__body">
+        <span>{{ updatesError }}</span>
+        <v-btn
+          size="small"
+          variant="text"
+          :loading="updatesLoading"
+          @click="retryUpdateCheck"
+        >
+          {{ t("common.actions.retry") }}
+        </v-btn>
       </div>
-    </template>
+    </v-alert>
 
     <div v-if="snapshot === null && !error" class="instances-state">
       <v-progress-circular
@@ -1248,11 +1162,7 @@ function openWebui(instance: InstanceStatus): void {
         </template>
 
         <template #item.version="{ item }">
-          <InstanceVersionBadge
-            :version="item.version"
-            :update="updateInfoFor(item.id)"
-            :loading="updatesLoading"
-          />
+          <span class="instance-version">{{ item.version }}</span>
         </template>
 
         <template #item.actions="{ item }">
@@ -1302,7 +1212,7 @@ function openWebui(instance: InstanceStatus): void {
               v-if="updateInfoFor(item.id)?.state === 'available'"
               size="small"
               color="primary"
-              variant="tonal"
+              variant="text"
               :disabled="
                 item.state !== 'stopped' ||
                 isInstanceInteractionDisabled(item.id)
@@ -1534,26 +1444,9 @@ function openWebui(instance: InstanceStatus): void {
   gap: 16px;
 }
 
-.instance-update-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.18);
-  border-radius: 10px;
-  background: rgba(var(--v-theme-primary), 0.06);
-  color: rgba(var(--v-theme-on-surface), 0.72);
-  font-size: 0.85rem;
-}
-
-.instance-update-summary__main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  min-width: 0;
+.instance-version {
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-variant-numeric: tabular-nums;
 }
 
 .instances-state {

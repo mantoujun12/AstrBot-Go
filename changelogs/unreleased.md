@@ -5,6 +5,10 @@
 - Added page transitions and a reduce-motion setting (follow system, on, off).
 - Added a startup launcher update check that shows a dialog with release notes, letting you update now, remind later, or ignore this version.
 
+### Changed
+
+- The instance list no longer shows an update summary banner or per-instance status chips; versions render as plain text and the batch upgrade action only appears when there is something to upgrade.
+
 ### Fixed
 
 - Fixed the problem that the prompt bar of the resource monitoring pop-up window was squeezed because the window was too small.
@@ -18,6 +22,10 @@
 
 - 新增页面切换过渡动画与减少动态设置（跟随系统、开启、关闭）。
 - 新增启动时检测启动器更新，发现新版本后弹出对话框显示发行版说明，可选择立即更新、稍后提醒或忽略本次版本。
+
+### 变更
+
+- 实例列表不再显示更新汇总横幅与实例级状态标签，版本号以纯文本呈现，批量升级入口仅在存在可升级实例时显示。
 
 ### 修复
 
