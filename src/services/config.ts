@@ -79,6 +79,12 @@ export function saveLockCheckExtensionWhitelist(
   });
 }
 
+export function saveIgnoredLauncherVersion(
+  ignoredLauncherVersion: string,
+): Promise<void> {
+  return invoke("save_ignored_launcher_version", { ignoredLauncherVersion });
+}
+
 export function saveThemePreference(
   themePreference: ThemePreference,
 ): Promise<void> {

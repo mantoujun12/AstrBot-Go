@@ -29,6 +29,13 @@ const jaJP = {
       stopped: "停止済み",
     },
   },
+  launcherUpdate: {
+    title: "新しいバージョン {version} が利用可能です",
+    update: "今すぐ更新",
+    remindLater: "あとで通知",
+    ignore: "このバージョンを無視",
+    noNotes: "このバージョンのリリースノートはありません",
+  },
   settings: {
     appearance: {
       language: "言語",

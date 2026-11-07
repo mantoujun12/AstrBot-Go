@@ -62,6 +62,7 @@ export interface AppConfig {
   theme_preference: ThemePreference;
   language_preference: LanguagePreference;
   reduce_motion_preference: ReduceMotionPreference;
+  ignored_launcher_version: string;
 }
 
 export interface InstanceStatus {

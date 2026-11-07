@@ -111,6 +111,8 @@ pub struct AppConfig {
     pub language_preference: LanguagePreference,
     #[serde(default)]
     pub reduce_motion_preference: ReduceMotionPreference,
+    #[serde(default)]
+    pub ignored_launcher_version: String,
 }
 
 impl Default for AppConfig {
@@ -138,6 +140,7 @@ impl Default for AppConfig {
             theme_preference: ThemePreference::System,
             language_preference: LanguagePreference::System,
             reduce_motion_preference: ReduceMotionPreference::System,
+            ignored_launcher_version: String::new(),
         }
     }
 }
