@@ -89,6 +89,10 @@ async function update(): Promise<void> {
   try {
     const result = await downloadLauncherUpdate();
     if (!result.available) {
+      // The update became unavailable between the check and this download
+      // (e.g. a newer release was published). Close the prompt instead of
+      // leaving it open in a stale state.
+      open.value = false;
       stage.value = "idle";
       progress.value = null;
       return;
@@ -123,7 +127,9 @@ async function ignore(): Promise<void> {
 
 onMounted(async () => {
   void listenLauncherUpdateProgress((event) => {
-    if (stage.value === "downloading") {
+    // Also capture the trailing 100% event, which can be delivered just
+    // after the stage flips to installing and would otherwise be dropped.
+    if (stage.value === "downloading" || stage.value === "installing") {
       progress.value = event;
     }
   })
