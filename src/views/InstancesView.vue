@@ -1039,7 +1039,7 @@ function openWebui(instance: InstanceStatus): void {
           variant="text"
           prepend-icon="mdi-update"
           :loading="batchUpgradeRunning"
-          :disabled="snapshot === null"
+          :disabled="batchUpgradeRunning || updatesLoading"
           @click="askUpgradeAll"
         >
           {{ t("instances.actions.upgradeAll") }}
