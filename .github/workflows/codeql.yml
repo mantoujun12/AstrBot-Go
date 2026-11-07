@@ -96,7 +96,7 @@ jobs:
             os: ubuntu-latest
             build-mode: none
           - language: rust
-            os: windows-latest
+            os: ubuntu-latest
             build-mode: none
     steps:
       - name: Checkout
