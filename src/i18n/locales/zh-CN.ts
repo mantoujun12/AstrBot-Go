@@ -544,27 +544,9 @@ const zhCN = {
       }
     },
     "updates": {
-      "latest": "最新稳定版 {version}",
-      "availableCount": "{count} 个实例可更新",
-      "allUpToDate": "实例均为最新版本",
-      "notStopped": "{count} 个实例未停止",
-      "loading": "正在检查更新",
-      "noRelease": "暂无可用的稳定版本",
-      "disabled": "实例更新检查已关闭。",
-      "openSettings": "前往设置",
       "stopFirst": "请先停止实例再升级。",
       "batchPaused": "批量升级已暂停，请处理问题后重试。",
       "batchComplete": "已升级 {count} 个实例",
-      "status": {
-        "available": "更新到 {version}",
-        "upToDate": "已是最新",
-        "disabled": "未检查",
-        "unknown": "未知"
-      },
-      "tooltips": {
-        "disabled": "此实例的更新检查已关闭。",
-        "unknown": "无法比较当前版本与最新稳定版本。"
-      },
       "confirm": {
         "title": "全部升级",
         "message": "将把 {count} 个实例升级到 {version}，升级会自动备份实例数据。",

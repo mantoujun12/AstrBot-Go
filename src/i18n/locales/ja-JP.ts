@@ -549,27 +549,9 @@ const jaJP = {
       },
     },
     updates: {
-      latest: "最新安定版 {version}",
-      availableCount: "更新可能：{count} 件",
-      allUpToDate: "すべて最新です",
-      notStopped: "未停止：{count} 件",
-      loading: "更新を確認中",
-      noRelease: "利用可能な安定版がありません",
-      disabled: "インスタンスの更新確認は無効です。",
-      openSettings: "設定へ",
       stopFirst: "アップグレード前にインスタンスを停止してください。",
       batchPaused: "一括アップグレードを中断しました。問題を解決して再試行してください。",
       batchComplete: "{count} 件をアップグレードしました",
-      status: {
-        available: "{version} へ更新",
-        upToDate: "最新",
-        disabled: "未確認",
-        unknown: "不明",
-      },
-      tooltips: {
-        disabled: "このインスタンスの更新確認は無効です。",
-        unknown: "現在のバージョンと最新安定版を比較できません。",
-      },
       confirm: {
         title: "すべてアップグレード",
         message: "{count} 件のインスタンスを {version} にアップグレードします。データは自動的にバックアップされます。",

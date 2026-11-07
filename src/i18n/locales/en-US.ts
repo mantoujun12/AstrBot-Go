@@ -549,27 +549,9 @@ const enUS = {
       },
     },
     updates: {
-      latest: "Latest stable {version}",
-      availableCount: "Available updates: {count}",
-      allUpToDate: "All instances are current",
-      notStopped: "Not stopped: {count}",
-      loading: "Checking for updates",
-      noRelease: "No stable release found",
-      disabled: "Instance update checks are disabled.",
-      openSettings: "Settings",
       stopFirst: "Stop the instance before upgrading.",
       batchPaused: "Batch upgrade paused. Resolve the issue and retry.",
       batchComplete: "Upgraded {count} instances",
-      status: {
-        available: "Update to {version}",
-        upToDate: "Up to date",
-        disabled: "Not checked",
-        unknown: "Unknown",
-      },
-      tooltips: {
-        disabled: "Update checks are disabled for this instance.",
-        unknown: "The current and latest versions cannot be compared.",
-      },
       confirm: {
         title: "Upgrade all instances",
         message: "Upgrade {count} instances to {version}. Instance data will be backed up automatically.",
