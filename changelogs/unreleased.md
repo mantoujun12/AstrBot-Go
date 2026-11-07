@@ -1,5 +1,9 @@
 ## English
 
+### Added
+
+- Added page transitions and a reduce-motion setting (follow system, on, off).
+
 ### Fixed
 
 - Fixed the problem that the prompt bar of the resource monitoring pop-up window was squeezed because the window was too small.
@@ -8,6 +12,10 @@
 - Fixed the macOS window missing its native traffic lights and showing Windows-style window controls.
 
 ## 中文
+
+### 新增
+
+- 新增页面切换过渡动画与减少动态设置（跟随系统、开启、关闭）。
 
 ### 修复
 

@@ -1,0 +1,62 @@
+:root {
+  --motion-duration-page: 150ms;
+  --motion-duration-base: 200ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.route-fade-enter-active,
+.route-fade-leave-active {
+  transition: opacity var(--motion-duration-page) var(--motion-ease);
+}
+
+.route-fade-enter-from,
+.route-fade-leave-to {
+  opacity: 0;
+}
+
+.motion-fade-in {
+  animation: motion-fade-in var(--motion-duration-page) var(--motion-ease) backwards;
+}
+
+@keyframes motion-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.motion-list-enter-active,
+.motion-list-leave-active {
+  transition:
+    opacity var(--motion-duration-base) var(--motion-ease),
+    transform var(--motion-duration-base) var(--motion-ease);
+}
+
+.motion-list-enter-from,
+.motion-list-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.motion-list-move {
+  transition: transform var(--motion-duration-base) var(--motion-ease);
+}
+
+$motion-exempt: ":not(.v-progress-circular, .v-progress-circular *, .v-progress-linear, .v-progress-linear *)";
+
+// 0.01ms instead of 0 keeps transitionend firing, which Vue and Vuetify transitions depend on.
+html[data-reduce-motion] {
+  *#{$motion-exempt},
+  *#{$motion-exempt}::before,
+  *#{$motion-exempt}::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -42,6 +42,15 @@ pub enum ThemePreference {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ReduceMotionPreference {
+    #[default]
+    System,
+    On,
+    Off,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LanguagePreference {
     #[default]
     #[serde(rename = "system")]
@@ -100,6 +109,8 @@ pub struct AppConfig {
     pub theme_preference: ThemePreference,
     #[serde(default)]
     pub language_preference: LanguagePreference,
+    #[serde(default)]
+    pub reduce_motion_preference: ReduceMotionPreference,
 }
 
 impl Default for AppConfig {
@@ -126,6 +137,7 @@ impl Default for AppConfig {
             lock_check_extension_whitelist: false,
             theme_preference: ThemePreference::System,
             language_preference: LanguagePreference::System,
+            reduce_motion_preference: ReduceMotionPreference::System,
         }
     }
 }

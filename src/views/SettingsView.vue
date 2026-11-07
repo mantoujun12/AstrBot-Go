@@ -39,6 +39,7 @@ import {
   saveProxy,
   savePypiMirror,
   savePythonMirror,
+  saveReduceMotionPreference,
   saveThemePreference,
   saveUseShortInstanceId,
   saveUseUvForDeps,
@@ -62,10 +63,12 @@ import {
   storeThemeColors,
 } from "../theme/customColors";
 import { useLanguage } from "../composables/useLanguage";
+import { setReduceMotionPreference } from "../composables/useReduceMotion";
 import { isLanguagePreference } from "../i18n/locale";
 import type {
   AppConfig,
   LanguagePreference,
+  ReduceMotionPreference,
   ThemePreference,
 } from "../types/launcher";
 import { readCachedLanguage } from "../utils/languageCache";
@@ -148,6 +151,38 @@ async function changeTheme(value: unknown): Promise<void> {
     showErrorToast(cause);
   } finally {
     themeSaving.value = false;
+  }
+}
+
+/* Reduce motion */
+
+const reduceMotionPreference = ref<ReduceMotionPreference>("system");
+const reduceMotionSaving = ref(false);
+
+async function changeReduceMotion(value: unknown): Promise<void> {
+  if (reduceMotionSaving.value) {
+    return;
+  }
+  if (value !== "system" && value !== "on" && value !== "off") {
+    return;
+  }
+  if (value === reduceMotionPreference.value) {
+    return;
+  }
+
+  const previous = reduceMotionPreference.value;
+  reduceMotionPreference.value = value;
+  setReduceMotionPreference(value);
+  reduceMotionSaving.value = true;
+  try {
+    await saveReduceMotionPreference(value);
+    await refresh();
+  } catch (cause) {
+    reduceMotionPreference.value = previous;
+    setReduceMotionPreference(previous);
+    showErrorToast(cause);
+  } finally {
+    reduceMotionSaving.value = false;
   }
 }
 
@@ -730,6 +765,9 @@ watch(
     if (!themeSaving.value) {
       themePreference.value = value.theme_preference;
     }
+    if (!reduceMotionSaving.value) {
+      reduceMotionPreference.value = value.reduce_motion_preference;
+    }
     if (!languageSaving.value) {
       languagePreference.value = value.language_preference;
     }
@@ -873,6 +911,37 @@ onMounted(() => {
                 <v-radio
                   :label="t('settings.appearance.dark')"
                   value="dark"
+                  color="primary"
+                  density="compact"
+                />
+              </v-radio-group>
+            </SettingsItem>
+
+            <SettingsItem :title="t('settings.appearance.reduceMotion')" wide>
+              <v-radio-group
+                :model-value="reduceMotionPreference"
+                :disabled="reduceMotionSaving"
+                inline
+                hide-details
+                :aria-label="t('settings.appearance.reduceMotion')"
+                class="settings-theme-group"
+                @update:model-value="changeReduceMotion"
+              >
+                <v-radio
+                  :label="t('settings.appearance.followSystem')"
+                  value="system"
+                  color="primary"
+                  density="compact"
+                />
+                <v-radio
+                  :label="t('settings.appearance.reduceMotionOn')"
+                  value="on"
+                  color="primary"
+                  density="compact"
+                />
+                <v-radio
+                  :label="t('settings.appearance.reduceMotionOff')"
+                  value="off"
                   color="primary"
                   density="compact"
                 />

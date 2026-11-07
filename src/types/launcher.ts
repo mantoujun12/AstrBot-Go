@@ -8,6 +8,8 @@
 
 export type ThemePreference = "system" | "light" | "dark";
 
+export type ReduceMotionPreference = "system" | "on" | "off";
+
 export type SupportedLocale = "zh-CN" | "en-US" | "ru-RU" | "ja-JP";
 
 export type LanguagePreference = "system" | SupportedLocale;
@@ -59,6 +61,7 @@ export interface AppConfig {
   lock_check_extension_whitelist: boolean;
   theme_preference: ThemePreference;
   language_preference: LanguagePreference;
+  reduce_motion_preference: ReduceMotionPreference;
 }
 
 export interface InstanceStatus {

@@ -37,7 +37,10 @@ const zhCN = {
       "themeColor": "主题色",
       "primary": "主色",
       "secondary": "次色",
-      "reset": "重置"
+      "reset": "重置",
+      "reduceMotion": "减少动态",
+      "reduceMotionOn": "开启",
+      "reduceMotionOff": "关闭"
     },
     "title": "设置",
     "loading": "加载设置",
