@@ -57,9 +57,23 @@ on:
 permissions:
   contents: read
 
+# 不要取消进行中的扫描 / Do not cancel runs that are already in progress.
+#
+# Rust 分析（windows-latest）耗时约 15 分钟，另外两种语言约 1 分钟。此前对 PR
+# 事件启用 cancel-in-progress，导致同一 PR 的新提交会打断尚在运行的 rust 任务，
+# 该矩阵项永远不会上传 SARIF，于是 PR 检查报出：
+#   code scanning cannot determine the alerts introduced by this pull request,
+#   because 1 configuration present on refs/heads/main was not found: /language:rust
+# 设为 false 后同组任务串行：正在运行的任务会跑完并上传 SARIF，仅排队中的旧任务会被
+# 取消（未启动即取消，不会产生缺失的配置）。
+# Rust analysis dominates the runtime (~15 min vs ~1 min for the other languages).
+# With cancellation enabled, a new push to the same PR killed the in-flight rust job
+# before its SARIF upload, which made the PR check report the missing
+# /language:rust configuration. With false, an in-progress run always finishes and
+# only still-queued (never started) runs are dropped.
 concurrency:
   group: codeql-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   analyze:
