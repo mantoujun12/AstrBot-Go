@@ -842,9 +842,11 @@ onMounted(() => {
             <SettingsItem
               :title="t('settings.general.autostart')"
               :subtitle="
-                autostartUnavailable
-                  ? t('settings.general.autostartUnavailable')
-                  : t('settings.general.autostartHint')
+                autostartLoading
+                  ? ''
+                  : autostartUnavailable
+                    ? t('settings.general.autostartUnavailable')
+                    : t('settings.general.autostartHint')
               "
               label-for="setting-autostart"
             >
