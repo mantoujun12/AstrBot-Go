@@ -36,6 +36,28 @@ const enUS = {
     ignore: "Ignore this version",
     noNotes: "No release notes for this version",
   },
+  trayPanel: {
+    title: "AstrBot Launcher",
+    openMainWindow: "Open main window",
+    openSettings: "Open settings",
+    quit: "Quit",
+    empty: "No instances",
+    loading: "Loading instances…",
+    loadFailed: "Failed to load instances",
+    actions: {
+      open: "Open {name}",
+      start: "Start {name}",
+      stop: "Stop {name}",
+      confirmStop: "Click again to stop {name}",
+      restart: "Restart {name}",
+    },
+    duration: {
+      hours: "{hours} h",
+      hoursMinutes: "{hours} h {minutes} min",
+      minutes: "{minutes} min",
+      lessThanMinute: "< 1 min",
+    },
+  },
   settings: {
     appearance: {
       language: "Language",
@@ -96,6 +118,11 @@ const enUS = {
         useUvForDepsHint:
           "Use uv instead of pip to sync Python dependencies faster during deployment and startup (requires the uv component)",
       },
+    },
+    tray: {
+      style: "Tray style",
+      panel: "Panel",
+      nativeMenu: "Menu",
     },
     network: {
       githubProxy: "GitHub proxy",

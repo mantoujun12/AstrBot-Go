@@ -12,7 +12,7 @@ use crate::component::{ComponentActionResult, ComponentsSnapshot};
 use crate::config::{
     load_config, load_manifest, reload_config, reload_manifest, with_config_mut, with_manifest_mut,
     AppConfig, AppManifest, BackupInfo, InstalledVersion, LanguagePreference,
-    ReduceMotionPreference, ThemePreference,
+    ReduceMotionPreference, ThemePreference, TrayStyle,
 };
 use crate::download;
 use crate::download_control;
@@ -200,8 +200,26 @@ pub struct AppSnapshot {
 // === Window ===
 
 #[tauri::command]
+pub fn set_tray_panel_height(height: f64, app_handle: AppHandle) {
+    crate::tray_panel::set_height(&app_handle, height);
+}
+
+#[tauri::command]
+pub fn hide_tray_panel(app_handle: AppHandle) {
+    crate::tray_panel::hide_panel(&app_handle);
+}
+
+#[tauri::command]
+pub fn quit_app(app_handle: AppHandle) {
+    app_handle.exit(0);
+}
+
+#[tauri::command]
 pub fn show_main_window(app: AppHandle) -> Result<()> {
-    let outcome = crate::setup::reveal_main_window(&app)
+    // Invoked by the tray panel, so it is an explicit user gesture: it must
+    // override the autostart minimize-to-tray policy that hides the window on
+    // a normal reveal.
+    let outcome = crate::setup::show_main_window_from_user(&app)
         .map_err(|error| AppError::other(format!("Failed to show main window: {}", error)))?;
 
     match outcome {
@@ -219,6 +237,11 @@ pub fn show_main_window(app: AppHandle) -> Result<()> {
 #[tauri::command]
 pub fn is_macos() -> bool {
     platform::is_macos()
+}
+
+#[tauri::command]
+pub fn is_linux() -> bool {
+    platform::is_linux()
 }
 
 #[tauri::command]
@@ -473,6 +496,42 @@ pub fn save_language_preference(
 
     crate::tray::refresh_tray_menu(&app_handle);
     Ok(())
+}
+
+#[tauri::command]
+pub fn save_tray_style(tray_style: TrayStyle, app_handle: AppHandle) -> Result<()> {
+    let previous = load_config()?.tray_style;
+
+    with_config_mut(move |config| {
+        config.tray_style = tray_style;
+        Ok(())
+    })?;
+
+    let Err(error) = crate::tray::apply_tray_style(&app_handle, tray_style) else {
+        return Ok(());
+    };
+
+    // The style is already stored, and applying it removes the old tray icon
+    // before building the new one, so a failure here would leave the session
+    // without a tray icon while the frontend rolls its optimistic update back.
+    // Restore both the stored value and the previous icon.
+    if let Err(rollback_error) = with_config_mut(move |config| {
+        config.tray_style = previous;
+        Ok(())
+    }) {
+        log::error!(
+            "Failed to roll back the tray style after a failed switch: {}",
+            rollback_error
+        );
+    }
+    if let Err(restore_error) = crate::tray::apply_tray_style(&app_handle, previous) {
+        log::error!(
+            "Failed to restore the previous tray icon after a failed switch: {}",
+            restore_error
+        );
+    }
+
+    Err(error)
 }
 
 // === Data Directory ===

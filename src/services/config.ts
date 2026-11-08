@@ -124,3 +124,13 @@ export function compareVersions(a: string, b: string): Promise<number> {
 export function isMacos(): Promise<boolean> {
   return invoke<boolean>("is_macos");
 }
+
+export async function isLinux(): Promise<boolean> {
+  try {
+    return await invoke<boolean>("is_linux");
+  } catch {
+    // Backends without the command behave like the pre-detection builds: the
+    // tray style setting stays visible and nothing is rewritten.
+    return false;
+  }
+}

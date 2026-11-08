@@ -126,6 +126,7 @@ pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error:
     spawn_log_forwarder(app);
     spawn_resource_alert_forwarder(app);
     tray::build_tray(app)?;
+    crate::tray_panel::prewarm(app.handle());
     restore_instances(app);
 
     Ok(())
@@ -232,6 +233,7 @@ pub(crate) fn reveal_main_window(app: &tauri::AppHandle) -> tauri::Result<Reveal
 
 /// Handles a user-initiated activation such as the tray icon or a second launch.
 pub(crate) fn request_show_main_window(app: &tauri::AppHandle) {
+    crate::tray_panel::hide_if_visible(app);
     let state = app.state::<StartupWindowState>();
     state.request_show();
 
@@ -243,6 +245,17 @@ pub(crate) fn request_show_main_window(app: &tauri::AppHandle) {
         Ok(()) => state.clear_show_pending(),
         Err(error) => log::warn!("Failed to show the main window on request: {}", error),
     }
+}
+
+/// Reveals the main window for an explicit user gesture coming from the
+/// frontend (tray panel "open" actions).
+///
+/// Unlike [`reveal_main_window`] this always overrides the autostart
+/// minimize-to-tray policy, because a pending show request is registered
+/// first.
+pub(crate) fn show_main_window_from_user(app: &tauri::AppHandle) -> tauri::Result<RevealOutcome> {
+    app.state::<StartupWindowState>().request_show();
+    reveal_main_window(app)
 }
 
 pub(crate) fn mark_frontend_ready(app: &tauri::AppHandle) {
@@ -317,6 +330,7 @@ fn spawn_event_forwarder(app: &tauri::App) {
                     {
                         Ok(Ok(snapshot)) => {
                             let _ = app_handle.emit("app-snapshot", &snapshot);
+                            crate::tray::sync_tray_menu(&app_handle, &snapshot.instances);
                         }
                         Ok(Err(e)) => {
                             log::warn!("Failed to build app snapshot for event: {}", e);

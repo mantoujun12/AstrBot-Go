@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useRouter } from "vue-router";
 import { useDisplay, useLocale as useVuetifyLocale, useTheme } from "vuetify";
 import AppSnackbar from "./components/common/AppSnackbar.vue";
 import DefaultCredentialsDialog from "./components/common/DefaultCredentialsDialog.vue";
@@ -17,7 +18,9 @@ import {
   listenDefaultCredentials,
   listenInstanceRestart,
   listenResourceAlert,
+  listenTrayPanelAction,
 } from "./services/events";
+import type { TrayPanelAction } from "./services/tray";
 import { useLauncherStore } from "./stores/launcher";
 import { showToast } from "./stores/toast";
 import { useLogStore } from "./stores/logs";
@@ -31,13 +34,15 @@ import type {
 import { formatFileSize } from "./utils/format";
 import { cacheTheme } from "./utils/themeCache";
 
+const router = useRouter();
 const { mdAndUp } = useDisplay();
 const theme = useTheme();
 const { current: vuetifyLocale } = useVuetifyLocale();
 const { t } = useI18n();
 
 const { config, instances, init: initLauncher } = useLauncherStore();
-const { activeTab, isHomeActive, activateHome, pruneTabs } = useTabsStore();
+const { activeTab, isHomeActive, activateHome, openInstanceTab, pruneTabs } =
+  useTabsStore();
 const { init: initLogs } = useLogStore();
 const { init: initProgress } = useProgressStore();
 const { init: initTasks } = useTaskStore();
@@ -51,6 +56,7 @@ const credentialsOpen = ref(false);
 let unlistenCredentials: UnlistenFn | null = null;
 let unlistenResourceAlert: UnlistenFn | null = null;
 let unlistenRestart: UnlistenFn | null = null;
+let unlistenTrayAction: UnlistenFn | null = null;
 
 const drawerOpen = computed({
   get: () => mdAndUp.value || mobileDrawerOpen.value,
@@ -78,6 +84,16 @@ function closeMobileDrawer() {
 function handleNavigate() {
   activateHome();
   closeMobileDrawer();
+}
+
+function handleTrayPanelAction(action: TrayPanelAction): void {
+  if (action.kind === "settings") {
+    activateHome();
+    closeMobileDrawer();
+    void router.push("/settings");
+    return;
+  }
+  openInstanceTab(action.instanceId);
 }
 
 function resourceAlertMessage(alert: ResourceAlertEvent): string {
@@ -180,6 +196,13 @@ onMounted(() => {
     .catch(() => {
       // Resource charts remain available when event subscription fails.
     });
+  void listenTrayPanelAction(handleTrayPanelAction)
+    .then((unlisten) => {
+      unlistenTrayAction = unlisten;
+    })
+    .catch(() => {
+      // The tray panel still opens the main window without deep navigation.
+    });
   void listenInstanceRestart((payload) => {
     if (payload.will_retry) {
       showToast(
@@ -213,6 +236,8 @@ onBeforeUnmount(() => {
   unlistenResourceAlert = null;
   unlistenRestart?.();
   unlistenRestart = null;
+  unlistenTrayAction?.();
+  unlistenTrayAction = null;
 });
 </script>
 

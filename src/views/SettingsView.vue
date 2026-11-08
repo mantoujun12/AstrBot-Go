@@ -25,6 +25,7 @@ import {
 } from "../services/app";
 import { clearUvCache } from "../services/components";
 import {
+  isLinux,
   saveAllowLocalDnsProbe,
   saveAutostartMinimizeToTray,
   saveCheckInstanceUpdate,
@@ -45,6 +46,7 @@ import {
   saveUseUvForDeps,
   saveUvMirror,
 } from "../services/config";
+import { saveTrayStyle } from "../services/tray";
 import { toUserMessage } from "../services/errors";
 import {
   testHttpProxy,
@@ -70,6 +72,7 @@ import type {
   LanguagePreference,
   ReduceMotionPreference,
   ThemePreference,
+  TrayStyle,
 } from "../types/launcher";
 import { readCachedLanguage } from "../utils/languageCache";
 import { formatLatency, formatSpeed } from "../utils/network";
@@ -221,6 +224,52 @@ async function changeLanguage(value: unknown): Promise<void> {
     showErrorToast(cause);
   } finally {
     languageSaving.value = false;
+  }
+}
+
+/* Tray style */
+
+const trayStyle = ref<TrayStyle>("panel");
+const trayStyleSaving = ref(false);
+// Linux ignores `tray_style` and always builds the fixed tray menu, so the
+// setting is hidden there instead of offering a choice that cannot take effect.
+const isLinuxPlatform = ref(false);
+
+async function detectPlatform(): Promise<void> {
+  isLinuxPlatform.value = await isLinux();
+}
+
+function isTrayStyle(value: unknown): value is TrayStyle {
+  return value === "panel" || value === "native_menu";
+}
+
+async function changeTrayStyle(value: unknown): Promise<void> {
+  if (trayStyleSaving.value || !isTrayStyle(value)) {
+    return;
+  }
+  if (value === trayStyle.value) {
+    return;
+  }
+
+  trayStyle.value = value;
+  trayStyleSaving.value = true;
+  try {
+    await saveTrayStyle(value);
+    if (config.value) {
+      config.value.tray_style = value;
+    }
+    trayStyleSaving.value = false;
+  } catch (cause) {
+    showErrorToast(cause);
+    // `save_tray_style` persists the value before rebuilding the tray, so a
+    // failure leaves the new value in the config. Resync instead of rolling the
+    // switch back locally.
+    trayStyleSaving.value = false;
+    try {
+      await refresh();
+    } catch {
+      // Keep the optimistic value when the resync fails as well.
+    }
   }
 }
 
@@ -778,6 +827,9 @@ watch(
     if (!languageSaving.value) {
       languagePreference.value = value.language_preference;
     }
+    if (!trayStyleSaving.value) {
+      trayStyle.value = value.tray_style;
+    }
 
     syncNetworkForms(value);
   },
@@ -787,6 +839,7 @@ watch(
 onMounted(() => {
   void loadAppVersion();
   void loadAutostartState();
+  void detectPlatform();
 });
 </script>
 
@@ -1012,6 +1065,31 @@ onMounted(() => {
                   {{ t("settings.appearance.reset") }}
                 </v-btn>
               </div>
+            </SettingsItem>
+
+            <SettingsItem
+              v-if="!isLinuxPlatform"
+              :title="t('settings.tray.style')"
+              wide
+            >
+              <v-btn-toggle
+                :model-value="trayStyle"
+                :disabled="trayStyleSaving"
+                :aria-label="t('settings.tray.style')"
+                mandatory
+                divided
+                density="compact"
+                variant="outlined"
+                color="primary"
+                @update:model-value="changeTrayStyle"
+              >
+                <v-btn value="panel" size="small">
+                  {{ t("settings.tray.panel") }}
+                </v-btn>
+                <v-btn value="native_menu" size="small">
+                  {{ t("settings.tray.nativeMenu") }}
+                </v-btn>
+              </v-btn-toggle>
             </SettingsItem>
           </div>
         </section>

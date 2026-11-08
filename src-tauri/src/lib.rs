@@ -16,6 +16,7 @@ mod process;
 mod setup;
 mod tasks;
 mod tray;
+mod tray_panel;
 mod update_check;
 mod updater;
 mod utils;
@@ -119,6 +120,7 @@ fn overlay_titlebar_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("decorum-disabled").build()
 }
 
+#[allow(clippy::expect_used)]
 pub fn run() {
     #[cfg(target_os = "linux")]
     {
@@ -164,6 +166,7 @@ pub fn run() {
                         | StateFlags::DECORATIONS
                         | StateFlags::FULLSCREEN,
                 )
+                .with_denylist(&[tray_panel::PANEL_LABEL])
                 .build(),
         )
         .plugin(
@@ -185,6 +188,7 @@ pub fn run() {
         .plugin(overlay_titlebar_plugin())
         .plugin(webview_shortcuts::plugin())
         .manage(setup::StartupWindowState::new())
+        .manage(tray_panel::TrayPanelState::default())
         .manage(updater::LauncherUpdateState::default())
         .manage({
             let startup_client = (|| {
@@ -213,10 +217,30 @@ pub fn run() {
             setup::on_setup(app)
         })
         .on_window_event(move |window, event| {
+            if window.label() == tray_panel::PANEL_LABEL {
+                match event {
+                    tauri::WindowEvent::Focused(false) => tray_panel::handle_blur(window),
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        tray_panel::hide_panel(window.app_handle());
+                    }
+                    _ => {}
+                }
+                return;
+            }
+
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if load_config().map(|c| c.close_to_tray).unwrap_or(true) {
                     api.prevent_close();
                     let _ = window.hide();
+                } else {
+                    // The prewarmed `tray-panel` window is never destroyed, so
+                    // the window list stays non-empty after the main window is
+                    // closed and the process would linger without any UI.
+                    // Exit explicitly instead. macOS keeps the process alive so
+                    // the dock icon can reopen the window.
+                    #[cfg(not(target_os = "macos"))]
+                    window.app_handle().exit(0);
                 }
             }
         })
@@ -225,6 +249,9 @@ pub fn run() {
             commands::rebuild_app_snapshot,
             // Window
             commands::show_main_window,
+            commands::set_tray_panel_height,
+            commands::hide_tray_panel,
+            commands::quit_app,
             // Config
             commands::save_github_proxy,
             commands::save_proxy,
@@ -247,9 +274,11 @@ pub fn run() {
             commands::save_theme_preference,
             commands::save_reduce_motion_preference,
             commands::save_language_preference,
+            commands::save_tray_style,
             commands::test_network_source,
             commands::test_http_proxy,
             commands::is_macos,
+            commands::is_linux,
             // Data Directory
             commands::set_data_dir,
             commands::open_folder,

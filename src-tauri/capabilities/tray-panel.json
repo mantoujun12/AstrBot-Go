@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "tray-panel",
+  "description": "Capability for the tray panel window. The panel only listens to events emitted by the backend (app snapshots, panel shown) and emits nothing itself, so the event plugin default set (listen/unlisten/emit/emit-to) is the whole surface it needs.",
+  "windows": ["tray-panel"],
+  "permissions": ["core:event:default"]
+}

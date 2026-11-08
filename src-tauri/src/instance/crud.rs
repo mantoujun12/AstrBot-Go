@@ -393,19 +393,39 @@ pub fn list_instances(
         .instances
         .iter()
         .map(|(id, inst)| {
-            let (state, port, dashboard_enabled) = match runtime_info.get(id) {
-                Some(InstanceRuntimeInfo::Starting) => {
-                    (InstanceState::Starting, inst.port, is_dashboard_enabled(id))
-                }
+            let (state, port, dashboard_enabled, started_at_ms) = match runtime_info.get(id) {
+                Some(InstanceRuntimeInfo::Starting) => (
+                    InstanceState::Starting,
+                    inst.port,
+                    is_dashboard_enabled(id),
+                    None,
+                ),
                 Some(InstanceRuntimeInfo::Live {
                     port,
                     dashboard_enabled,
-                }) => (InstanceState::Running, *port, *dashboard_enabled),
+                    started_at_ms,
+                }) => (
+                    InstanceState::Running,
+                    *port,
+                    *dashboard_enabled,
+                    *started_at_ms,
+                ),
                 Some(InstanceRuntimeInfo::Stopping {
                     port,
                     dashboard_enabled,
-                }) => (InstanceState::Stopping, *port, *dashboard_enabled),
-                None => (InstanceState::Stopped, inst.port, is_dashboard_enabled(id)),
+                    started_at_ms,
+                }) => (
+                    InstanceState::Stopping,
+                    *port,
+                    *dashboard_enabled,
+                    *started_at_ms,
+                ),
+                None => (
+                    InstanceState::Stopped,
+                    inst.port,
+                    is_dashboard_enabled(id),
+                    None,
+                ),
             };
 
             let pid_tracker_not_available = !dashboard_enabled && std::env::consts::OS == "windows";
@@ -430,6 +450,7 @@ pub fn list_instances(
                 auto_restart_notify: inst.auto_restart_notify,
                 last_exit_reason,
                 restart_attempts,
+                started_at_ms,
             }
         })
         .collect();

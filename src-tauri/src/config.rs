@@ -41,6 +41,31 @@ pub enum ThemePreference {
     Dark,
 }
 
+/// How the tray icon reacts to a right click.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TrayStyle {
+    NativeMenu,
+    #[default]
+    Panel,
+}
+
+impl<'de> Deserialize<'de> for TrayStyle {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // Malformed values (null, numbers, objects) and unknown strings from
+        // another build must not invalidate the whole config record, which
+        // would be reset as corrupted, so they degrade to the default style.
+        let value = serde_json::Value::deserialize(deserializer)?;
+        Ok(match value.as_str() {
+            Some("native_menu") => Self::NativeMenu,
+            _ => Self::Panel,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ReduceMotionPreference {
@@ -94,6 +119,12 @@ pub struct AppConfig {
     #[serde(default = "default_true")]
     pub close_to_tray: bool,
     #[serde(default)]
+    pub tray_style: TrayStyle,
+    /// Persisted tray panel height in logical pixels; `None` until the panel
+    /// has reported a height once.
+    #[serde(default)]
+    pub tray_panel_height: Option<f64>,
+    #[serde(default)]
     pub autostart_minimize_to_tray: bool,
     #[serde(default = "default_true")]
     pub check_instance_update: bool,
@@ -131,6 +162,8 @@ impl Default for AppConfig {
             allow_local_dns_probe: false,
             use_uv_for_deps: false,
             close_to_tray: true,
+            tray_style: TrayStyle::Panel,
+            tray_panel_height: None,
             autostart_minimize_to_tray: false,
             check_instance_update: true,
             persist_instance_state: false,
@@ -556,6 +589,76 @@ mod tests {
         assert_eq!(instance.resource_alert_cpu_percent, None);
         assert_eq!(instance.resource_alert_memory_bytes, None);
         assert_eq!(instance.resource_alert_disk_bytes, None);
+        Ok(())
+    }
+
+    #[test]
+    fn tray_style_tolerates_unknown_values() -> Result<()> {
+        let menu: TrayStyle = serde_json::from_str(r#""native_menu""#)?;
+        assert_eq!(menu, TrayStyle::NativeMenu);
+
+        let panel: TrayStyle = serde_json::from_str(r#""panel""#)?;
+        assert_eq!(panel, TrayStyle::Panel);
+
+        // A value written by a newer build must not invalidate the whole
+        // config record, which classify_config_record would reset.
+        let unknown: TrayStyle = serde_json::from_str(r#""compact_cards""#)?;
+        assert_eq!(unknown, TrayStyle::Panel);
+
+        assert_eq!(
+            serde_json::to_string(&TrayStyle::NativeMenu)?,
+            r#""native_menu""#
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn app_config_without_tray_style_defaults_to_panel() -> Result<()> {
+        let config: AppConfig = serde_json::from_str("{}")?;
+        assert_eq!(config.tray_style, TrayStyle::Panel);
+        Ok(())
+    }
+
+    #[test]
+    fn tray_style_tolerates_malformed_values() -> Result<()> {
+        // Null, numbers and objects must not fail deserialization: a failed
+        // AppConfig parse makes classify_config_record treat the record as
+        // corrupted and reset every other setting with it.
+        for raw in ["null", "42", "{\"style\":\"panel\"}", "[]", "true"] {
+            let style: TrayStyle = serde_json::from_str(raw)?;
+            assert_eq!(style, TrayStyle::Panel, "raw value: {raw}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn app_config_keeps_other_fields_when_tray_style_is_malformed() -> Result<()> {
+        let config: AppConfig = serde_json::from_str(
+            r#"{
+                "tray_style": {"unexpected": true},
+                "github_proxy": "https://gh.example/",
+                "close_to_tray": false,
+                "tray_panel_height": 412.0
+            }"#,
+        )?;
+
+        assert_eq!(config.tray_style, TrayStyle::Panel);
+        assert_eq!(config.github_proxy, "https://gh.example/");
+        assert!(!config.close_to_tray);
+        assert_eq!(config.tray_panel_height, Some(412.0));
+
+        let numeric: AppConfig =
+            serde_json::from_str(r#"{"tray_style": 7, "github_proxy": "https://gh.example/"}"#)?;
+        assert_eq!(numeric.tray_style, TrayStyle::Panel);
+        assert_eq!(numeric.github_proxy, "https://gh.example/");
+        Ok(())
+    }
+
+    #[test]
+    fn tray_panel_height_defaults_to_none() -> Result<()> {
+        let config: AppConfig = serde_json::from_str("{}")?;
+        assert_eq!(config.tray_panel_height, None);
+        assert_eq!(AppConfig::default().tray_panel_height, None);
         Ok(())
     }
 

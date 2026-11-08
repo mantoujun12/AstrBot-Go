@@ -156,9 +156,17 @@ pub enum InstanceRuntimeInfo {
     /// sources of truth at snapshot assembly time.
     Starting,
     /// Process running.
-    Live { port: u16, dashboard_enabled: bool },
+    Live {
+        port: u16,
+        dashboard_enabled: bool,
+        started_at_ms: Option<i64>,
+    },
     /// Shutdown in progress. Values captured from Live at transition time.
-    Stopping { port: u16, dashboard_enabled: bool },
+    Stopping {
+        port: u16,
+        dashboard_enabled: bool,
+        started_at_ms: Option<i64>,
+    },
 }
 
 impl InstanceProcess {
@@ -183,6 +191,16 @@ impl InstanceProcess {
             alert_tracker: AlertTracker::default(),
             started_at: Some(std::time::Instant::now()),
         }
+    }
+
+    /// Converts the monotonic start instant into a wall-clock Unix epoch timestamp.
+    pub(crate) fn started_at_epoch_ms(&self) -> Option<i64> {
+        self.started_at.map(|started| {
+            let elapsed_ms = i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX);
+            chrono::Utc::now()
+                .timestamp_millis()
+                .saturating_sub(elapsed_ms)
+        })
     }
 }
 

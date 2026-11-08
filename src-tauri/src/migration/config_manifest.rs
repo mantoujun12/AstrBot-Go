@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::{
     has_config_record, has_manifest_record, with_config_mut, with_manifest_mut, AppConfig,
     AppManifest, InstalledVersion, InstanceConfig, LanguagePreference, ReduceMotionPreference,
-    ThemePreference,
+    ThemePreference, TrayStyle,
 };
 use crate::network_config::apply_legacy_mainland_presets;
 use crate::utils::paths::{config_path, manifest_path};
@@ -87,6 +87,8 @@ impl LegacyAppConfig {
             theme_preference: self.theme_preference,
             language_preference: LanguagePreference::System,
             reduce_motion_preference: ReduceMotionPreference::default(),
+            tray_style: TrayStyle::Panel,
+            tray_panel_height: None,
             ignored_launcher_version: String::new(),
         }
     }

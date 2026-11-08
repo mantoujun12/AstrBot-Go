@@ -36,6 +36,28 @@ const ruRU = {
     ignore: "Игнорировать эту версию",
     noNotes: "Примечания к выпуску отсутствуют",
   },
+  trayPanel: {
+    title: "AstrBot Launcher",
+    openMainWindow: "Открыть главное окно",
+    openSettings: "Открыть настройки",
+    quit: "Выход",
+    empty: "Нет экземпляров",
+    loading: "Загрузка экземпляров…",
+    loadFailed: "Не удалось загрузить экземпляры",
+    actions: {
+      open: "Открыть {name}",
+      start: "Запустить {name}",
+      stop: "Остановить {name}",
+      confirmStop: "Нажмите ещё раз, чтобы остановить {name}",
+      restart: "Перезапустить {name}",
+    },
+    duration: {
+      hours: "{hours} ч",
+      hoursMinutes: "{hours} ч {minutes} мин",
+      minutes: "{minutes} мин",
+      lessThanMinute: "< 1 мин",
+    },
+  },
   settings: {
     appearance: {
       language: "Язык",
@@ -97,6 +119,11 @@ const ruRU = {
         useUvForDepsHint:
           "Использовать uv вместо pip для быстрой синхронизации зависимостей Python при развёртывании и запуске (требуется компонент uv)",
       },
+    },
+    tray: {
+      style: "Стиль трея",
+      panel: "Панель",
+      nativeMenu: "Меню",
     },
     network: {
       githubProxy: "Прокси GitHub",

@@ -24,6 +24,9 @@ pub struct InstanceStatus {
     pub last_exit_reason: String,
     /// Consecutive crash count against the auto-restart budget.
     pub restart_attempts: u32,
+    /// Start time of the tracked process for `Live` or `Stopping` states, as
+    /// Unix epoch milliseconds. `None` for all other states.
+    pub started_at_ms: Option<i64>,
 }
 
 /// Deploy progress messages emitted to the frontend.
