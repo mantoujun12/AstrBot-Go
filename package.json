@@ -1,5 +1,9 @@
 {
   "name": "astrbot-launcher-vue",
+  "description": "Desktop launcher for AstrBot",
+  "homepage": "https://github.com/mantoujun12/astrbot-launcher-vue",
+  "license": "MIT",
+  "author": "mantoujun12",
   "private": true,
   "version": "0.3.0",
   "type": "module",
