@@ -38,7 +38,7 @@
 | Linux | 🟡半支持 | x64、ARM64 | 需要 WebKitGTK 4.1 等 [Tauri 系统依赖](https://v2.tauri.app/start/prerequisites/#linux) |
 | macOS | 🟡半支持 | Intel、Apple Silicon | 仅窗口适配，构建时需要 Xcode 及其命令行工具 |
 
-平台相关能力通过 Rust 条件编译和 Tauri 构建配置分别适配。托盘面板在 Windows 与 macOS 上可用；Linux 因 appindicator 不派发点击事件，会回退为仅含“显示”与“退出”的固定托盘菜单。仓库目前尚未配置跨平台 CI，Linux 和 macOS 安装包发布前仍应在对应平台或 CI runner 上完成构建与运行验证。
+平台相关能力通过 Rust 条件编译和 Tauri 构建配置分别适配。托盘面板在 Windows 与 macOS 上可用；Linux 因 appindicator 不派发点击事件，会回退为仅含“显示”与“退出”的固定托盘菜单。`.github/workflows/auto-release.yml` 会并行构建 Windows x64、Windows ARM64、Linux x64、macOS Apple Silicon 与 macOS Intel，并把全部安装包附加到同一个 Release，因此打上版本标签后各平台安装包会一并发布。未配置 Apple 签名密钥时，macOS 构建不签名、不公证，首次启动可能触发 Gatekeeper 提示。
 
 ## 技术栈
 

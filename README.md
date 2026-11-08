@@ -38,7 +38,7 @@ English | [简体中文](./README_zh.md)
 | Linux | 🟡 Partial | x64, ARM64 | Requires WebKitGTK 4.1 and other [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/#linux) |
 | macOS | 🟡 Partial | Intel, Apple Silicon | Window adaptation only; building requires Xcode and its Command Line Tools |
 
-Platform-specific capabilities are adapted through Rust conditional compilation and Tauri build configuration. The tray panel is available on Windows and macOS; Linux falls back to a fixed tray menu with only Show and Quit because appindicators do not receive click events. Cross-platform CI is not configured yet, so Linux and macOS packages should still be built and verified on target platforms or CI runners before release.
+Platform-specific capabilities are adapted through Rust conditional compilation and Tauri build configuration. The tray panel is available on Windows and macOS; Linux falls back to a fixed tray menu with only Show and Quit because appindicators do not receive click events. `.github/workflows/auto-release.yml` builds Windows x64, Windows ARM64, Linux x64, macOS Apple Silicon and macOS Intel in parallel and attaches every installer to the same release, so a tagged version ships all platforms at once. macOS builds are unsigned and unnotarized unless Apple signing secrets are configured, so Gatekeeper may warn on first launch.
 
 ## Tech Stack
 
