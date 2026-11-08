@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
         />
       </div>
       <span class="instance-webui__version">{{ instance.version }}</span>
-      <span class="instance-webui__address" :title="webuiUrl">
+      <span class="instance-webui__address page-mono" :title="webuiUrl">
         {{ webuiUrl }}
       </span>
       <v-spacer />
@@ -319,7 +319,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div v-else class="instance-webui__state">
+      <div v-else class="instance-webui__state page-center">
         <EmptyState
           v-if="!instance.dashboard_enabled"
           :text="t('instances.webui.disabled')"
@@ -422,7 +422,6 @@ onBeforeUnmount(() => {
   min-width: 0;
   overflow: hidden;
   color: rgba(var(--v-theme-on-surface), 0.56);
-  font-family: "Consolas", "Cascadia Mono", monospace;
   font-size: 0.78rem;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -474,9 +473,6 @@ onBeforeUnmount(() => {
 }
 
 .instance-webui__state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex: 1 1 auto;
   min-height: 0;
 }

@@ -338,9 +338,9 @@ async function handleOpenFolder(path: string): Promise<void> {
       type="error"
       variant="tonal"
       density="comfortable"
-      class="backups-alert"
+      class="backups-alert page-alert"
     >
-      <div class="backups-alert__body">
+      <div class="backups-alert__body page-row--between">
         <span>{{ error }}</span>
         <v-btn
           size="small"
@@ -353,7 +353,7 @@ async function handleOpenFolder(path: string): Promise<void> {
       </div>
     </v-alert>
 
-    <div v-if="snapshot === null && !error" class="backups-state">
+    <div v-if="snapshot === null && !error" class="backups-state page-center">
       <v-progress-circular
         indeterminate
         color="primary"
@@ -379,7 +379,7 @@ async function handleOpenFolder(path: string): Promise<void> {
     </template>
 
     <template v-else-if="snapshot !== null">
-      <div class="backups-filters">
+      <div class="backups-filters page-row">
         <v-select
           v-model="activeInstanceId"
           :items="instanceFilterItems"
@@ -418,8 +418,8 @@ async function handleOpenFolder(path: string): Promise<void> {
           :no-data-text="t('backups.noMatches')"
         >
           <template #item.instance_name="{ item }">
-            <div class="backup-name">
-              <span class="backup-name__text">
+            <div class="backup-name page-row">
+              <span class="backup-name__text page-anywhere">
                 {{
                   item.corrupted
                     ? t("backups.corruptedName")
@@ -454,13 +454,13 @@ async function handleOpenFolder(path: string): Promise<void> {
           </template>
 
           <template #item.note="{ item }">
-            <span class="backup-note">
+            <span class="backup-note page-anywhere">
               {{ item.corrupted ? item.parse_error : item.metadata.note || "—" }}
             </span>
           </template>
 
           <template #item.actions="{ item }">
-            <div class="backup-actions">
+            <div class="backup-actions page-row">
               <v-btn
                 size="small"
                 variant="text"
@@ -531,30 +531,16 @@ async function handleOpenFolder(path: string): Promise<void> {
 </template>
 
 <style scoped>
-.backups-alert {
-  margin-bottom: 16px;
-}
-
 .backups-alert__body {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .backups-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 220px;
 }
 
 .backups-filters {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
   margin-bottom: 12px;
 }
 
@@ -567,29 +553,18 @@ async function handleOpenFolder(path: string): Promise<void> {
 }
 
 .backup-name {
-  display: flex;
-  align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
   min-width: 0;
-}
-
-.backup-name__text {
-  overflow-wrap: anywhere;
 }
 
 .backup-note {
   color: rgba(var(--v-theme-on-surface), 0.72);
   font-size: 0.82rem;
-  overflow-wrap: anywhere;
 }
 
 .backup-actions {
-  display: flex;
-  align-items: center;
   justify-content: flex-end;
   gap: 2px;
-  flex-wrap: wrap;
 }
 
 @media (max-width: 599px) {

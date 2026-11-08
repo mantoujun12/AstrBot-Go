@@ -1061,7 +1061,7 @@ function openWebui(instance: InstanceStatus): void {
       type="error"
       variant="tonal"
       density="comfortable"
-      class="instances-alert"
+      class="instances-alert page-alert"
     >
       <div class="instances-alert__body">
         <span>{{ error }}</span>
@@ -1081,7 +1081,7 @@ function openWebui(instance: InstanceStatus): void {
       type="warning"
       variant="tonal"
       density="comfortable"
-      class="instances-alert"
+      class="instances-alert page-alert"
     >
       <div class="instances-alert__body">
         <span>{{ updatesError }}</span>
@@ -1096,7 +1096,7 @@ function openWebui(instance: InstanceStatus): void {
       </div>
     </v-alert>
 
-    <div v-if="snapshot === null && !error" class="instances-state">
+    <div v-if="snapshot === null && !error" class="instances-state page-center">
       <v-progress-circular
         indeterminate
         color="primary"
@@ -1162,11 +1162,11 @@ function openWebui(instance: InstanceStatus): void {
         </template>
 
         <template #item.version="{ item }">
-          <span class="instance-version">{{ item.version }}</span>
+          <span class="instance-version page-nums">{{ item.version }}</span>
         </template>
 
         <template #item.actions="{ item }">
-          <div class="instance-actions">
+          <div class="instance-actions page-row">
             <template v-if="item.state === 'stopped'">
               <v-btn
                 size="small"
@@ -1433,10 +1433,6 @@ function openWebui(instance: InstanceStatus): void {
 </template>
 
 <style scoped>
-.instances-alert {
-  margin-bottom: 16px;
-}
-
 .instances-alert__body {
   display: flex;
   align-items: center;
@@ -1446,13 +1442,9 @@ function openWebui(instance: InstanceStatus): void {
 
 .instance-version {
   color: rgba(var(--v-theme-on-surface), 0.68);
-  font-variant-numeric: tabular-nums;
 }
 
 .instances-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 180px;
 }
 
@@ -1463,11 +1455,8 @@ function openWebui(instance: InstanceStatus): void {
 }
 
 .instance-actions {
-  display: flex;
-  align-items: center;
   justify-content: flex-end;
   gap: 4px;
-  flex-wrap: wrap;
 }
 
 .instance-menu {

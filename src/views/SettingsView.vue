@@ -1031,7 +1031,7 @@ onMounted(() => {
             </SettingsItem>
 
             <SettingsItem :title="t('settings.appearance.themeColor')" stacked>
-              <div class="theme-color-controls">
+              <div class="theme-color-controls page-row">
                 <v-color-input
                   :model-value="customPrimary"
                   color-pip
@@ -1142,7 +1142,7 @@ onMounted(() => {
 
           <div class="settings-list-card">
             <SettingsItem :title="t('settings.network.httpProxy')" stacked>
-              <div class="settings-proxy-form">
+              <div class="settings-proxy-form page-row">
                 <v-text-field
                   v-model="proxyForm.url"
                   :label="t('settings.network.fields.url')"
@@ -1271,7 +1271,7 @@ onMounted(() => {
               stacked
             >
               <div class="settings-path-row">
-                <code class="settings-path">{{ dataDir || "—" }}</code>
+                <code class="settings-path page-mono page-anywhere">{{ dataDir || "—" }}</code>
                 <v-btn
                   color="primary"
                   variant="tonal"
@@ -1326,7 +1326,7 @@ onMounted(() => {
             role="status"
           >
             <div>{{ t("settings.data.restartNotice") }}</div>
-            <code class="settings-path">{{ restartPendingDir }}</code>
+            <code class="settings-path page-mono page-anywhere">{{ restartPendingDir }}</code>
           </v-alert>
         </section>
 
@@ -1561,10 +1561,7 @@ onMounted(() => {
 }
 
 .settings-proxy-form {
-  display: flex;
-  flex-wrap: wrap;
   gap: 10px;
-  align-items: center;
 }
 
 .settings-proxy-form__url {
@@ -1614,10 +1611,8 @@ onMounted(() => {
 .settings-path {
   min-width: 0;
   color: rgba(var(--v-theme-on-surface), 0.76);
-  font-family: "Consolas", "Cascadia Mono", monospace;
   font-size: 0.8rem;
   line-height: 1.5;
-  overflow-wrap: anywhere;
 }
 
 .settings-value {
@@ -1634,10 +1629,7 @@ onMounted(() => {
 }
 
 .theme-color-controls {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .theme-color-input {

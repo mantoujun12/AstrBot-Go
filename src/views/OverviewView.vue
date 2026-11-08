@@ -503,10 +503,10 @@ function retry(): void {
       v-if="error"
       type="error"
       variant="tonal"
-      class="overview-alert"
+      class="overview-alert page-alert"
       role="alert"
     >
-      <div class="alert-content">
+      <div class="alert-content page-row--between">
         <span>{{ error }}</span>
         <v-btn
           color="error"
@@ -560,7 +560,7 @@ function retry(): void {
             aria-hidden="true"
           />
           <div class="stat-label">{{ card.label }}</div>
-          <div class="stat-value">{{ card.value }}</div>
+          <div class="stat-value page-nums">{{ card.value }}</div>
         </section>
       </div>
 
@@ -701,7 +701,7 @@ function retry(): void {
                     />
                     {{ item.label }}
                   </span>
-                  <strong>{{ item.count }}</strong>
+                  <strong class="page-nums">{{ item.count }}</strong>
                 </div>
               </div>
 
@@ -779,15 +779,10 @@ function retry(): void {
 
 .overview-alert {
   border-radius: 12px;
-  margin-bottom: 16px;
 }
 
 .alert-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
   width: 100%;
 }
 
@@ -831,7 +826,6 @@ function retry(): void {
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -1020,7 +1014,6 @@ function retry(): void {
 
 .composition-row strong {
   font-size: 14px;
-  font-variant-numeric: tabular-nums;
 }
 
 .composition-label {

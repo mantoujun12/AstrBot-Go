@@ -315,7 +315,7 @@ function handleClear(): void {
         :aria-label="t('logs.searchAria')"
       />
 
-      <div class="logs-actions">
+      <div class="logs-actions page-row">
         <v-switch
           v-model="autoScroll"
           class="logs-autoscroll"
@@ -343,7 +343,7 @@ function handleClear(): void {
             <v-icon icon="mdi-minus" size="16" aria-hidden="true" />
           </v-btn>
           <output
-            class="logs-font-size__value"
+            class="logs-font-size__value page-nums"
             :aria-label="t('logs.currentFontSize')"
           >
             {{ fontSize }}
@@ -433,10 +433,7 @@ function handleClear(): void {
 }
 
 .logs-actions {
-  display: flex;
   flex: 0 0 auto;
-  align-items: center;
-  flex-wrap: wrap;
   gap: 2px 4px;
   margin-left: auto;
 }
@@ -467,7 +464,6 @@ function handleClear(): void {
   min-width: 20px;
   color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 

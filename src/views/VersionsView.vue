@@ -492,10 +492,10 @@ function openReleaseNotes(release: GitHubRelease): void {
           <div
             v-for="row in componentRows"
             :key="row.status.id"
-            class="version-row"
+            class="version-row page-row--between"
           >
             <div class="version-row__main">
-              <div class="version-row__title">
+              <div class="version-row__title page-row page-anywhere">
                 <span>{{ row.status.display_name }}</span>
                 <v-chip
                   size="x-small"
@@ -510,7 +510,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                   }}
                 </v-chip>
               </div>
-              <div class="version-row__sub">
+              <div class="version-row__sub page-anywhere">
                 {{
                   translateDynamicKey(
                     "components.description." + row.status.id,
@@ -520,7 +520,7 @@ function openReleaseNotes(release: GitHubRelease): void {
               </div>
               <DownloadProgressBar :progress="row.progress" />
             </div>
-            <div class="version-row__actions">
+            <div class="version-row__actions page-row">
               <template v-if="row.componentId">
                 <v-btn
                   v-if="!row.status.installed"
@@ -603,10 +603,10 @@ function openReleaseNotes(release: GitHubRelease): void {
           <div
             v-for="row in installedRows"
             :key="row.version.version"
-            class="version-row"
+            class="version-row page-row--between"
           >
             <div class="version-row__main">
-              <div class="version-row__title">
+              <div class="version-row__title page-row page-anywhere">
                 <span>{{ row.version.version }}</span>
               </div>
               <div class="version-row__instances">
@@ -626,7 +626,7 @@ function openReleaseNotes(release: GitHubRelease): void {
                 </span>
               </div>
             </div>
-            <div class="version-row__actions">
+            <div class="version-row__actions page-row">
               <v-btn
                 size="small"
                 variant="text"
@@ -698,10 +698,10 @@ function openReleaseNotes(release: GitHubRelease): void {
           <div
             v-for="row in releaseRows"
             :key="row.release.tag_name"
-            class="version-row"
+            class="version-row page-row--between"
           >
             <div class="version-row__main">
-              <div class="version-row__title">
+              <div class="version-row__title page-row page-anywhere">
                 <span>{{ row.release.tag_name }}</span>
                 <v-chip
                   v-if="row.release.prerelease"
@@ -722,16 +722,16 @@ function openReleaseNotes(release: GitHubRelease): void {
                   {{ t("versions.status.installed") }}
                 </v-chip>
               </div>
-              <div class="version-row__sub">
+              <div class="version-row__sub page-anywhere">
                 {{ row.release.name || row.release.tag_name }}
               </div>
-              <div class="version-row__meta page-muted">
+              <div class="version-row__meta page-row page-muted">
                 <span>{{ formatDateTime(row.release.published_at) }}</span>
                 <span>{{ formatFileSize(row.size) }}</span>
               </div>
               <DownloadProgressBar :progress="row.progress" />
             </div>
-            <div class="version-row__actions">
+            <div class="version-row__actions page-row">
               <v-btn
                 size="small"
                 variant="text"
@@ -820,12 +820,8 @@ function openReleaseNotes(release: GitHubRelease): void {
 }
 
 .version-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 16px;
   padding: 14px 18px;
-  flex-wrap: wrap;
 }
 
 .version-row + .version-row {
@@ -838,15 +834,11 @@ function openReleaseNotes(release: GitHubRelease): void {
 }
 
 .version-row__title {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
   color: rgb(var(--v-theme-on-surface));
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.4;
-  overflow-wrap: anywhere;
 }
 
 .version-row__sub {
@@ -854,15 +846,11 @@ function openReleaseNotes(release: GitHubRelease): void {
   color: rgba(var(--v-theme-on-surface), 0.6);
   font-size: 0.8rem;
   line-height: 1.5;
-  overflow-wrap: anywhere;
 }
 
 .version-row__meta {
-  display: flex;
-  align-items: center;
   gap: 12px;
   margin-top: 4px;
-  flex-wrap: wrap;
 }
 
 .version-row__instances {
@@ -874,11 +862,8 @@ function openReleaseNotes(release: GitHubRelease): void {
 }
 
 .version-row__actions {
-  display: flex;
-  align-items: center;
   gap: 6px;
   margin-left: auto;
-  flex-wrap: wrap;
 }
 
 .version-loading {
