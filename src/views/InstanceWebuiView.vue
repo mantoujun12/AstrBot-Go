@@ -2,12 +2,11 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import EmptyState from "../components/common/EmptyState.vue";
-import StatusChip from "../components/common/StatusChip.vue";
 import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import { useOperation } from "../composables/useOperation";
 import { translateDynamicKey } from "../i18n/dynamic";
 import { openExternalUrl } from "../services/app";
-import { openInstanceCoreFolder, startInstance } from "../services/instances";
+import { openInstanceCoreFolder, restartInstance, startInstance, stopInstance } from "../services/instances";
 import { useLauncherStore } from "../stores/launcher";
 import { useProgressStore } from "../stores/progress";
 import { useTabsStore } from "../stores/tabs";
@@ -31,7 +30,14 @@ const instance = computed<InstanceStatus | null>(
 );
 
 const startKey = computed(() => `instance:${props.instanceId}:start`);
+const stopKey = computed(() => `instance:${props.instanceId}:stop`);
+const restartKey = computed(() => `instance:${props.instanceId}:restart`);
 const startBusy = computed(() => isBusy(startKey.value));
+const stopBusy = computed(() => isBusy(stopKey.value));
+const restartBusy = computed(() => isBusy(restartKey.value));
+const lifecycleBusy = computed(
+  () => startBusy.value || stopBusy.value || restartBusy.value,
+);
 
 function normalizeHost(host: string): string {
   const value = host.trim();
@@ -126,6 +132,28 @@ async function startFromEmpty(): Promise<void> {
   });
 }
 
+async function stopFromToolbar(): Promise<void> {
+  const target = instance.value;
+  if (!target || lifecycleBusy.value) {
+    return;
+  }
+
+  await run(stopKey.value, () => stopInstance(target.id), {
+    success: t("instances.toasts.stopped"),
+  });
+}
+
+async function restartFromToolbar(): Promise<void> {
+  const target = instance.value;
+  if (!target || lifecycleBusy.value) {
+    return;
+  }
+
+  await run(restartKey.value, () => restartInstance(target.id), {
+    success: t("instances.toasts.started", { name: target.name }),
+  });
+}
+
 async function openCoreFolder(): Promise<void> {
   try {
     await openInstanceCoreFolder(props.instanceId);
@@ -166,7 +194,52 @@ onBeforeUnmount(() => {
 <template>
   <div v-if="instance" class="instance-webui">
     <div class="instance-webui__toolbar">
-      <StatusChip :state="instance.state" size="x-small" />
+      <div class="instance-webui__quick-actions">
+        <template v-if="instance.state === 'running'">
+          <v-btn
+            icon="mdi-stop"
+            color="warning"
+            variant="text"
+            size="small"
+            :aria-label="t('instances.actions.stop')"
+            :disabled="maintenanceActive || lifecycleBusy"
+            :loading="stopBusy"
+            @click="stopFromToolbar"
+          />
+          <v-btn
+            icon="mdi-restart"
+            variant="text"
+            size="small"
+            :aria-label="t('instances.actions.restart')"
+            :disabled="maintenanceActive || lifecycleBusy"
+            :loading="restartBusy"
+            @click="restartFromToolbar"
+          />
+        </template>
+        <v-btn
+          v-else-if="instance.state === 'stopped'"
+          icon="mdi-play"
+          color="primary"
+          variant="text"
+          size="small"
+          :aria-label="t('instances.actions.start')"
+          :disabled="maintenanceActive || lifecycleBusy"
+          :loading="startBusy"
+          @click="startFromEmpty"
+        />
+        <v-progress-circular
+          v-else
+          indeterminate
+          color="primary"
+          size="20"
+          width="2"
+          :aria-label="
+            instance.state === 'starting'
+              ? t('instances.webui.starting')
+              : t('instances.webui.stopping')
+          "
+        />
+      </div>
       <span class="instance-webui__version">{{ instance.version }}</span>
       <span class="instance-webui__address" :title="webuiUrl">
         {{ webuiUrl }}
@@ -328,6 +401,13 @@ onBeforeUnmount(() => {
   height: 48px;
   padding: 0 12px;
   background: rgb(var(--v-theme-surface));
+}
+
+.instance-webui__quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
 }
 
 .instance-webui__version {
