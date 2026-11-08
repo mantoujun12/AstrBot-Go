@@ -35,10 +35,10 @@ English | [简体中文](./README_zh.md)
 | Platform | Support | Architectures | Notes |
 | --- | --- | --- | --- |
 | Windows | 🟢 Supported | x64, ARM64 | Requires WebView2; Windows ARM64 runs via an x64-compatible Python runtime |
-| Linux | 🟡 Partial | x64, ARM64 | Requires WebKitGTK 4.1 and other [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/#linux) |
+| Linux | 🟡 Partial | x64, ARM64 | Requires WebKitGTK 4.1 and other [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/#linux). Release builds currently ship x64 packages only. |
 | macOS | 🟡 Partial | Intel, Apple Silicon | Window adaptation only; building requires Xcode and its Command Line Tools |
 
-Platform-specific capabilities are adapted through Rust conditional compilation and Tauri build configuration. The tray panel is available on Windows and macOS; Linux falls back to a fixed tray menu with only Show and Quit because appindicators do not receive click events. Cross-platform CI is not configured yet, so Linux and macOS packages should still be built and verified on target platforms or CI runners before release.
+Platform-specific capabilities are adapted through Rust conditional compilation and Tauri build configuration. The tray panel is available on Windows and macOS; Linux falls back to a fixed tray menu with only Show and Quit because appindicators do not receive click events. `.github/workflows/auto-release.yml` builds Windows x64, Windows ARM64, Linux x64, macOS Apple Silicon and macOS Intel in parallel and attaches every installer to the same release, so a tagged version ships every built installer at once. macOS builds are unsigned and unnotarized, so Gatekeeper blocks the first launch until the app is approved manually.
 
 ## Tech Stack
 

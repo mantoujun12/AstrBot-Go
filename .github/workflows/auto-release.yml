@@ -21,12 +21,28 @@
 # A version mismatch or a legacy version file fails the job; a missing changelog or an existing tag skips the build.
 # 版本不一致或版本文件仍位于旧目录会直接失败；缺少 changelog 或 tag 已存在时跳过构建。
 #
+# Build matrix / 构建矩阵
+# - Five platforms are built in parallel: Windows x64, Windows ARM64, Linux x64, macOS Apple
+#   Silicon, and macOS Intel. Each platform uploads its bundles as installers-<platform>.
+#   并行构建五个平台：Windows x64、Windows ARM64、Linux x64、macOS Apple Silicon 与 macOS Intel；
+#   每个平台把构建产物上传为 installers-<平台>。
+# - The release carries one latest.json updater manifest with every built platform, keyed by
+#   Tauri updater targets: windows-x86_64-nsis, windows-x86_64-msi, windows-aarch64-nsis,
+#   windows-aarch64-msi, linux-x86_64, darwin-aarch64, and darwin-x86_64.
+#   Release 附带唯一的 latest.json 更新清单，按 Tauri Updater 的目标标识列出所有已构建平台：
+#   windows-x86_64-nsis、windows-x86_64-msi、windows-aarch64-nsis、windows-aarch64-msi、
+#   linux-x86_64、darwin-aarch64 与 darwin-x86_64。
+# - macOS bundles are unsigned and unnotarized unless Apple signing secrets are configured, so
+#   users must bypass Gatekeeper manually.
+#   未配置 Apple 签名密钥时，macOS 安装包不带签名与公证，用户需要手动绕过 Gatekeeper。
+#
 # Security / 安全
 # - Third-party actions are pinned to full commit SHAs; update pins deliberately.
 #   第三方 action 固定到完整 commit SHA，升级时需人工审核。
-# - The build job has read-only contents permission and does not persist checkout credentials.
-#   The publish job has contents: write and never runs repository build code.
-#   构建任务只有 contents 只读权限且不保留 checkout 凭据；发布任务拥有 contents: write 权限，但不执行仓库构建代码。
+# - The prepare and build jobs have read-only contents permission and do not persist checkout
+#   credentials. The publish job has contents: write and never runs repository build code.
+#   准备与构建任务只有 contents 只读权限，且不保留 checkout 凭据；
+#   发布任务拥有 contents: write 权限，但不执行仓库构建代码。
 # - Immediately before publishing, the tag is re-checked and created atomically so a concurrent
 #   tag cannot make the release describe a different commit.
 #   发布前会再次校验 tag，并以原子方式创建，避免并发改动导致 Release 与源码不一致。
@@ -54,14 +70,19 @@
 #    并为每条条目补上来源 PR 的完整 Markdown 链接（英文用半角括号，中文用全角括号）；
 #    并新建空的 changelogs/unreleased.md 供下一轮使用。
 #    合并前先变基到最新 main，并把并发新增的条目移到新的 changelogs/unreleased.md，留到下一轮发布。
-# 3. Merge the version update pull request into main. The workflow builds Windows NSIS/MSI installers
-#    in a read-only job, then creates a GitHub Release in a separate job with write access.
+# 3. Merge the version update pull request into main. A read-only prepare job resolves the release
+#    metadata, then the build matrix produces the Windows x64, Windows ARM64, Linux x64, macOS Apple
+#    Silicon, and macOS Intel installers in parallel. A separate job with write access creates the
+#    GitHub Release, uploads every installer, and generates a single multi-platform latest.json
+#    updater manifest before publishing the release last.
 #    The release body shows changelogs/v<version>.md first, then GitHub's auto-generated release notes
 #    (the same content as the "Generate release notes" button), separated by a horizontal rule.
 #    Build failures are retried 2 times (3 attempts total); release note generation, release creation,
 #    asset upload, and publishing are retried up to 3 times. If note generation still fails, the
 #    release is published with the changelog only.
-#    合入 main 后，工作流先在只读任务中构建 Windows NSIS/MSI 安装包，再在拥有写权限的独立任务中创建 GitHub Release；
+#    合入 main 后，只读的准备任务先解析发布元数据，构建矩阵随后并行产出 Windows x64、Windows ARM64、
+#    Linux x64、macOS Apple Silicon 与 macOS Intel 安装包；拥有写权限的独立任务创建 GitHub Release，
+#    上传全部安装包，并在最后发布前生成唯一的跨平台 latest.json 更新清单。
 #    Release 说明先展示 changelogs/v<版本号>.md 的内容，再附上 GitHub 自动生成的发布说明
 #    （与“生成 release notes”按钮一致），两者以分隔线隔开。
 #    构建失败自动重试 2 次（共 3 次尝试），说明生成、Release 创建、安装包上传与发布最多重试 3 次；
@@ -102,10 +123,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  prepare:
     if: github.ref == 'refs/heads/main'
-    runs-on: windows-latest
-    timeout-minutes: 90
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -214,8 +235,66 @@ jobs:
             core.setOutput("changelog_body", changelogBody);
             core.setOutput("should_release", "true");
 
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            os: windows-latest
+            artifact: installers-windows-x64
+            rust_targets: x86_64-pc-windows-msvc
+            args: "--target x86_64-pc-windows-msvc --bundles nsis,msi"
+            bundle_paths: |
+              src-tauri/target/**/release/bundle/nsis/*
+              src-tauri/target/**/release/bundle/msi/*
+          - platform: windows-arm64
+            os: windows-11-arm
+            artifact: installers-windows-arm64
+            rust_targets: aarch64-pc-windows-msvc
+            args: "--target aarch64-pc-windows-msvc --bundles nsis,msi"
+            bundle_paths: |
+              src-tauri/target/**/release/bundle/nsis/*
+              src-tauri/target/**/release/bundle/msi/*
+          - platform: linux-x64
+            os: ubuntu-22.04
+            artifact: installers-linux-x64
+            rust_targets: ""
+            args: "--bundles appimage,deb"
+            bundle_paths: |
+              src-tauri/target/**/release/bundle/appimage/*
+              src-tauri/target/**/release/bundle/deb/*
+          - platform: macos-arm64
+            os: macos-15
+            artifact: installers-macos-arm64
+            rust_targets: aarch64-apple-darwin
+            args: "--target aarch64-apple-darwin --bundles app,dmg"
+            bundle_paths: |
+              src-tauri/target/**/release/bundle/dmg/*
+              src-tauri/target/**/release/bundle/macos/*.tar.gz
+              src-tauri/target/**/release/bundle/macos/*.tar.gz.sig
+          - platform: macos-x64
+            os: macos-15-intel
+            artifact: installers-macos-x64
+            rust_targets: x86_64-apple-darwin
+            args: "--target x86_64-apple-darwin --bundles app,dmg"
+            bundle_paths: |
+              src-tauri/target/**/release/bundle/dmg/*
+              src-tauri/target/**/release/bundle/macos/*.tar.gz
+              src-tauri/target/**/release/bundle/macos/*.tar.gz.sig
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
       - name: Setup pnpm and Node
-        if: steps.meta.outputs.should_release == 'true'
         uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
         with:
           version: 12
@@ -224,59 +303,75 @@ jobs:
           require-lockfile: true
 
       - name: Setup Rust
-        if: steps.meta.outputs.should_release == 'true'
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
+          targets: ${{ matrix.rust_targets }}
 
       - name: Cache Rust
-        if: steps.meta.outputs.should_release == 'true'
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: "./src-tauri -> target"
+          # Cross-target builds share the runner OS in the default key, so keep one cache per platform.
+          # 交叉编译时默认缓存键只包含运行器系统，这里按平台区分缓存。
+          key: ${{ matrix.platform }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            build-essential \
+            libssl-dev \
+            file \
+            wget
 
       - name: Build installers
-        if: steps.meta.outputs.should_release == 'true'
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           retryAttempts: 2
-          args: --bundles nsis,msi
+          args: ${{ matrix.args }}
 
       - name: Upload installers
-        if: steps.meta.outputs.should_release == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: installers
-          path: |
-            src-tauri/target/release/bundle/nsis/*
-            src-tauri/target/release/bundle/msi/*
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.bundle_paths }}
           if-no-files-found: error
           retention-days: 3
 
   publish:
-    needs: build
-    if: needs.build.outputs.should_release == 'true'
-    runs-on: windows-latest
-    timeout-minutes: 20
+    needs: [prepare, build]
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
       - name: Download installers
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: installers
+          # Keep each platform in its own dist/installers-<platform> directory so the
+          # architectures can be resolved separately.
+          # 每个平台保留独立的 dist/installers-<平台> 目录，便于按架构分别解析产物。
+          pattern: installers-*
+          merge-multiple: false
           path: dist
 
       - name: Publish release
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.build.outputs.version }}
+          VERSION: ${{ needs.prepare.outputs.version }}
           TARGET_SHA: ${{ github.sha }}
-          CHANGELOG_BODY: ${{ needs.build.outputs.changelog_body }}
+          CHANGELOG_BODY: ${{ needs.prepare.outputs.changelog_body }}
         run: |
           set -euo pipefail
 
@@ -456,14 +551,44 @@ jobs:
             exit 1
           fi
 
-          mapfile -t assets < <(find dist -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.zip' -o -name '*.sig' \) -print)
-          if [ "${#assets[@]}" -eq 0 ]; then
-            echo "::error::下载的构建产物中没有安装包文件"
-            exit 1
-          fi
+          # macOS updater bundles are named after the product only, so the Apple Silicon
+          # and Intel builds would collide on the release. Rename each one to include its
+          # architecture before uploading.
+          # macOS 更新包只按产品名命名，Apple Silicon 与 Intel 构建在 Release 上会重名，
+          # 因此上传前重命名并带上架构。
+          rename_macos_updater_assets() {
+            local dir="$1" arch="$2" asset base renamed
+            [ -d "${dir}" ] || return 0
+            while IFS= read -r asset; do
+              [ -n "${asset}" ] || continue
+              # Skip bundles already renamed for this architecture so repeated runs stay identical.
+              # 已按本架构重命名的更新包直接跳过，保证重复执行结果一致。
+              case "$(basename "${asset}")" in
+                *"_${arch}.app.tar.gz") continue ;;
+              esac
+              # Sanitize the product name into an asset-safe slug; the leading printf
+              # strips the newline so tr cannot turn it into a trailing dash.
+              # 把产品名转换为可用于资产名的短名；外层 printf 会去掉换行，避免 tr 把它变成多余的连字符。
+              base=$(printf '%s' "$(basename "${asset}" .app.tar.gz)" | tr -c 'A-Za-z0-9._-' '-')
+              renamed="$(dirname "${asset}")/${base}_${VERSION}_${arch}.app.tar.gz"
+              mv "${asset}" "${renamed}"
+              if [ -s "${asset}.sig" ]; then
+                mv "${asset}.sig" "${renamed}.sig"
+              fi
+            done < <(find "${dir}" -type f -name '*.app.tar.gz' -print)
+          }
 
+          rename_macos_updater_assets "dist/installers-macos-arm64" "aarch64"
+          rename_macos_updater_assets "dist/installers-macos-x64" "x86_64"
+
+          # Each platform lives in its own artifact directory, so resolving by directory
+          # keeps the architectures apart.
+          # 每个平台的产物位于独立目录，按目录解析可避免不同架构互相混淆。
           resolve_signed_update_asset() {
+            local dir="$1"
+            shift
             local pattern asset
+            [ -d "${dir}" ] || return 1
             for pattern in "$@"; do
               while IFS= read -r asset; do
                 [ -n "${asset}" ] || continue
@@ -471,7 +596,7 @@ jobs:
                   printf '%s' "${asset}"
                   return 0
                 fi
-              done < <(find dist -type f -name "${pattern}" -print | sort)
+              done < <(find "${dir}" -type f -name "${pattern}" -print | sort)
             done
             return 1
           }
@@ -479,10 +604,44 @@ jobs:
           # Tauri can sign the installer directly or emit a ZIP updater bundle,
           # depending on the bundler version and artifact mode.
           # Tauri 可能直接签名安装包，也可能生成 ZIP 更新包，取决于打包器版本与产物模式。
-          nsis_update_asset=$(resolve_signed_update_asset '*-setup.nsis.zip' '*-setup.exe.zip' '*-setup.exe') || true
-          msi_update_asset=$(resolve_signed_update_asset '*.msi.zip' '*.msi') || true
-          if [ -z "${nsis_update_asset}" ] || [ -z "${msi_update_asset}" ]; then
-            echo "::error::缺少 Tauri Updater 所需的已签名 NSIS 或 MSI 更新包"
+          nsis_x64=$(resolve_signed_update_asset "dist/installers-windows-x64" '*-setup.nsis.zip' '*-setup.exe.zip' '*-setup.exe') || true
+          msi_x64=$(resolve_signed_update_asset "dist/installers-windows-x64" '*.msi.zip' '*.msi') || true
+          nsis_arm64=$(resolve_signed_update_asset "dist/installers-windows-arm64" '*-setup.nsis.zip' '*-setup.exe.zip' '*-setup.exe') || true
+          msi_arm64=$(resolve_signed_update_asset "dist/installers-windows-arm64" '*.msi.zip' '*.msi') || true
+          linux_update=$(resolve_signed_update_asset "dist/installers-linux-x64" '*.AppImage.tar.gz' '*.AppImage') || true
+          darwin_arm64=$(resolve_signed_update_asset "dist/installers-macos-arm64" '*.app.tar.gz') || true
+          darwin_x64=$(resolve_signed_update_asset "dist/installers-macos-x64" '*.app.tar.gz') || true
+
+          if [ -z "${nsis_x64}" ] || [ -z "${msi_x64}" ]; then
+            echo "::error::缺少 Tauri Updater 所需的 Windows x64 已签名 NSIS 或 MSI 更新包"
+            exit 1
+          fi
+          if [ -z "${nsis_arm64}" ]; then
+            echo "::error::缺少 Tauri Updater 所需的 Windows ARM64 已签名 NSIS 更新包"
+            exit 1
+          fi
+          if [ -z "${linux_update}" ]; then
+            echo "::error::缺少 Tauri Updater 所需的 Linux 已签名 AppImage 更新包"
+            exit 1
+          fi
+          if [ -z "${darwin_arm64}" ] || [ -z "${darwin_x64}" ]; then
+            echo "::error::缺少 Tauri Updater 所需的 macOS 已签名 app 更新包"
+            exit 1
+          fi
+
+          mapfile -t assets < <(find dist -type f \( \
+            -name '*.exe' -o \
+            -name '*.msi' -o \
+            -name '*.zip' -o \
+            -name '*.AppImage' -o \
+            -name '*.AppImage.tar.gz' -o \
+            -name '*.deb' -o \
+            -name '*.dmg' -o \
+            -name '*.app.tar.gz' -o \
+            -name '*.sig' \
+            \) -print)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::下载的构建产物中没有安装包文件"
             exit 1
           fi
 
@@ -522,42 +681,101 @@ jobs:
             printf '%s' "${matched}"
           }
 
-          nsis_local=$(basename "${nsis_update_asset}")
-          msi_local=$(basename "${msi_update_asset}")
-          nsis_asset=$(uploaded_asset_name "${nsis_local}" 'setup\.(exe|exe\.zip|nsis\.zip)$')
-          msi_asset=$(uploaded_asset_name "${msi_local}" '\.msi(\.zip)?$')
-          if [ -z "${nsis_asset}" ] || [ -z "${msi_asset}" ]; then
-            echo "::error::无法在 ${tag} 中找到已上传的 NSIS 或 MSI 更新包"
-            exit 1
+          nsis_x64_asset=$(uploaded_asset_name "$(basename "${nsis_x64}")" 'x64.*setup\.(exe|exe\.zip|nsis\.zip)$')
+          msi_x64_asset=$(uploaded_asset_name "$(basename "${msi_x64}")" 'x64.*\.msi(\.zip)?$')
+          nsis_arm64_asset=$(uploaded_asset_name "$(basename "${nsis_arm64}")" 'arm64.*setup\.(exe|exe\.zip|nsis\.zip)$')
+          msi_arm64_asset=""
+          if [ -n "${msi_arm64}" ]; then
+            msi_arm64_asset=$(uploaded_asset_name "$(basename "${msi_arm64}")" 'arm64.*\.msi(\.zip)?$')
           fi
-          nsis_signature=$(cat "${nsis_update_asset}.sig")
-          msi_signature=$(cat "${msi_update_asset}.sig")
-          base_url="https://github.com/${repo}/releases/download/${tag}"
-          export NSIS_URL="${base_url}/${nsis_asset}"
-          export MSI_URL="${base_url}/${msi_asset}"
-          export NSIS_SIGNATURE="${nsis_signature}"
-          export MSI_SIGNATURE="${msi_signature}"
+          linux_asset=$(uploaded_asset_name "$(basename "${linux_update}")" 'amd64\.AppImage(\.tar\.gz)?$')
+          darwin_arm64_asset=$(uploaded_asset_name "$(basename "${darwin_arm64}")" 'aarch64\.app\.tar\.gz$')
+          darwin_x64_asset=$(uploaded_asset_name "$(basename "${darwin_x64}")" 'x86_64\.app\.tar\.gz$')
+
+          # Build one latest.json entry per platform. The manifest is keyed by Tauri updater
+          # targets: `{os}-{arch}-{bundle_type}`, with `{os}-{arch}` as the fallback the
+          # updater tries next.
+          # 为每个平台生成一条 latest.json 记录；清单以 Tauri Updater 的目标标识为键：
+          # `{系统}-{架构}-{安装包类型}`，其回退值为 `{系统}-{架构}`。
+          platform_entries="platform-entries.tsv"
+          : > "${platform_entries}"
+
+          add_platform_entry() {
+            local key="$1" asset_path="$2" asset_name="$3"
+            if [ -z "${asset_path}" ] || [ -z "${asset_name}" ]; then
+              echo "::error::无法在 ${tag} 中找到 ${key} 对应的已上传更新包"
+              exit 1
+            fi
+            printf '%s\t%s\t%s\n' "${key}" "${asset_name}" "${asset_path}.sig" \
+              >> "${platform_entries}"
+          }
+
+          add_platform_entry "windows-x86_64-nsis" "${nsis_x64}" "${nsis_x64_asset}"
+          add_platform_entry "windows-x86_64-msi" "${msi_x64}" "${msi_x64_asset}"
+          add_platform_entry "windows-aarch64-nsis" "${nsis_arm64}" "${nsis_arm64_asset}"
+          if [ -n "${msi_arm64}" ]; then
+            add_platform_entry "windows-aarch64-msi" "${msi_arm64}" "${msi_arm64_asset}"
+          fi
+          add_platform_entry "linux-x86_64" "${linux_update}" "${linux_asset}"
+          add_platform_entry "darwin-aarch64" "${darwin_arm64}" "${darwin_arm64_asset}"
+          add_platform_entry "darwin-x86_64" "${darwin_x64}" "${darwin_x64_asset}"
+
+          required_platforms=(
+            "windows-x86_64-nsis"
+            "windows-x86_64-msi"
+            "windows-aarch64-nsis"
+            "linux-x86_64"
+            "darwin-aarch64"
+            "darwin-x86_64"
+          )
+          if [ -n "${msi_arm64}" ]; then
+            required_platforms+=("windows-aarch64-msi")
+          fi
+
+          export REPO="${repo}"
+          export TAG="${tag}"
           export VERSION
           export CHANGELOG_BODY
+          export REQUIRED_PLATFORMS="${required_platforms[*]}"
           node <<'NODE'
           const fs = require("fs");
-          const platform = {
-            signature: process.env.NSIS_SIGNATURE,
-            url: process.env.NSIS_URL,
-          };
+
+          const baseUrl = `https://github.com/${process.env.REPO}/releases/download/${process.env.TAG}`;
+          const rows = fs
+            .readFileSync("platform-entries.tsv", "utf8")
+            .split(/\r?\n/)
+            .filter((line) => line.trim() !== "");
+
+          const platforms = {};
+          for (const row of rows) {
+            const [key, assetName, signaturePath] = row.split("\t");
+            if (!key || !assetName || !signaturePath) {
+              console.log(`::error::平台条目格式错误：${row}`);
+              process.exit(1);
+            }
+            platforms[key] = {
+              signature: fs.readFileSync(signaturePath, "utf8").trim(),
+              url: `${baseUrl}/${assetName}`,
+            };
+          }
+
+          const required = (process.env.REQUIRED_PLATFORMS || "")
+            .split(/\s+/)
+            .filter((key) => key !== "");
+          const missing = required.filter((key) => !(key in platforms));
+          if (missing.length > 0) {
+            console.log(`::error::latest.json 缺少必需平台：${missing.join(", ")}`);
+            process.exit(1);
+          }
+
           const manifest = {
             version: process.env.VERSION,
             notes: process.env.CHANGELOG_BODY,
             pub_date: new Date().toISOString(),
-            platforms: {
-              "windows-x86_64-nsis": platform,
-              "windows-x86_64-msi": {
-                signature: process.env.MSI_SIGNATURE,
-                url: process.env.MSI_URL,
-              },
-            },
+            platforms,
           };
           fs.writeFileSync("latest.json", JSON.stringify(manifest, null, 2));
+          console.log(`latest.json 已生成，包含 ${Object.keys(platforms).length} 个平台`);
           NODE
 
           manifest_uploaded=false
