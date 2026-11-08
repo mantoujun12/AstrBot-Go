@@ -22,6 +22,9 @@
 
 </div>
 
+> [!IMPORTANT]
+> 这是非官方版本，可能含有不稳定的风险。如需正常且稳定的使用，请转到 [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher) 。
+
 ## 功能
 
 - 管理多个 AstrBot 实例

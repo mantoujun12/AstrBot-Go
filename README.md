@@ -22,6 +22,9 @@ English | [简体中文](./README_zh.md)
 
 </div>
 
+> [!IMPORTANT]
+> This is an unofficial version and may be unstable. For a stable experience, please use [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher).
+
 ## Features
 
 - Manage multiple AstrBot instances
