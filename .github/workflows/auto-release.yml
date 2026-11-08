@@ -500,8 +500,36 @@ jobs:
             exit 1
           fi
 
-          nsis_asset=$(basename "${nsis_update_asset}")
-          msi_asset=$(basename "${msi_update_asset}")
+          release_assets=$(gh release view "${tag}" --repo "${repo}" --json assets --jq '.assets[].name')
+          if [ -z "${release_assets}" ]; then
+            echo "::error::无法读取 ${tag} 已上传的资产列表"
+            exit 1
+          fi
+
+          # GitHub rewrites asset names that contain spaces or other special characters,
+          # so the download URL must use the uploaded asset name instead of the local file name.
+          # GitHub 会改写含空格等特殊字符的资产名，因此下载地址必须使用上传后的资产名，而不是本地文件名。
+          uploaded_asset_name() {
+            local local_name="$1" fallback_pattern="$2" sanitized_name matched
+            sanitized_name=$(printf '%s' "${local_name}" | tr -c 'A-Za-z0-9._-' '.')
+            matched=$(printf '%s\n' "${release_assets}" | grep -Fx -- "${sanitized_name}" | head -n 1 || true)
+            if [ -z "${matched}" ]; then
+              matched=$(printf '%s\n' "${release_assets}" | grep -Fx -- "${local_name}" | head -n 1 || true)
+            fi
+            if [ -z "${matched}" ]; then
+              matched=$(printf '%s\n' "${release_assets}" | grep -E -- "${fallback_pattern}" | head -n 1 || true)
+            fi
+            printf '%s' "${matched}"
+          }
+
+          nsis_local=$(basename "${nsis_update_asset}")
+          msi_local=$(basename "${msi_update_asset}")
+          nsis_asset=$(uploaded_asset_name "${nsis_local}" 'setup\.(exe|exe\.zip|nsis\.zip)$')
+          msi_asset=$(uploaded_asset_name "${msi_local}" '\.msi(\.zip)?$')
+          if [ -z "${nsis_asset}" ] || [ -z "${msi_asset}" ]; then
+            echo "::error::无法在 ${tag} 中找到已上传的 NSIS 或 MSI 更新包"
+            exit 1
+          fi
           nsis_signature=$(cat "${nsis_update_asset}.sig")
           msi_signature=$(cat "${msi_update_asset}.sig")
           base_url="https://github.com/${repo}/releases/download/${tag}"
