@@ -74,3 +74,38 @@
     grid-template-columns: 1fr;
   }
 }
+
+.page-alert {
+  margin-bottom: 16px;
+}
+
+.page-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.page-row--between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.page-mono {
+  font-family: "Consolas", "Cascadia Mono", monospace;
+}
+
+.page-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.page-anywhere {
+  overflow-wrap: anywhere;
+}

@@ -190,8 +190,8 @@ function errorText(task: TaskRecord): string {
           </v-avatar>
 
           <div class="task-item__body">
-            <div class="task-item__header">
-              <span class="task-item__title">{{ taskTitle(task) }}</span>
+            <div class="task-item__header page-row">
+              <span class="task-item__title page-anywhere">{{ taskTitle(task) }}</span>
               <v-chip
                 :color="statusColor(task.status)"
                 size="x-small"
@@ -202,7 +202,7 @@ function errorText(task: TaskRecord): string {
               </v-chip>
             </div>
 
-            <div v-if="taskMessage(task)" class="task-item__message">
+            <div v-if="taskMessage(task)" class="task-item__message page-anywhere">
               {{ taskMessage(task) }}
             </div>
 
@@ -217,17 +217,17 @@ function errorText(task: TaskRecord): string {
               />
               <span
                 v-if="progressLabel(task)"
-                class="task-item__progress-value"
+                class="task-item__progress-value page-nums"
               >
                 {{ progressLabel(task) }}
               </span>
             </div>
 
-            <div v-if="task.error" class="task-item__error">
+            <div v-if="task.error" class="task-item__error page-anywhere">
               {{ errorText(task) }}
             </div>
 
-            <div class="task-item__meta">
+            <div class="task-item__meta page-row">
               <span>
                 {{
                   t("tasks.fields.targetValue", {
@@ -333,10 +333,7 @@ function errorText(task: TaskRecord): string {
 }
 
 .task-item__header {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 .task-item__title {
@@ -344,7 +341,6 @@ function errorText(task: TaskRecord): string {
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.4;
-  overflow-wrap: anywhere;
 }
 
 .task-item__message {
@@ -352,7 +348,6 @@ function errorText(task: TaskRecord): string {
   color: rgba(var(--v-theme-on-surface), 0.68);
   font-size: 0.82rem;
   line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 .task-item__progress-row {
@@ -371,14 +366,10 @@ function errorText(task: TaskRecord): string {
   flex-shrink: 0;
   color: rgba(var(--v-theme-on-surface), 0.68);
   font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
 }
 
 .task-item__meta {
-  display: flex;
-  align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
   margin-top: 6px;
   color: rgba(var(--v-theme-on-surface), 0.52);
   font-size: 0.75rem;
@@ -394,7 +385,6 @@ function errorText(task: TaskRecord): string {
   color: rgb(var(--v-theme-error));
   font-size: 0.75rem;
   line-height: 1.4;
-  overflow-wrap: anywhere;
 }
 
 .task-item__actions {
