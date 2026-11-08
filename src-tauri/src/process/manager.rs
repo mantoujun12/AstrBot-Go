@@ -280,10 +280,12 @@ impl ProcessManager {
                     Some(Slot::Live(p)) => InstanceRuntimeInfo::Live {
                         port: p.port,
                         dashboard_enabled: p.dashboard_enabled,
+                        started_at_ms: p.started_at_epoch_ms(),
                     },
                     Some(Slot::Stopping(p)) => InstanceRuntimeInfo::Stopping {
                         port: p.port,
                         dashboard_enabled: p.dashboard_enabled,
+                        started_at_ms: p.started_at_epoch_ms(),
                     },
                     None => return None,
                 };
