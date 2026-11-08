@@ -45,6 +45,7 @@ const ruRU = {
     loading: "Загрузка экземпляров…",
     loadFailed: "Не удалось загрузить экземпляры",
     actions: {
+      open: "Открыть {name}",
       start: "Запустить {name}",
       stop: "Остановить {name}",
       confirmStop: "Нажмите ещё раз, чтобы остановить {name}",

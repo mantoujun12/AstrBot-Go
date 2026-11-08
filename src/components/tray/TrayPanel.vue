@@ -32,6 +32,7 @@ import type {
   InstanceState,
   InstanceStatus,
 } from "../../types/launcher";
+import { cacheTheme } from "../../utils/themeCache";
 
 const LIST_MAX_HEIGHT = 360;
 const PANEL_MIN_HEIGHT = 160;
@@ -59,7 +60,7 @@ interface TrayInstanceItem {
   duration: string | null;
 }
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const theme = useTheme();
 
 const snapshot = ref<AppSnapshot | null>(null);
@@ -143,8 +144,7 @@ async function loadSnapshot(): Promise<void> {
     if (disposed || sequence !== loadSequence) {
       return;
     }
-    snapshot.value = next;
-    loadFailed.value = false;
+    applySnapshot(next);
   } catch {
     if (disposed || sequence !== loadSequence) {
       return;
@@ -155,6 +155,20 @@ async function loadSnapshot(): Promise<void> {
       loading.value = false;
     }
   }
+}
+
+// `app-snapshot` already carries the complete snapshot, so the panel can use it
+// as-is instead of asking the backend for the same data again. Bumping the
+// sequence keeps an in-flight `get_app_snapshot` from applying a stale result
+// after a newer event has landed.
+function applySnapshot(next: AppSnapshot): void {
+  loadSequence += 1;
+  if (disposed) {
+    return;
+  }
+  snapshot.value = next;
+  loadFailed.value = false;
+  loading.value = false;
 }
 
 async function openMainWindowWith(
@@ -194,6 +208,18 @@ function openInstance(instanceId: string): Promise<void> {
   return openMainWindowWith({ kind: "instance", instanceId });
 }
 
+function openInstanceLabel(item: TrayInstanceItem): string {
+  const open = t("trayPanel.actions.open", { name: item.name });
+  // Each locale joins the two clauses with its own punctuation.
+  let separator = ", ";
+  if (locale.value === "zh-CN") {
+    separator = "，";
+  } else if (locale.value === "ja-JP") {
+    separator = "、";
+  }
+  return `${open}${separator}${item.stateLabel}`;
+}
+
 function isPending(instanceId: string): boolean {
   return pendingActions.value[instanceId] !== undefined;
 }
@@ -202,6 +228,11 @@ function isActionDisabled(
   instanceId: string,
   kind: InstanceActionKind,
 ): boolean {
+  // The rows may still show the last snapshot, so acting on it would target a
+  // state that can no longer be trusted.
+  if (loadFailed.value) {
+    return true;
+  }
   const pending = pendingActions.value[instanceId];
   return pending !== undefined && pending !== kind;
 }
@@ -369,8 +400,10 @@ function scheduleHeightReport(): void {
 
 async function attachListeners(): Promise<void> {
   try {
-    const unlisten = await listenAppSnapshot(() => {
-      void loadSnapshot();
+    const unlisten = await listenAppSnapshot((next) => {
+      // The service drops payloads that fail validation, so anything reaching
+      // this handler is a complete snapshot.
+      applySnapshot(next);
     });
     if (disposed) {
       unlisten();
@@ -417,6 +450,20 @@ watch(
   (preference) => {
     if (preference) {
       applyLanguagePreference(preference);
+    }
+  },
+  { immediate: true },
+);
+
+// The panel window is prewarmed and reused, so it must follow theme changes
+// pushed through the snapshot instead of the theme captured at startup.
+// `system` is resolved by Vuetify itself.
+watch(
+  () => snapshot.value?.config.theme_preference,
+  (preference) => {
+    if (preference) {
+      void theme.change(preference);
+      cacheTheme(preference);
     }
   },
   { immediate: true },
@@ -489,6 +536,13 @@ onBeforeUnmount(() => {
     </header>
 
     <div ref="listRef" class="tray-panel__list">
+      <p
+        v-if="loadFailed && snapshot !== null"
+        class="tray-panel__message tray-panel__message--error"
+        role="alert"
+      >
+        {{ t("trayPanel.loadFailed") }}
+      </p>
       <div
         v-if="loading && snapshot === null"
         class="tray-panel__message"
@@ -509,7 +563,10 @@ onBeforeUnmount(() => {
       >
         {{ t("trayPanel.loadFailed") }}
       </p>
-      <p v-else-if="items.length === 0" class="tray-panel__message">
+      <p
+        v-else-if="items.length === 0 && !loadFailed"
+        class="tray-panel__message"
+      >
         {{ t("trayPanel.empty") }}
       </p>
       <template v-else>
@@ -517,7 +574,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="tray-panel__open"
-            :aria-label="`${item.name} ${item.stateLabel}`"
+            :aria-label="openInstanceLabel(item)"
             @click="openInstance(item.id)"
           >
             <span
@@ -717,6 +774,14 @@ onBeforeUnmount(() => {
   color: rgba(var(--v-theme-on-surface), 0.6);
   font-size: 0.8rem;
   text-align: center;
+}
+
+.tray-panel__message--error {
+  display: block;
+  min-height: 0;
+  padding: 6px 8px;
+  color: rgb(var(--v-theme-error));
+  text-align: left;
 }
 
 .tray-panel__item {

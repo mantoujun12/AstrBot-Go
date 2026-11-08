@@ -61,6 +61,10 @@ pub fn is_macos() -> bool {
     OS == "macos"
 }
 
+pub fn is_linux() -> bool {
+    OS == "linux"
+}
+
 /// Get the Node.js OS and architecture identifiers for the current platform.
 pub fn get_nodejs_os_arch() -> Result<(&'static str, &'static str), String> {
     let os = match OS {

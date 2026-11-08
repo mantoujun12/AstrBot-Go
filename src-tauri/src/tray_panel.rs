@@ -3,11 +3,11 @@ use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use tauri::{
-    AppHandle, Emitter as _, LogicalSize, Manager as _, PhysicalPosition, WebviewUrl,
+    AppHandle, Emitter as _, LogicalSize, Manager as _, PhysicalPosition, PhysicalSize, WebviewUrl,
     WebviewWindow, WebviewWindowBuilder,
 };
 
-use crate::config::TrayStyle;
+use crate::config::{load_config, with_config_mut, TrayStyle};
 
 pub const PANEL_LABEL: &str = "tray-panel";
 
@@ -60,13 +60,16 @@ pub fn ensure_panel(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         return Ok(window);
     }
 
+    restore_configured_height(app);
+    let height = app.state::<TrayPanelState>().height.load(Ordering::Relaxed) as f64;
+
     let window = WebviewWindowBuilder::new(
         app,
         PANEL_LABEL,
         WebviewUrl::App("src/tray-panel.html".into()),
     )
     .title("AstrBot Launcher")
-    .inner_size(PANEL_WIDTH, PANEL_DEFAULT_HEIGHT)
+    .inner_size(PANEL_WIDTH, height)
     .resizable(false)
     .maximizable(false)
     .minimizable(false)
@@ -83,11 +86,42 @@ pub fn ensure_panel(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     .visible(false)
     .build()?;
 
+    // Only the transparent Windows window needs an alpha-0 clear color. On the
+    // other platforms the window is opaque, so a fully transparent background
+    // would paint the 6px padding and the rounded corners as a solid block.
+    #[cfg(target_os = "windows")]
     if let Err(error) = window.set_background_color(Some(tauri::window::Color(0, 0, 0, 0))) {
         log::warn!("Failed to set the tray panel background: {}", error);
     }
 
     Ok(window)
+}
+
+/// Restores the height the panel reported last run. The window-state plugin
+/// is denied for this window, so the height is persisted in the config.
+fn restore_configured_height(app: &AppHandle) {
+    let Ok(config) = load_config() else {
+        return;
+    };
+    let Some(height) = config.tray_panel_height else {
+        return;
+    };
+    if !height.is_finite() {
+        return;
+    }
+    let clamped = height.clamp(PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT);
+    app.state::<TrayPanelState>()
+        .height
+        .store(clamped.round() as u32, Ordering::Relaxed);
+}
+
+fn persist_height(height: f64) {
+    if let Err(error) = with_config_mut(move |config| {
+        config.tray_panel_height = Some(height);
+        Ok(())
+    }) {
+        log::warn!("Failed to persist the tray panel height: {}", error);
+    }
 }
 
 pub fn toggle_if_panel(app: &AppHandle) {
@@ -169,10 +203,15 @@ pub fn set_height(app: &AppHandle, height: f64) {
         return;
     }
     let clamped = height.clamp(PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT);
+    let rounded = clamped.round() as u32;
     let state = app.state::<TrayPanelState>();
-    state
-        .height
-        .store(clamped.round() as u32, Ordering::Relaxed);
+    let previous = state.height.swap(rounded, Ordering::Relaxed);
+
+    // The panel reports its height whenever its content grows or shrinks, so
+    // only persist real changes to avoid rewriting the config on every report.
+    if previous.abs_diff(rounded) >= 1 {
+        persist_height(f64::from(rounded));
+    }
 
     // Apply immediately while visible so the panel can shrink after loading.
     let Some(window) = app.get_webview_window(PANEL_LABEL) else {
@@ -229,11 +268,8 @@ fn show_panel(app: &AppHandle, window: &WebviewWindow) {
 fn compute_placement(app: &AppHandle, requested_height: f64) -> Option<Placement> {
     let tray = app.tray_by_id(crate::tray::TRAY_ID)?;
     let rect = tray.rect().ok().flatten()?;
-    let monitor = monitor_for_rect(app, &rect)?;
+    let (monitor, position, size) = monitor_and_rect(app, &rect)?;
     let scale = monitor.scale_factor();
-
-    let position = rect.position.to_physical::<f64>(scale);
-    let size = rect.size.to_physical::<f64>(scale);
 
     let work = monitor.work_area();
     let left = work.position.x as f64;
@@ -242,7 +278,9 @@ fn compute_placement(app: &AppHandle, requested_height: f64) -> Option<Placement
     let bottom = top + work.size.height as f64;
 
     let width_px = PANEL_WIDTH * scale;
-    let available_height = (bottom - top - PANEL_MARGIN * 2.0) / scale;
+    let gap_px = PANEL_GAP * scale;
+    let margin_px = PANEL_MARGIN * scale;
+    let available_height = (bottom - top - margin_px * 2.0) / scale;
     let height = requested_height
         .clamp(PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT)
         .min(available_height)
@@ -266,30 +304,30 @@ fn compute_placement(app: &AppHandle, requested_height: f64) -> Option<Placement
         // Taskbar at the bottom: open above the tray icon.
         (
             tray_left + size.width / 2.0 - width_px / 2.0,
-            tray_top - height_px - PANEL_GAP,
+            tray_top - height_px - gap_px,
         )
     } else if distance_top <= distance_left && distance_top <= distance_right {
         (
             tray_left + size.width / 2.0 - width_px / 2.0,
-            tray_bottom + PANEL_GAP,
+            tray_bottom + gap_px,
         )
     } else if distance_left <= distance_right {
         (
-            tray_right + PANEL_GAP,
+            tray_right + gap_px,
             tray_top + size.height / 2.0 - height_px / 2.0,
         )
     } else {
         (
-            tray_left - width_px - PANEL_GAP,
+            tray_left - width_px - gap_px,
             tray_top + size.height / 2.0 - height_px / 2.0,
         )
     };
 
-    let max_x = (right - width_px - PANEL_MARGIN).max(left + PANEL_MARGIN);
-    let max_y = (bottom - height_px - PANEL_MARGIN).max(top + PANEL_MARGIN);
+    let max_x = (right - width_px - margin_px).max(left + margin_px);
+    let max_y = (bottom - height_px - margin_px).max(top + margin_px);
     Some(Placement {
-        x: x.clamp(left + PANEL_MARGIN, max_x).round() as i32,
-        y: y.clamp(top + PANEL_MARGIN, max_y).round() as i32,
+        x: x.clamp(left + margin_px, max_x).round() as i32,
+        y: y.clamp(top + margin_px, max_y).round() as i32,
         height,
     })
 }
@@ -306,15 +344,16 @@ fn fallback_placement(app: &AppHandle, requested_height: f64) -> Option<Placemen
     let bottom = top + work.size.height as f64;
 
     let width_px = PANEL_WIDTH * scale;
-    let available_height = (bottom - top - PANEL_MARGIN * 2.0) / scale;
+    let margin_px = PANEL_MARGIN * scale;
+    let available_height = (bottom - top - margin_px * 2.0) / scale;
     let height = requested_height
         .clamp(PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT)
         .min(available_height)
         .max(PANEL_MIN_HEIGHT);
     let height_px = height * scale;
 
-    let x = (right - width_px - PANEL_MARGIN).max(left + PANEL_MARGIN);
-    let y = (bottom - height_px - PANEL_MARGIN).max(top + PANEL_MARGIN);
+    let x = (right - width_px - margin_px).max(left + margin_px);
+    let y = (bottom - height_px - margin_px).max(top + margin_px);
     Some(Placement {
         x: x.round() as i32,
         y: y.round() as i32,
@@ -322,20 +361,54 @@ fn fallback_placement(app: &AppHandle, requested_height: f64) -> Option<Placemen
     })
 }
 
-fn monitor_for_rect(app: &AppHandle, rect: &tauri::Rect) -> Option<tauri::Monitor> {
-    let primary_scale = app
+/// Locates the monitor whose work area contains the tray rectangle center when
+/// the rectangle is converted with `scale`.
+fn probe_monitor(app: &AppHandle, rect: &tauri::Rect, scale: f64) -> Option<tauri::Monitor> {
+    let position = rect.position.to_physical::<f64>(scale);
+    let size = rect.size.to_physical::<f64>(scale);
+    app.monitor_from_point(
+        position.x + size.width / 2.0,
+        position.y + size.height / 2.0,
+    )
+    .ok()
+    .flatten()
+}
+
+/// Resolves the monitor the tray icon lives on together with its rectangle in
+/// physical pixels.
+///
+/// Tray rectangles are reported in logical or physical units depending on the
+/// platform, and converting a logical rect with the primary monitor's scale
+/// selects the wrong monitor when the tray sits on a display with a different
+/// scale factor. The rect is therefore re-converted with the scale of the
+/// monitor it resolves to until the monitor stops changing.
+fn monitor_and_rect(
+    app: &AppHandle,
+    rect: &tauri::Rect,
+) -> Option<(tauri::Monitor, PhysicalPosition<f64>, PhysicalSize<f64>)> {
+    let mut scale = app
         .primary_monitor()
         .ok()
         .flatten()
         .map(|monitor| monitor.scale_factor())
         .unwrap_or(1.0);
-    let position = rect.position.to_physical::<f64>(primary_scale);
-    let size = rect.size.to_physical::<f64>(primary_scale);
-    let center_x = position.x + size.width / 2.0;
-    let center_y = position.y + size.height / 2.0;
+    let mut monitor =
+        probe_monitor(app, rect, scale).or_else(|| app.primary_monitor().ok().flatten())?;
 
-    app.monitor_from_point(center_x, center_y)
-        .ok()
-        .flatten()
-        .or_else(|| app.primary_monitor().ok().flatten())
+    for _ in 0..3 {
+        let monitor_scale = monitor.scale_factor();
+        if monitor_scale == scale {
+            break;
+        }
+        scale = monitor_scale;
+        match probe_monitor(app, rect, scale) {
+            Some(next) => monitor = next,
+            None => break,
+        }
+    }
+
+    let scale = monitor.scale_factor();
+    let position = rect.position.to_physical::<f64>(scale);
+    let size = rect.size.to_physical::<f64>(scale);
+    Some((monitor, position, size))
 }

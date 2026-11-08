@@ -15,6 +15,9 @@ use crate::process::InstanceState;
 
 pub(crate) const TRAY_ID: &str = "main-tray";
 const MENU_REBUILD_DEBOUNCE: Duration = Duration::from_millis(300);
+/// How often the rendered running durations are refreshed while an instance
+/// is running. Rebuilding more often would churn the native menu.
+const MENU_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
 struct TrayMenuItems {
     show: MenuItem<tauri::Wry>,
@@ -283,6 +286,34 @@ fn rebuild_menu(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// The dynamic menu renders the running duration as static text, and
+/// [`sync_tray_menu`] only runs on instance state transitions, so an instance
+/// that keeps running would show the duration captured when it started.
+/// Recompute the menu model periodically instead of polling every second.
+fn spawn_menu_refresh_task(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(MENU_REFRESH_INTERVAL).await;
+
+            // Managed state is dropped while the app shuts down; the loop then
+            // ends with the runtime instead of keeping the process alive.
+            if app.try_state::<TrayState>().is_none() {
+                break;
+            }
+            if current_style(&app) != TrayStyle::NativeMenu || !supports_dynamic_menu() {
+                continue;
+            }
+            if current_menu_data(&app).running == 0 {
+                continue;
+            }
+
+            refresh_menu_data(&app);
+            schedule_menu_rebuild(&app);
+        }
+    });
+}
+
 fn schedule_menu_rebuild(app: &AppHandle) {
     let state = ensure_state(app);
     let epoch = state.epoch.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
@@ -429,11 +460,21 @@ pub fn build_tray(app: &tauri::App) -> std::result::Result<(), Box<dyn std::erro
         .map(|config| config.tray_style)
         .unwrap_or_default();
     create_tray(app.handle(), style)?;
+    spawn_menu_refresh_task(app.handle());
     Ok(())
 }
 
 /// Replaces the tray icon so the new style takes effect immediately.
 pub fn apply_tray_style(app: &AppHandle, style: TrayStyle) -> crate::Result<()> {
+    let state = ensure_state(app);
+    {
+        let mut inner = lock_state(&state);
+        inner.style = effective_style(style);
+    }
+    // Invalidate rebuilds that are still waiting for their debounce, otherwise
+    // one of them could attach the previous menu to the icon created below.
+    state.epoch.fetch_add(1, Ordering::SeqCst);
+
     app.remove_tray_by_id(TRAY_ID);
     refresh_menu_data(app);
     create_tray(app, style)
@@ -451,6 +492,11 @@ pub fn apply_tray_style(app: &AppHandle, style: TrayStyle) -> crate::Result<()> 
 /// Rebuilds the dynamic menu after a language change. Linux keeps the fixed
 /// two-item menu, so its labels are updated in place.
 pub fn refresh_tray_menu(app: &AppHandle) {
+    // Menu labels embed the rendered duration and the tooltip embeds the
+    // running count, so refresh the cached data with the new locale before
+    // rebuilding instead of reusing the previous language.
+    refresh_menu_data(app);
+
     if current_style(app) == TrayStyle::NativeMenu && supports_dynamic_menu() {
         if let Err(error) = rebuild_menu(app) {
             log::warn!("Failed to rebuild tray menu: {}", error);

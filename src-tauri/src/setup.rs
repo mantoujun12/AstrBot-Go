@@ -247,6 +247,17 @@ pub(crate) fn request_show_main_window(app: &tauri::AppHandle) {
     }
 }
 
+/// Reveals the main window for an explicit user gesture coming from the
+/// frontend (tray panel "open" actions).
+///
+/// Unlike [`reveal_main_window`] this always overrides the autostart
+/// minimize-to-tray policy, because a pending show request is registered
+/// first.
+pub(crate) fn show_main_window_from_user(app: &tauri::AppHandle) -> tauri::Result<RevealOutcome> {
+    app.state::<StartupWindowState>().request_show();
+    reveal_main_window(app)
+}
+
 pub(crate) fn mark_frontend_ready(app: &tauri::AppHandle) {
     app.state::<StartupWindowState>().mark_frontend_ready();
 }

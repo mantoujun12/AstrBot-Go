@@ -25,6 +25,7 @@ import {
 } from "../services/app";
 import { clearUvCache } from "../services/components";
 import {
+  isLinux,
   saveAllowLocalDnsProbe,
   saveAutostartMinimizeToTray,
   saveCheckInstanceUpdate,
@@ -230,6 +231,13 @@ async function changeLanguage(value: unknown): Promise<void> {
 
 const trayStyle = ref<TrayStyle>("panel");
 const trayStyleSaving = ref(false);
+// Linux ignores `tray_style` and always builds the fixed tray menu, so the
+// setting is hidden there instead of offering a choice that cannot take effect.
+const isLinuxPlatform = ref(false);
+
+async function detectPlatform(): Promise<void> {
+  isLinuxPlatform.value = await isLinux();
+}
 
 function isTrayStyle(value: unknown): value is TrayStyle {
   return value === "panel" || value === "native_menu";
@@ -243,7 +251,6 @@ async function changeTrayStyle(value: unknown): Promise<void> {
     return;
   }
 
-  const previous = trayStyle.value;
   trayStyle.value = value;
   trayStyleSaving.value = true;
   try {
@@ -251,11 +258,18 @@ async function changeTrayStyle(value: unknown): Promise<void> {
     if (config.value) {
       config.value.tray_style = value;
     }
-  } catch (cause) {
-    trayStyle.value = previous;
-    showErrorToast(cause);
-  } finally {
     trayStyleSaving.value = false;
+  } catch (cause) {
+    showErrorToast(cause);
+    // `save_tray_style` persists the value before rebuilding the tray, so a
+    // failure leaves the new value in the config. Resync instead of rolling the
+    // switch back locally.
+    trayStyleSaving.value = false;
+    try {
+      await refresh();
+    } catch {
+      // Keep the optimistic value when the resync fails as well.
+    }
   }
 }
 
@@ -825,6 +839,7 @@ watch(
 onMounted(() => {
   void loadAppVersion();
   void loadAutostartState();
+  void detectPlatform();
 });
 </script>
 
@@ -1052,7 +1067,11 @@ onMounted(() => {
               </div>
             </SettingsItem>
 
-            <SettingsItem :title="t('settings.tray.style')" wide>
+            <SettingsItem
+              v-if="!isLinuxPlatform"
+              :title="t('settings.tray.style')"
+              wide
+            >
               <v-btn-toggle
                 :model-value="trayStyle"
                 :disabled="trayStyleSaving"

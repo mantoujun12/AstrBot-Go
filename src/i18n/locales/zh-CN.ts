@@ -43,6 +43,7 @@ const zhCN = {
     "loading": "正在加载实例…",
     "loadFailed": "实例加载失败",
     "actions": {
+      "open": "打开 {name}",
       "start": "启动 {name}",
       "stop": "停止 {name}",
       "confirmStop": "再次点击确认停止 {name}",

@@ -233,6 +233,14 @@ pub fn run() {
                 if load_config().map(|c| c.close_to_tray).unwrap_or(true) {
                     api.prevent_close();
                     let _ = window.hide();
+                } else {
+                    // The prewarmed `tray-panel` window is never destroyed, so
+                    // the window list stays non-empty after the main window is
+                    // closed and the process would linger without any UI.
+                    // Exit explicitly instead. macOS keeps the process alive so
+                    // the dock icon can reopen the window.
+                    #[cfg(not(target_os = "macos"))]
+                    window.app_handle().exit(0);
                 }
             }
         })
@@ -270,6 +278,7 @@ pub fn run() {
             commands::test_network_source,
             commands::test_http_proxy,
             commands::is_macos,
+            commands::is_linux,
             // Data Directory
             commands::set_data_dir,
             commands::open_folder,

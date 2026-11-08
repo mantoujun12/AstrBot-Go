@@ -45,6 +45,7 @@ const enUS = {
     loading: "Loading instances…",
     loadFailed: "Failed to load instances",
     actions: {
+      open: "Open {name}",
       start: "Start {name}",
       stop: "Stop {name}",
       confirmStop: "Click again to stop {name}",

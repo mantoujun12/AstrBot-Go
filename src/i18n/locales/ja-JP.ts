@@ -45,6 +45,7 @@ const jaJP = {
     loading: "インスタンスを読み込み中…",
     loadFailed: "インスタンスの読み込みに失敗しました。",
     actions: {
+      open: "{name} を開く",
       start: "{name} を起動",
       stop: "{name} を停止",
       confirmStop: "もう一度クリックして {name} を停止",

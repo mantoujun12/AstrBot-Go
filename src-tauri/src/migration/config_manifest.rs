@@ -88,6 +88,7 @@ impl LegacyAppConfig {
             language_preference: LanguagePreference::System,
             reduce_motion_preference: ReduceMotionPreference::default(),
             tray_style: TrayStyle::Panel,
+            tray_panel_height: None,
             ignored_launcher_version: String::new(),
         }
     }
