@@ -12,7 +12,7 @@ use crate::component::{ComponentActionResult, ComponentsSnapshot};
 use crate::config::{
     load_config, load_manifest, reload_config, reload_manifest, with_config_mut, with_manifest_mut,
     AppConfig, AppManifest, BackupInfo, InstalledVersion, LanguagePreference,
-    ReduceMotionPreference, ThemePreference,
+    ReduceMotionPreference, ThemePreference, TrayStyle,
 };
 use crate::download;
 use crate::download_control;
@@ -198,6 +198,21 @@ pub struct AppSnapshot {
 }
 
 // === Window ===
+
+#[tauri::command]
+pub fn set_tray_panel_height(height: f64, app_handle: AppHandle) {
+    crate::tray_panel::set_height(&app_handle, height);
+}
+
+#[tauri::command]
+pub fn hide_tray_panel(app_handle: AppHandle) {
+    crate::tray_panel::hide_panel(&app_handle);
+}
+
+#[tauri::command]
+pub fn quit_app(app_handle: AppHandle) {
+    app_handle.exit(0);
+}
 
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) -> Result<()> {
@@ -473,6 +488,16 @@ pub fn save_language_preference(
 
     crate::tray::refresh_tray_menu(&app_handle);
     Ok(())
+}
+
+#[tauri::command]
+pub fn save_tray_style(tray_style: TrayStyle, app_handle: AppHandle) -> Result<()> {
+    with_config_mut(move |config| {
+        config.tray_style = tray_style;
+        Ok(())
+    })?;
+
+    crate::tray::apply_tray_style(&app_handle, tray_style)
 }
 
 // === Data Directory ===

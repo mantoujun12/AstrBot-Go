@@ -1,4 +1,5 @@
 use crate::config::LanguagePreference;
+use crate::process::InstanceState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum Locale {
@@ -57,6 +58,134 @@ impl Locale {
             Self::EnUs => "Quit",
             Self::RuRu => "Выход",
             Self::JaJp => "終了",
+        }
+    }
+
+    pub(crate) fn tray_settings(self) -> &'static str {
+        match self {
+            Self::ZhCn => "打开设置",
+            Self::EnUs => "Open Settings",
+            Self::RuRu => "Открыть настройки",
+            Self::JaJp => "設定を開く",
+        }
+    }
+
+    pub(crate) fn tray_open_webui(self) -> &'static str {
+        match self {
+            Self::ZhCn => "打开 WebUI",
+            Self::EnUs => "Open WebUI",
+            Self::RuRu => "Открыть WebUI",
+            Self::JaJp => "WebUI を開く",
+        }
+    }
+
+    pub(crate) fn tray_start(self) -> &'static str {
+        match self {
+            Self::ZhCn => "启动",
+            Self::EnUs => "Start",
+            Self::RuRu => "Запустить",
+            Self::JaJp => "起動",
+        }
+    }
+
+    pub(crate) fn tray_restart(self) -> &'static str {
+        match self {
+            Self::ZhCn => "重启",
+            Self::EnUs => "Restart",
+            Self::RuRu => "Перезапустить",
+            Self::JaJp => "再起動",
+        }
+    }
+
+    pub(crate) fn tray_no_instances(self) -> &'static str {
+        match self {
+            Self::ZhCn => "暂无实例",
+            Self::EnUs => "No instances",
+            Self::RuRu => "Нет экземпляров",
+            Self::JaJp => "インスタンスなし",
+        }
+    }
+
+    pub(crate) fn tray_instances(self, total: usize) -> String {
+        match self {
+            Self::ZhCn => format!("实例（{total}）"),
+            Self::EnUs => format!("Instances ({total})"),
+            Self::RuRu => format!("Экземпляры ({total})"),
+            Self::JaJp => format!("インスタンス（{total}）"),
+        }
+    }
+
+    pub(crate) fn tray_status(self, running: usize, total: usize) -> String {
+        match self {
+            Self::ZhCn => format!("{running} 个运行中 · 共 {total} 个实例"),
+            Self::EnUs => format!("{running} running · {total} total"),
+            Self::RuRu => format!("Работает: {running} · всего: {total}"),
+            Self::JaJp => format!("{running} 個実行中 · 全 {total} 個"),
+        }
+    }
+
+    pub(crate) fn instance_state(self, state: InstanceState) -> &'static str {
+        match state {
+            InstanceState::Running => match self {
+                Self::ZhCn => "运行中",
+                Self::EnUs => "Running",
+                Self::RuRu => "Работает",
+                Self::JaJp => "実行中",
+            },
+            InstanceState::Starting => match self {
+                Self::ZhCn => "启动中",
+                Self::EnUs => "Starting",
+                Self::RuRu => "Запуск",
+                Self::JaJp => "起動中",
+            },
+            InstanceState::Stopping => match self {
+                Self::ZhCn => "停止中",
+                Self::EnUs => "Stopping",
+                Self::RuRu => "Остановка",
+                Self::JaJp => "停止中",
+            },
+            InstanceState::Stopped => match self {
+                Self::ZhCn => "已停止",
+                Self::EnUs => "Stopped",
+                Self::RuRu => "Остановлен",
+                Self::JaJp => "停止済み",
+            },
+        }
+    }
+
+    pub(crate) fn tray_duration_less_minute(self) -> &'static str {
+        match self {
+            Self::ZhCn => "< 1 分",
+            Self::EnUs => "< 1 min",
+            Self::RuRu => "< 1 мин",
+            Self::JaJp => "1 分未満",
+        }
+    }
+
+    pub(crate) fn tray_duration_minutes(self, minutes: i64) -> String {
+        match self {
+            Self::ZhCn => format!("{minutes} 分"),
+            Self::EnUs => format!("{minutes} min"),
+            Self::RuRu => format!("{minutes} мин"),
+            Self::JaJp => format!("{minutes} 分"),
+        }
+    }
+
+    pub(crate) fn tray_duration_hours(self, hours: i64) -> String {
+        match self {
+            Self::ZhCn => format!("{hours} 小时"),
+            Self::EnUs => format!("{hours} h"),
+            Self::RuRu => format!("{hours} ч"),
+            Self::JaJp => format!("{hours} 時間"),
+        }
+    }
+
+    pub(crate) fn tray_duration_hours_minutes(self, hours: i64, minutes: i64) -> String {
+        match self {
+            Self::ZhCn => format!("{hours} 小时 {minutes} 分"),
+            Self::EnUs => format!("{hours} h {minutes} min"),
+            Self::RuRu => format!("{hours} ч {minutes} мин"),
+            Self::JaJp => format!("{hours} 時間 {minutes} 分"),
         }
     }
 }

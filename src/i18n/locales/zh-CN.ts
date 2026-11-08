@@ -34,6 +34,27 @@ const zhCN = {
     "ignore": "忽略本次版本",
     "noNotes": "此版本暂无更新说明"
   },
+  "trayPanel": {
+    "title": "AstrBot Launcher",
+    "openMainWindow": "打开主窗口",
+    "openSettings": "打开设置",
+    "quit": "退出",
+    "empty": "暂无实例",
+    "loading": "正在加载实例…",
+    "loadFailed": "实例加载失败",
+    "actions": {
+      "start": "启动 {name}",
+      "stop": "停止 {name}",
+      "confirmStop": "再次点击确认停止 {name}",
+      "restart": "重启 {name}"
+    },
+    "duration": {
+      "hours": "{hours} 小时",
+      "hoursMinutes": "{hours} 小时 {minutes} 分",
+      "minutes": "{minutes} 分",
+      "lessThanMinute": "< 1 分"
+    }
+  },
   "settings": {
     "appearance": {
       "language": "语言",
@@ -85,6 +106,11 @@ const zhCN = {
         "useUvForDeps": "使用 uv 安装依赖",
         "useUvForDepsHint": "部署和启动实例时使用 uv 代替 pip 同步 Python 依赖以加快安装速度（需先安装 uv 组件）"
       }
+    },
+    "tray": {
+      "style": "托盘样式",
+      "panel": "面板",
+      "nativeMenu": "菜单"
     },
     "network": {
       "githubProxy": "GitHub 代理",

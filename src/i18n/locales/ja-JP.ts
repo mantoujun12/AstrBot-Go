@@ -36,6 +36,27 @@ const jaJP = {
     ignore: "このバージョンを無視",
     noNotes: "このバージョンのリリースノートはありません",
   },
+  trayPanel: {
+    title: "AstrBot Launcher",
+    openMainWindow: "メインウィンドウを開く",
+    openSettings: "設定を開く",
+    quit: "終了",
+    empty: "インスタンスはありません",
+    loading: "インスタンスを読み込み中…",
+    loadFailed: "インスタンスの読み込みに失敗しました。",
+    actions: {
+      start: "{name} を起動",
+      stop: "{name} を停止",
+      confirmStop: "もう一度クリックして {name} を停止",
+      restart: "{name} を再起動",
+    },
+    duration: {
+      hours: "{hours} 時間",
+      hoursMinutes: "{hours} 時間 {minutes} 分",
+      minutes: "{minutes} 分",
+      lessThanMinute: "< 1 分",
+    },
+  },
   settings: {
     appearance: {
       language: "言語",
@@ -95,6 +116,11 @@ const jaJP = {
         useUvForDepsHint:
           "デプロイや起動時に pip の代わりに uv を使用して Python 依存関係を高速に同期します（uv コンポーネントが必要）",
       },
+    },
+    tray: {
+      style: "トレイのスタイル",
+      panel: "パネル",
+      nativeMenu: "メニュー",
     },
     network: {
       githubProxy: "GitHub プロキシ",

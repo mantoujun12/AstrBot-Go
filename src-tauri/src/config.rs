@@ -41,6 +41,30 @@ pub enum ThemePreference {
     Dark,
 }
 
+/// How the tray icon reacts to a right click.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TrayStyle {
+    NativeMenu,
+    #[default]
+    Panel,
+}
+
+impl<'de> Deserialize<'de> for TrayStyle {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        // Unknown values from a newer build must not invalidate the whole
+        // config record, so they degrade to the default style.
+        Ok(match value.as_str() {
+            "native_menu" => Self::NativeMenu,
+            _ => Self::Panel,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ReduceMotionPreference {
@@ -94,6 +118,8 @@ pub struct AppConfig {
     #[serde(default = "default_true")]
     pub close_to_tray: bool,
     #[serde(default)]
+    pub tray_style: TrayStyle,
+    #[serde(default)]
     pub autostart_minimize_to_tray: bool,
     #[serde(default = "default_true")]
     pub check_instance_update: bool,
@@ -131,6 +157,7 @@ impl Default for AppConfig {
             allow_local_dns_probe: false,
             use_uv_for_deps: false,
             close_to_tray: true,
+            tray_style: TrayStyle::Panel,
             autostart_minimize_to_tray: false,
             check_instance_update: true,
             persist_instance_state: false,
@@ -556,6 +583,33 @@ mod tests {
         assert_eq!(instance.resource_alert_cpu_percent, None);
         assert_eq!(instance.resource_alert_memory_bytes, None);
         assert_eq!(instance.resource_alert_disk_bytes, None);
+        Ok(())
+    }
+
+    #[test]
+    fn tray_style_tolerates_unknown_values() -> Result<()> {
+        let menu: TrayStyle = serde_json::from_str(r#""native_menu""#)?;
+        assert_eq!(menu, TrayStyle::NativeMenu);
+
+        let panel: TrayStyle = serde_json::from_str(r#""panel""#)?;
+        assert_eq!(panel, TrayStyle::Panel);
+
+        // A value written by a newer build must not invalidate the whole
+        // config record, which classify_config_record would reset.
+        let unknown: TrayStyle = serde_json::from_str(r#""compact_cards""#)?;
+        assert_eq!(unknown, TrayStyle::Panel);
+
+        assert_eq!(
+            serde_json::to_string(&TrayStyle::NativeMenu)?,
+            r#""native_menu""#
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn app_config_without_tray_style_defaults_to_panel() -> Result<()> {
+        let config: AppConfig = serde_json::from_str("{}")?;
+        assert_eq!(config.tray_style, TrayStyle::Panel);
         Ok(())
     }
 

@@ -14,6 +14,8 @@ export type SupportedLocale = "zh-CN" | "en-US" | "ru-RU" | "ja-JP";
 
 export type LanguagePreference = "system" | SupportedLocale;
 
+export type TrayStyle = "native_menu" | "panel";
+
 export type InstanceState = "stopped" | "starting" | "running" | "stopping";
 
 export type ComponentId = "python" | "nodejs" | "uv";
@@ -53,6 +55,7 @@ export interface AppConfig {
   allow_local_dns_probe: boolean;
   use_uv_for_deps: boolean;
   close_to_tray: boolean;
+  tray_style: TrayStyle;
   autostart_minimize_to_tray: boolean;
   check_instance_update: boolean;
   persist_instance_state: boolean;
@@ -81,6 +84,7 @@ export interface InstanceStatus {
   auto_restart_notify: boolean;
   last_exit_reason: string;
   restart_attempts: number;
+  started_at_ms: number | null;
 }
 
 export type InstanceHealthGrade = "healthy" | "warning" | "critical";

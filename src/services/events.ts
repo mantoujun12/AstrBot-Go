@@ -11,6 +11,7 @@ import type {
   TaskRecord,
 } from "../types/launcher";
 import { toTaskRecord } from "./tasks";
+import type { TrayPanelAction } from "./tray";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -187,6 +188,40 @@ export function listenAppSnapshot(
   return listen<unknown>("app-snapshot", (event) => {
     if (isAppSnapshot(event.payload)) {
       handler(event.payload);
+    }
+  });
+}
+
+export function listenTrayPanelShown(handler: () => void): Promise<UnlistenFn> {
+  return listen("tray-panel-shown", () => {
+    handler();
+  });
+}
+
+function toTrayPanelAction(value: unknown): TrayPanelAction | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  if (value.kind === "settings") {
+    return { kind: "settings" };
+  }
+  if (
+    value.kind === "instance" &&
+    typeof value.instanceId === "string" &&
+    value.instanceId !== ""
+  ) {
+    return { kind: "instance", instanceId: value.instanceId };
+  }
+  return null;
+}
+
+export function listenTrayPanelAction(
+  handler: (action: TrayPanelAction) => void,
+): Promise<UnlistenFn> {
+  return listen<unknown>("tray-panel-action", (event) => {
+    const action = toTrayPanelAction(event.payload);
+    if (action) {
+      handler(action);
     }
   });
 }
