@@ -3,6 +3,7 @@
 ### Added
 
 - Added page transitions and a reduce-motion setting (follow system, on, off).
+- Added a tray panel for browsing instance status with quick start, stop, and restart actions, plus a setting to switch to a native tray menu that groups instances and their actions (panel is the default).
 - Added a startup launcher update check that shows a dialog with release notes, letting you update now, remind later, or ignore this version.
 
 ### Changed
@@ -22,6 +23,7 @@
 ### 新增
 
 - 新增页面切换过渡动画与减少动态设置（跟随系统、开启、关闭）。
+- 新增托盘面板用于查看实例状态并快捷启动、停止和重启实例，并提供设置项切换到按实例分组的原生托盘菜单（默认使用面板）。
 - 新增启动时检测启动器更新，发现新版本后弹出对话框显示发行版说明，可选择立即更新、稍后提醒或忽略本次版本。
 
 ### 变更

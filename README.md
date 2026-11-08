@@ -28,6 +28,7 @@ English | [简体中文](./README_zh.md)
 - Download and switch AstrBot versions
 - Back up and restore instance data
 - Automatically configure Python / Node.js / uv runtime environments
+- Browse instance status from a tray panel, with an optional native tray menu
 
 ## Platform Support
 
@@ -37,7 +38,7 @@ English | [简体中文](./README_zh.md)
 | Linux | 🟡 Partial | x64, ARM64 | Requires WebKitGTK 4.1 and other [Tauri system dependencies](https://v2.tauri.app/start/prerequisites/#linux) |
 | macOS | 🟡 Partial | Intel, Apple Silicon | Window adaptation only; building requires Xcode and its Command Line Tools |
 
-Platform-specific capabilities are adapted through Rust conditional compilation and Tauri build configuration. Cross-platform CI is not configured yet, so Linux and macOS packages should still be built and verified on target platforms or CI runners before release.
+Platform-specific capabilities are adapted through Rust conditional compilation and Tauri build configuration. The tray panel is available on Windows and macOS; Linux falls back to the native tray menu because appindicators do not receive click events. Cross-platform CI is not configured yet, so Linux and macOS packages should still be built and verified on target platforms or CI runners before release.
 
 ## Tech Stack
 
