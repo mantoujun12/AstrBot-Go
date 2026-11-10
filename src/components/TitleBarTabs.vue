@@ -17,6 +17,9 @@ const {
 const { instances } = useLauncherStore();
 const { t } = useI18n();
 
+// macOS 顶部红绿灯区占用标题栏左侧空间，无法与侧栏轨道精确对齐，仅对 Windows/Linux 采用 8px 内边距。
+const isMac = navigator.userAgent.includes("Mac");
+
 const tabs = computed(() =>
   instanceIds.value.map((id) => {
     const instance = instances.value.find((item) => item.id === id) ?? null;
@@ -157,7 +160,12 @@ function onDragEnd(): void {
 </script>
 
 <template>
-  <div class="titlebar-tabs" role="tablist" :aria-label="t('shell.tabs.label')">
+  <div
+    class="titlebar-tabs"
+    :class="{ 'titlebar-tabs--mac': isMac }"
+    role="tablist"
+    :aria-label="t('shell.tabs.label')"
+  >
     <button
       type="button"
       class="titlebar-tabs__home"
@@ -233,6 +241,11 @@ function onDragEnd(): void {
   min-width: 0;
   height: 100%;
   padding-inline-start: 8px;
+}
+
+/* macOS 红绿灯预留区使轨道对齐无法实现，保持原 4px 内边距。 */
+.titlebar-tabs--mac {
+  padding-inline-start: 4px;
 }
 
 .titlebar-tabs__home {

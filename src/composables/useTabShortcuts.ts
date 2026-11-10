@@ -15,8 +15,6 @@ interface ShortcutInput {
   altKey: boolean;
   metaKey: boolean;
   defaultPrevented: boolean;
-  /** True when the event came from the iframe bridge, not a real keydown. */
-  bridge?: boolean;
   preventDefault?: () => void;
 }
 
@@ -127,7 +125,7 @@ export function useTabShortcuts(): void {
         return;
       case "PageDown":
         event.preventDefault?.();
-        if (event.shiftKey && !event.bridge) {
+        if (event.shiftKey) {
           moveActiveTab(1);
         } else {
           switchBy(1);
@@ -135,7 +133,7 @@ export function useTabShortcuts(): void {
         return;
       case "PageUp":
         event.preventDefault?.();
-        if (event.shiftKey && !event.bridge) {
+        if (event.shiftKey) {
           moveActiveTab(-1);
         } else {
           switchBy(-1);
@@ -182,7 +180,6 @@ export function useTabShortcuts(): void {
       altKey: false,
       metaKey: false,
       defaultPrevented: false,
-      bridge: true,
     });
   }
 
