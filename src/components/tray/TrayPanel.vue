@@ -32,6 +32,7 @@ import type {
   InstanceState,
   InstanceStatus,
 } from "../../types/launcher";
+import { formatRunDuration } from "../../utils/format";
 import { cacheTheme } from "../../utils/themeCache";
 
 const LIST_MAX_HEIGHT = 360;
@@ -91,7 +92,7 @@ const items = computed<TrayInstanceItem[]>(() => {
     const duration =
       (instance.state === "running" || instance.state === "stopping") &&
       instance.started_at_ms !== null
-        ? formatDuration(instance.started_at_ms, startedAtNow.value)
+        ? formatRunDuration(instance.started_at_ms, startedAtNow.value)
         : null;
 
     return {
@@ -115,23 +116,6 @@ let confirmStopTimer: number | null = null;
 let disposed = false;
 const actionErrorTimers = new Map<string, number>();
 const unlisteners: UnlistenFn[] = [];
-
-function formatDuration(startedAtMs: number, now: number): string {
-  const elapsedMinutes = Math.floor((now - startedAtMs) / 60_000);
-  if (elapsedMinutes < 1) {
-    return t("trayPanel.duration.lessThanMinute");
-  }
-  if (elapsedMinutes < 60) {
-    return t("trayPanel.duration.minutes", { minutes: elapsedMinutes });
-  }
-
-  const hours = Math.floor(elapsedMinutes / 60);
-  const minutes = elapsedMinutes % 60;
-  if (minutes === 0) {
-    return t("trayPanel.duration.hours", { hours });
-  }
-  return t("trayPanel.duration.hoursMinutes", { hours, minutes });
-}
 
 async function loadSnapshot(): Promise<void> {
   const sequence = ++loadSequence;

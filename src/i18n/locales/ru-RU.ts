@@ -28,6 +28,12 @@ const ruRU = {
       stopping: "Остановка",
       stopped: "Остановлен",
     },
+    duration: {
+      hours: "{hours} ч",
+      hoursMinutes: "{hours} ч {minutes} мин",
+      minutes: "{minutes} мин",
+      lessThanMinute: "< 1 мин",
+    },
   },
   launcherUpdate: {
     title: "Доступна новая версия {version}",
@@ -50,12 +56,6 @@ const ruRU = {
       stop: "Остановить {name}",
       confirmStop: "Нажмите ещё раз, чтобы остановить {name}",
       restart: "Перезапустить {name}",
-    },
-    duration: {
-      hours: "{hours} ч",
-      hoursMinutes: "{hours} ч {minutes} мин",
-      minutes: "{minutes} мин",
-      lessThanMinute: "< 1 мин",
     },
   },
   settings: {
@@ -537,6 +537,7 @@ const ruRU = {
       createBackup: "Создать резервную копию",
       repair: "Восстановить экземпляр",
       viewLogs: "Просмотреть журналы",
+      openWebui: "Открыть WebUI",
       openInBrowser: "Открыть в браузере",
       clearData: "Очистить данные",
       clearVenv: "Очистить виртуальное окружение",
@@ -606,16 +607,18 @@ const ruRU = {
       columns: {
         name: "Название",
         state: "Состояние",
-        version: "Версия",
-        port: "Порт",
         actions: "Действия",
       },
+      meta: "Версия {version} · Порт {port}",
       empty: "Экземпляров нет",
       pidWarning:
         "WebUI не включён — невозможно отслеживать состояние процесса",
+      lastExit: "Последний выход: {reason}",
+      restartAttempts: "Автоперезапусков: {attempt}/{max}",
       aria: {
         moreActions: "Дополнительные действия",
         pidUnreliable: "Состояние процесса может быть неточным",
+        lastExit: "Информация об аварийном завершении",
       },
     },
     updates: {

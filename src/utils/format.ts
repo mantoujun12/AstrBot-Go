@@ -96,6 +96,23 @@ export function instanceStateLabel(state: InstanceState): string {
   return i18n.global.t("common.instanceState." + state);
 }
 
+export function formatRunDuration(startedAtMs: number, now: number): string {
+  const elapsedMinutes = Math.floor((now - startedAtMs) / 60_000);
+  if (elapsedMinutes < 1) {
+    return i18n.global.t("common.duration.lessThanMinute");
+  }
+  if (elapsedMinutes < 60) {
+    return i18n.global.t("common.duration.minutes", { minutes: elapsedMinutes });
+  }
+
+  const hours = Math.floor(elapsedMinutes / 60);
+  const minutes = elapsedMinutes % 60;
+  if (minutes === 0) {
+    return i18n.global.t("common.duration.hours", { hours });
+  }
+  return i18n.global.t("common.duration.hoursMinutes", { hours, minutes });
+}
+
 export function instanceStateColor(
   state: InstanceState,
 ): "success" | "info" | "warning" | "secondary" {

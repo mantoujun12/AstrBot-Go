@@ -25,6 +25,12 @@ const zhCN = {
       "starting": "启动中",
       "stopping": "停止中",
       "stopped": "已停止"
+    },
+    "duration": {
+      "hours": "{hours} 小时",
+      "hoursMinutes": "{hours} 小时 {minutes} 分",
+      "minutes": "{minutes} 分",
+      "lessThanMinute": "< 1 分"
     }
   },
   "launcherUpdate": {
@@ -48,12 +54,6 @@ const zhCN = {
       "stop": "停止 {name}",
       "confirmStop": "再次点击确认停止 {name}",
       "restart": "重启 {name}"
-    },
-    "duration": {
-      "hours": "{hours} 小时",
-      "hoursMinutes": "{hours} 小时 {minutes} 分",
-      "minutes": "{minutes} 分",
-      "lessThanMinute": "< 1 分"
     }
   },
   "settings": {
@@ -504,6 +504,7 @@ const zhCN = {
       "createBackup": "创建备份",
       "repair": "修复实例",
       "viewLogs": "查看日志",
+      "openWebui": "打开 WebUI",
       "openInBrowser": "在浏览器中打开",
       "clearData": "清除数据",
       "clearVenv": "清除虚拟环境",
@@ -573,15 +574,17 @@ const zhCN = {
       "columns": {
         "name": "名称",
         "state": "状态",
-        "version": "版本",
-        "port": "端口",
         "actions": "操作"
       },
+      "meta": "版本 {version} · 端口 {port}",
       "empty": "暂无实例",
       "pidWarning": "WebUI 未启用，无法跟踪进程状态",
+      "lastExit": "上次退出：{reason}",
+      "restartAttempts": "已自动重启 {attempt}/{max} 次",
       "aria": {
         "moreActions": "更多操作",
-        "pidUnreliable": "进程状态可能不准确"
+        "pidUnreliable": "进程状态可能不准确",
+        "lastExit": "异常退出信息"
       }
     },
     "updates": {

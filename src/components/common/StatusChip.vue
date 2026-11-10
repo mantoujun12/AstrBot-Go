@@ -6,8 +6,9 @@ withDefaults(
   defineProps<{
     state: InstanceState;
     size?: "x-small" | "small";
+    animated?: boolean;
   }>(),
-  { size: "small" },
+  { size: "small", animated: false },
 );
 </script>
 
@@ -19,7 +20,11 @@ withDefaults(
     label
     class="status-chip"
   >
-    <span class="status-chip__dot" aria-hidden="true" />
+    <span
+      class="status-chip__dot"
+      :class="{ 'status-chip__dot--animated': animated }"
+      aria-hidden="true"
+    />
     {{ instanceStateLabel(state) }}
   </v-chip>
 </template>
@@ -32,5 +37,29 @@ withDefaults(
   margin-inline-end: 6px;
   border-radius: 50%;
   background: currentColor;
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.status-chip__dot--animated {
+  animation: status-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-chip__dot--animated {
+    animation: none;
+  }
+}
+
+:global(html[data-reduce-motion]) .status-chip__dot--animated {
+  animation: none;
 }
 </style>
