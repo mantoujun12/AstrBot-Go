@@ -893,7 +893,11 @@ pub async fn create_instance(name: String, version: String, port: u16) -> Result
 #[tauri::command]
 pub async fn delete_instance(instance_id: String, state: State<'_, AppState>) -> Result<()> {
     let _guard = state.process_manager.acquire_guard(&instance_id)?;
-    instance::delete_instance(&instance_id)
+    let result = instance::delete_instance(&instance_id);
+    // Do not leak the crash tracker for a removed instance; it otherwise keeps
+    // growing the in-memory map for the manager lifetime.
+    state.process_manager.forget_restart_tracking(&instance_id);
+    result
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -983,10 +987,16 @@ pub async fn start_instance(
         &instance_id,
     );
     tasks::execute(app_handle, spec, move |context| async move {
-        state
+        let result = state
             .process_manager
             .start_instance(&instance_id, context.app_handle)
-            .await
+            .await;
+        // A manual start abandons the previous crash trail: the instance now
+        // runs and any retained reason/counts would show a stale warning.
+        if result.is_ok() {
+            state.process_manager.clear_crash_signals(&instance_id);
+        }
+        result
     })
     .await
 }
@@ -1008,10 +1018,16 @@ pub async fn restart_instance(
         &instance_id,
     );
     tasks::execute(app_handle, spec, move |context| async move {
-        state
+        let result = state
             .process_manager
             .restart_instance(&instance_id, context.app_handle)
-            .await
+            .await;
+        // A manual restart abandons the previous crash trail: the instance
+        // now runs and any retained reason/counts would show a stale warning.
+        if result.is_ok() {
+            state.process_manager.clear_crash_signals(&instance_id);
+        }
+        result
     })
     .await
 }

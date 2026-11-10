@@ -611,15 +611,15 @@ impl ProcessManager {
 
     pub async fn stop_instance(&self, id: &str) -> Result<()> {
         // Cancel any pending auto-restart first: a user-initiated stop must
-        // not be followed by a delayed restart task.
+        // not be followed by a delayed restart task. The counts and reason are
+        // only dropped once the stop actually succeeds (finalize_stop), so a
+        // failed stop or a stop targeting an already-stopped instance keeps
+        // the recorded crash details.
         {
             let mut state = lock_mutex_recover(&self.state, "ProcessState");
             state.check_active(id)?;
             if let Some(tracker) = state.restarts.get_mut(id) {
                 tracker.cancelled = true;
-                tracker.attempts = 0;
-                tracker.completed = 0;
-                tracker.last_exit_reason = String::new();
             }
         }
         // Phase 2: lock → transition to Stopping → unlock
@@ -811,17 +811,34 @@ impl ProcessManager {
     }
 
     /// Finalize a stop: remove the slot and emit Stopped.
+    ///
+    /// The restart tracker is dropped entirely: a manual stop is not a crash,
+    /// and removing the entry guarantees no in-flight scheduled restart task
+    /// can bump its counters afterwards.
     fn finalize_stop(&self, id: &str) {
         let mut state = lock_mutex_recover(&self.state, "ProcessState");
         state.slots.remove(id);
-        // Manual stops are not crashes: forget the crash budget.
+        state.restarts.remove(id);
+        drop(state);
+        self.emit(id, InstanceState::Stopped);
+    }
+
+    /// Forget every crash signal for an instance after a successful manual
+    /// start or restart, so a running instance never shows a stale warning.
+    pub fn clear_crash_signals(&self, id: &str) {
+        let mut state = lock_mutex_recover(&self.state, "ProcessState");
         if let Some(tracker) = state.restarts.get_mut(id) {
+            tracker.cancelled = false;
             tracker.attempts = 0;
             tracker.completed = 0;
             tracker.last_exit_reason = String::new();
         }
-        drop(state);
-        self.emit(id, InstanceState::Stopped);
+    }
+
+    /// Drop the restart tracker for an instance that no longer exists.
+    pub fn forget_restart_tracking(&self, id: &str) {
+        let mut state = lock_mutex_recover(&self.state, "ProcessState");
+        state.restarts.remove(id);
     }
 
     fn emit(&self, instance_id: &str, state: InstanceState) {
