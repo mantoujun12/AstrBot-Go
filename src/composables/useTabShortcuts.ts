@@ -42,6 +42,7 @@ function isBridgeMessage(value: unknown): value is BridgeMessage {
  * - Ctrl+Shift+Tab / Ctrl+PageUp: previous tab
  * - Ctrl+1…8: nth tab, Ctrl+9: last tab
  * - Ctrl+W / Ctrl+F4: close the active tab (the home tab stays open)
+ * - Ctrl+Shift+PageUp/PageDown: move the active tab one position
  */
 export function useTabShortcuts(): void {
   const {
@@ -50,6 +51,7 @@ export function useTabShortcuts(): void {
     activateInstanceTab,
     closeInstanceTab,
     activateHome,
+    reorderInstanceTabs,
   } = useTabsStore();
 
   function tabIds(): string[] {
@@ -81,6 +83,31 @@ export function useTabShortcuts(): void {
     }
   }
 
+  /**
+   * Ctrl+Shift+PageUp/PageDown: move the active tab one position left or
+   * right, like common browser behaviour. The home tab never moves and the
+   * active tab stays active.
+   */
+  function moveActiveTab(offset: number): void {
+    const current = activeTab.value;
+    if (current === HOME_TAB) {
+      return;
+    }
+    const ids = instanceIds.value;
+    const from = ids.indexOf(current);
+    if (from === -1) {
+      return;
+    }
+    const to = from + offset;
+    if (to < 0 || to >= ids.length) {
+      return;
+    }
+    const next = ids.slice();
+    next.splice(from, 1);
+    next.splice(to, 0, current);
+    reorderInstanceTabs(next);
+  }
+
   function handleShortcut(event: ShortcutInput): void {
     if (
       event.defaultPrevented ||
@@ -98,11 +125,19 @@ export function useTabShortcuts(): void {
         return;
       case "PageDown":
         event.preventDefault?.();
-        switchBy(1);
+        if (event.shiftKey) {
+          moveActiveTab(1);
+        } else {
+          switchBy(1);
+        }
         return;
       case "PageUp":
         event.preventDefault?.();
-        switchBy(-1);
+        if (event.shiftKey) {
+          moveActiveTab(-1);
+        } else {
+          switchBy(-1);
+        }
         return;
       case "w":
       case "W":

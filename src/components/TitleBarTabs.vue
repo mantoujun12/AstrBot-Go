@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, type ComponentPublicInstance } from "vue";
+import { computed, nextTick, ref, type ComponentPublicInstance } from "vue";
 import { useI18n } from "vue-i18n";
 import logoUrl from "../assets/favicon.svg";
 import { useLauncherStore } from "../stores/launcher";
@@ -12,9 +12,13 @@ const {
   activateInstanceTab,
   closeInstanceTab,
   activateHome,
+  reorderInstanceTabs,
 } = useTabsStore();
 const { instances } = useLauncherStore();
 const { t } = useI18n();
+
+// macOS 顶部红绿灯区占用标题栏左侧空间，无法与侧栏轨道精确对齐，仅对 Windows/Linux 采用 8px 内边距。
+const isMac = navigator.userAgent.includes("Mac");
 
 const tabs = computed(() =>
   instanceIds.value.map((id) => {
@@ -109,10 +113,61 @@ function onAuxClick(event: MouseEvent, id: string): void {
     closeTab(id);
   }
 }
+
+const draggedTabId = ref<string | null>(null);
+
+function onDragStart(event: DragEvent, id: string): void {
+  draggedTabId.value = id;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", id);
+  }
+}
+
+function onDragOver(event: DragEvent, id: string): void {
+  const dragging = draggedTabId.value;
+  if (!dragging || dragging === id || !event.dataTransfer) {
+    return;
+  }
+
+  const current = instanceIds.value;
+  const from = current.indexOf(dragging);
+  const to = current.indexOf(id);
+  if (from === -1 || to === -1) {
+    return;
+  }
+
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const rect = target.getBoundingClientRect();
+  const before = event.clientX < rect.left + rect.width / 2;
+
+  const nextOrder = current.slice();
+  nextOrder.splice(from, 1);
+  const insertIndex = nextOrder.indexOf(id) + (before ? 0 : 1);
+  nextOrder.splice(insertIndex, 0, dragging);
+  reorderInstanceTabs(nextOrder);
+
+  event.dataTransfer.dropEffect = "move";
+  event.preventDefault();
+}
+
+function onDragEnd(): void {
+  draggedTabId.value = null;
+}
 </script>
 
 <template>
-  <div class="titlebar-tabs" role="tablist" :aria-label="t('shell.tabs.label')">
+  <div
+    class="titlebar-tabs"
+    :class="{ 'titlebar-tabs--mac': isMac }"
+    role="tablist"
+    :aria-label="t('shell.tabs.label')"
+    @dragover.prevent
+    @drop.prevent
+  >
     <button
       type="button"
       class="titlebar-tabs__home"
@@ -138,7 +193,15 @@ function onAuxClick(event: MouseEvent, id: string): void {
         v-for="tab in tabs"
         :key="tab.id"
         class="titlebar-tabs__tab"
-        :class="{ 'titlebar-tabs__tab--active': activeTab === tab.id }"
+        :class="{
+          'titlebar-tabs__tab--active': activeTab === tab.id,
+          'titlebar-tabs__tab--dragging': draggedTabId === tab.id,
+        }"
+        :draggable="true"
+        @dragstart="onDragStart($event, tab.id)"
+        @dragover="onDragOver($event, tab.id)"
+        @dragend="onDragEnd"
+        @drop.prevent
       >
         <button
           type="button"
@@ -179,6 +242,11 @@ function onAuxClick(event: MouseEvent, id: string): void {
   align-items: center;
   min-width: 0;
   height: 100%;
+  padding-inline-start: 8px;
+}
+
+/* macOS 红绿灯预留区使轨道对齐无法实现，保持原 4px 内边距。 */
+.titlebar-tabs--mac {
   padding-inline-start: 4px;
 }
 
@@ -242,6 +310,7 @@ function onAuxClick(event: MouseEvent, id: string): void {
   margin-inline-end: 2px;
   overflow: hidden;
   border-radius: 8px;
+  user-select: none;
   color: rgba(var(--v-theme-on-surface), 0.68);
   transition:
     flex-grow var(--motion-duration-base) var(--motion-ease),
@@ -259,8 +328,19 @@ function onAuxClick(event: MouseEvent, id: string): void {
   opacity: 0;
 }
 
+/* 拖拽跨越中点即时更新顺序时，标签通过 FLIP 平滑滑入新位置。 */
+.titlebar-tab-move {
+  transition:
+    transform var(--motion-duration-base) var(--motion-ease),
+    opacity var(--motion-duration-base) var(--motion-ease);
+}
+
 .titlebar-tabs__tab:hover {
   background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.titlebar-tabs__tab--dragging {
+  opacity: 0.4;
 }
 
 .titlebar-tabs__tab--active {
