@@ -53,6 +53,8 @@ pub(super) struct InstanceEntry {
 pub(super) struct RestartTracker {
     /// Consecutive unexpected exits since the last stable run.
     pub(super) attempts: u32,
+    /// Auto-restarts actually launched successfully.
+    pub(super) completed: u32,
     /// Set by a manual stop so a sleeping restart task aborts itself.
     pub(super) cancelled: bool,
     /// Diagnostic reason recorded for the latest unexpected exit.
@@ -335,9 +337,9 @@ impl ProcessManager {
             .collect()
     }
 
-    /// Returns recorded exit reason and consecutive crash attempts for every
-    /// instance that currently holds a restart tracker.
-    pub fn get_restart_info(&self) -> HashMap<String, (String, u32)> {
+    /// Returns recorded exit reason, consecutive crash attempts and completed
+    /// auto-restarts for every instance that currently holds a restart tracker.
+    pub fn get_restart_info(&self) -> HashMap<String, (String, u32, u32)> {
         let state = lock_mutex_recover(&self.state, "ProcessState");
         state
             .restarts
@@ -345,7 +347,11 @@ impl ProcessManager {
             .map(|(id, tracker)| {
                 (
                     id.clone(),
-                    (tracker.last_exit_reason.clone(), tracker.attempts),
+                    (
+                        tracker.last_exit_reason.clone(),
+                        tracker.attempts,
+                        tracker.completed,
+                    ),
                 )
             })
             .collect()
@@ -407,6 +413,7 @@ impl ProcessManager {
                         AUTO_RESTART_STABLE_RUN_SECS
                     );
                     tracker.attempts = 0;
+                    tracker.completed = 0;
                 }
             }
         }
@@ -430,8 +437,14 @@ impl ProcessManager {
             return;
         };
         if !instance.auto_restart_enabled {
+            // Keep the exit reason for the frontend even though no auto
+            // restart is scheduled.
             let mut state = lock_mutex_recover(&self.state, "ProcessState");
-            state.restarts.remove(id);
+            let tracker = state.restarts.entry(id.to_string()).or_default();
+            tracker.cancelled = false;
+            tracker.last_exit_reason = reason;
+            tracker.attempts = 0;
+            tracker.completed = 0;
             drop(state);
             return;
         }
@@ -526,13 +539,21 @@ impl ProcessManager {
             let Some(app) = app else {
                 return;
             };
-            if let Err(e) = pm.start_instance(&id_owned, app).await {
-                log::warn!(
-                    "Scheduled auto-restart failed to launch instance {}: {}",
-                    id_owned,
-                    e
-                );
-                pm.handle_unexpected_exit(&id_owned, format!("launch failed: {e}"));
+            match pm.start_instance(&id_owned, app).await {
+                Ok(_) => {
+                    let mut state = lock_mutex_recover(&pm.state, "ProcessState");
+                    if let Some(t) = state.restarts.get_mut(&id_owned) {
+                        t.completed += 1;
+                    }
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Scheduled auto-restart failed to launch instance {}: {}",
+                        id_owned,
+                        e
+                    );
+                    pm.handle_unexpected_exit(&id_owned, format!("launch failed: {e}"));
+                }
             }
         });
     }
@@ -590,13 +611,15 @@ impl ProcessManager {
 
     pub async fn stop_instance(&self, id: &str) -> Result<()> {
         // Cancel any pending auto-restart first: a user-initiated stop must
-        // not be followed by a delayed restart task.
+        // not be followed by a delayed restart task. The counts and reason are
+        // only dropped once the stop actually succeeds (finalize_stop), so a
+        // failed stop or a stop targeting an already-stopped instance keeps
+        // the recorded crash details.
         {
             let mut state = lock_mutex_recover(&self.state, "ProcessState");
             state.check_active(id)?;
             if let Some(tracker) = state.restarts.get_mut(id) {
                 tracker.cancelled = true;
-                tracker.attempts = 0;
             }
         }
         // Phase 2: lock → transition to Stopping → unlock
@@ -788,15 +811,34 @@ impl ProcessManager {
     }
 
     /// Finalize a stop: remove the slot and emit Stopped.
+    ///
+    /// The restart tracker is dropped entirely: a manual stop is not a crash,
+    /// and removing the entry guarantees no in-flight scheduled restart task
+    /// can bump its counters afterwards.
     fn finalize_stop(&self, id: &str) {
         let mut state = lock_mutex_recover(&self.state, "ProcessState");
         state.slots.remove(id);
-        // Manual stops are not crashes: forget the crash budget.
-        if let Some(tracker) = state.restarts.get_mut(id) {
-            tracker.attempts = 0;
-        }
+        state.restarts.remove(id);
         drop(state);
         self.emit(id, InstanceState::Stopped);
+    }
+
+    /// Forget every crash signal for an instance after a successful manual
+    /// start or restart, so a running instance never shows a stale warning.
+    pub fn clear_crash_signals(&self, id: &str) {
+        let mut state = lock_mutex_recover(&self.state, "ProcessState");
+        if let Some(tracker) = state.restarts.get_mut(id) {
+            tracker.cancelled = false;
+            tracker.attempts = 0;
+            tracker.completed = 0;
+            tracker.last_exit_reason = String::new();
+        }
+    }
+
+    /// Drop the restart tracker for an instance that no longer exists.
+    pub fn forget_restart_tracking(&self, id: &str) {
+        let mut state = lock_mutex_recover(&self.state, "ProcessState");
+        state.restarts.remove(id);
     }
 
     fn emit(&self, instance_id: &str, state: InstanceState) {
