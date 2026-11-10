@@ -41,6 +41,43 @@ export function activateHome(): void {
 }
 
 /**
+ * Reorders open instance tabs to the given sequence. Unknown ids, duplicates
+ * and no-op changes are ignored; missing tabs are appended so every open tab
+ * stays represented. The active tab is never changed by a reorder.
+ */
+export function reorderInstanceTabs(ids: string[]): void {
+  if (instanceIds.value.length === 0) {
+    return;
+  }
+
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const id of ids) {
+    if (!seen.has(id) && instanceIds.value.includes(id)) {
+      seen.add(id);
+      next.push(id);
+    }
+  }
+  for (const id of instanceIds.value) {
+    if (!seen.has(id)) {
+      next.push(id);
+    }
+  }
+
+  if (next.length !== instanceIds.value.length) {
+    return;
+  }
+  if (next.every((id, index) => id === instanceIds.value[index])) {
+    return;
+  }
+
+  instanceIds.value = next;
+  if (activeTab.value !== HOME_TAB && !next.includes(activeTab.value)) {
+    activeTab.value = HOME_TAB;
+  }
+}
+
+/**
  * Removes tabs whose instances no longer exist. Called whenever the snapshot
  * changes so deleting an instance also closes its WebUI tab.
  */
@@ -70,5 +107,6 @@ export function useTabsStore() {
     closeInstanceTab,
     activateHome,
     pruneTabs,
+    reorderInstanceTabs,
   };
 }
