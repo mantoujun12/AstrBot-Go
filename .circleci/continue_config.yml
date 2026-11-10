@@ -54,6 +54,7 @@ jobs:
   frontend:
     docker:
       - image: cimg/node:24.22
+    resource_class: small
     retention:
       caches: 3d
     steps:
@@ -69,6 +70,7 @@ jobs:
   backend:
     docker:
       - image: cimg/rust:1.99
+    resource_class: medium
     retention:
       caches: 3d
     steps:
