@@ -23,6 +23,7 @@
         "backgroundColor": "#242424",
         "decorations": false,
         "titleBarStyle": "Overlay",
+        "dragDropEnabled": false,
         "hiddenTitle": true,
         "transparent": false,
         "shadow": true

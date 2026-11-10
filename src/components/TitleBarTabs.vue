@@ -165,6 +165,8 @@ function onDragEnd(): void {
     :class="{ 'titlebar-tabs--mac': isMac }"
     role="tablist"
     :aria-label="t('shell.tabs.label')"
+    @dragover.prevent
+    @drop.prevent
   >
     <button
       type="button"
@@ -308,6 +310,7 @@ function onDragEnd(): void {
   margin-inline-end: 2px;
   overflow: hidden;
   border-radius: 8px;
+  user-select: none;
   color: rgba(var(--v-theme-on-surface), 0.68);
   transition:
     flex-grow var(--motion-duration-base) var(--motion-ease),
@@ -323,6 +326,13 @@ function onDragEnd(): void {
   flex: 0 1 0;
   min-width: 0;
   opacity: 0;
+}
+
+/* 拖拽跨越中点即时更新顺序时，标签通过 FLIP 平滑滑入新位置。 */
+.titlebar-tab-move {
+  transition:
+    transform var(--motion-duration-base) var(--motion-ease),
+    opacity var(--motion-duration-base) var(--motion-ease);
 }
 
 .titlebar-tabs__tab:hover {
