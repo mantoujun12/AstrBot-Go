@@ -154,33 +154,59 @@ pub fn can_signal_expected_process(pid: u32, expected_executable_path: &Path) ->
     }
 }
 
-/// Sends CTRL+C via a sidecar helper.
+/// Sends CTRL+C in-process by attaching to the target process' console.
+///
+/// The launcher is a GUI-subsystem process without a console of its own, so it
+/// attaches to the console of the target process (an instance is spawned with
+/// `CREATE_NO_WINDOW`, giving it a dedicated hidden console) and sends
+/// `CTRL_C_EVENT` to console group 0, which reaches the instance and its
+/// console-sharing children. Callers must have verified process identity via
+/// `can_signal_expected_process` beforehand; doing so again right before
+/// attaching guards against a PID being reused between check and signal.
+/// Replaces the former `ctrlc_sender` sidecar helper with the same semantics.
 #[cfg(target_os = "windows")]
 pub(super) fn graceful_signal(pid: u32) -> Result<()> {
-    use std::os::windows::process::CommandExt as _;
-    use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+    use windows::Win32::System::Console::{
+        AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, SetConsoleCtrlHandler, CTRL_C_EVENT,
+    };
 
     log::debug!("Sending graceful signal to PID {}", pid);
 
-    let exe_dir = std::env::current_exe()
-        .map_err(|e| AppError::process(format!("Failed to get current exe path: {e}")))?
-        .parent()
-        .ok_or_else(|| AppError::process("Failed to get exe directory"))?
-        .to_path_buf();
-    let helper = exe_dir.join("ctrlc_sender.exe");
+    if !is_process_alive(pid) {
+        return Err(AppError::process(format!(
+            "Refusing to send CTRL+C: PID {pid} is not alive"
+        )));
+    }
 
-    std::process::Command::new(&helper)
-        .arg(pid.to_string())
-        .creation_flags(CREATE_NO_WINDOW.0)
-        .spawn()
-        .map_err(|e| {
-            AppError::process(format!(
-                "Failed to spawn ctrlc helper at {}: {e}",
-                helper.display()
-            ))
-        })?;
+    // If the launcher was started from a terminal, detach from its console
+    // first so the event can never reach terminal processes. Fails harmlessly
+    // when there is no console to detach from.
+    let _ = unsafe { FreeConsole() };
 
-    Ok(())
+    unsafe { AttachConsole(pid) }
+        .map_err(|e| AppError::process(format!("Failed to attach to console of PID {pid}: {e}")))?;
+
+    // GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) reaches every process attached
+    // to the target console, including this one, and the delivery is
+    // asynchronous: GenerateConsoleCtrlEvent can return before the event is
+    // processed by the resting handlers. The launcher would otherwise be
+    // terminated with STATUS_CONTROL_C_EXIT by its default handler, so make
+    // this process ignore CTRL+C permanently (a null handler routine sets the
+    // process-level ignore flag). The launcher never acts on CTRL+C itself, so
+    // leaving the flag set is harmless; re-enabling it right after the call
+    // reintroduced the race.
+    unsafe { SetConsoleCtrlHandler(None, true) }
+        .map_err(|e| AppError::process(format!("Failed to ignore CTRL+C in launcher: {e}")))?;
+    let send_result = unsafe { GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) };
+    // Always detach from the target console, even on failure, so a later
+    // signal to another instance cannot fail because we kept a stale
+    // attachment.
+    let _ = unsafe { FreeConsole() };
+    send_result.map_err(|e| {
+        AppError::process(format!(
+            "Failed to generate CTRL+C event for PID {pid}: {e}"
+        ))
+    })
 }
 
 /// Send a graceful shutdown signal to a process.
