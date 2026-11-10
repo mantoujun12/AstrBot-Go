@@ -154,38 +154,102 @@ pub fn can_signal_expected_process(pid: u32, expected_executable_path: &Path) ->
     }
 }
 
-/// Sends CTRL+C via a sidecar helper.
+/// Sends CTRL+C in-process by attaching to the target process' console.
+///
+/// The launcher is a GUI-subsystem process without a console of its own, so it
+/// attaches to the console of the target process (an instance is spawned with
+/// `CREATE_NO_WINDOW`, giving it a dedicated hidden console) and sends
+/// `CTRL_C_EVENT` to console group 0, which reaches the instance and its
+/// console-sharing children. Replaces the former `ctrlc_sender` sidecar helper
+/// with the same semantics.
+///
+/// `expected_executable_path` is revalidated immediately before attaching so a
+/// PID reused between the caller's check and this call cannot be signalled.
+///
+/// The whole detach/attach/ignore/send/detach sequence is serialized with a
+/// process-wide lock: console attachment is one shared resource of the
+/// launcher process, so overlapping shutdowns of different instances must not
+/// interleave these calls or they can retarget each other's events.
 #[cfg(target_os = "windows")]
-pub(super) fn graceful_signal(pid: u32) -> Result<()> {
-    use std::os::windows::process::CommandExt as _;
-    use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+pub(super) fn graceful_signal(pid: u32, expected_executable_path: &Path) -> Result<()> {
+    use std::sync::Mutex;
+    use windows::Win32::System::Console::{
+        AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, SetConsoleCtrlHandler, CTRL_C_EVENT,
+    };
+
+    static CONSOLE_SIGNAL_LOCK: Mutex<()> = Mutex::new(());
+
+    // A poisoned guard can only result from a panic elsewhere in this scope,
+    // which leaves the console state undefined but the sequence still private
+    // to this thread; keep going instead of wedging every later shutdown.
+    let _lock = CONSOLE_SIGNAL_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
 
     log::debug!("Sending graceful signal to PID {}", pid);
 
-    let exe_dir = std::env::current_exe()
-        .map_err(|e| AppError::process(format!("Failed to get current exe path: {e}")))?
-        .parent()
-        .ok_or_else(|| AppError::process("Failed to get exe directory"))?
-        .to_path_buf();
-    let helper = exe_dir.join("ctrlc_sender.exe");
+    match check_executable_path_match(pid, expected_executable_path) {
+        ExecutablePathMatch::Match => {}
+        ExecutablePathMatch::Mismatch => {
+            return Err(AppError::process(format!(
+                "Refusing to send CTRL+C: PID {pid} executable no longer matches the expected instance process"
+            )));
+        }
+        ExecutablePathMatch::Unknown => {
+            return Err(AppError::process(format!(
+                "Refusing to send CTRL+C: executable path for PID {pid} cannot be resolved and identity cannot be revalidated"
+            )));
+        }
+    }
 
-    std::process::Command::new(&helper)
-        .arg(pid.to_string())
-        .creation_flags(CREATE_NO_WINDOW.0)
-        .spawn()
-        .map_err(|e| {
-            AppError::process(format!(
-                "Failed to spawn ctrlc helper at {}: {e}",
-                helper.display()
-            ))
-        })?;
+    // If the launcher was started from a terminal, detach from its console
+    // first so the event can never reach terminal processes. Fails harmlessly
+    // when there is no console to detach from.
+    let _ = unsafe { FreeConsole() };
 
-    Ok(())
+    // On failure we have not attached to anything and are already detached
+    // from every console, so returning here cannot leave a stale attachment.
+    unsafe { AttachConsole(pid) }
+        .map_err(|e| AppError::process(format!("Failed to attach to console of PID {pid}: {e}")))?;
+
+    // GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) reaches every process attached
+    // to the target console, including this one, and the delivery is
+    // asynchronous: GenerateConsoleCtrlEvent can return before the event is
+    // processed by the resting handlers. The launcher would otherwise be
+    // terminated with STATUS_CONTROL_C_EXIT by its default handler, so make
+    // this process ignore CTRL+C (a null handler routine sets the
+    // process-level ignore flag). The launcher never acts on CTRL+C itself;
+    // re-enabling the flag right after the call reintroduced the race, so the
+    // flag stays set only until instance spawn, which creates instance
+    // processes in a new process group via CREATE_NEW_PROCESS_GROUP — a new
+    // process group resets the inherited ignore state, so instances keep
+    // handling CTRL+C. Any console error below still runs FreeConsole before
+    // the error is returned: leaving the launcher attached to the target
+    // console would expose it to later console events.
+    let set_ignore_result = unsafe { SetConsoleCtrlHandler(None, true) };
+    if set_ignore_result.is_err() {
+        let _ = unsafe { FreeConsole() };
+        return Err(AppError::process(
+            "Failed to ignore CTRL+C in launcher before generating the event",
+        ));
+    }
+
+    let send_result = unsafe { GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) };
+    // Always detach from the target console, even on failure, so a later
+    // signal to another instance cannot fail because we kept a stale
+    // attachment.
+    let _ = unsafe { FreeConsole() };
+    send_result.map_err(|e| {
+        AppError::process(format!(
+            "Failed to generate CTRL+C event for PID {pid}: {e}"
+        ))
+    })
 }
 
 /// Send a graceful shutdown signal to a process.
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-pub(super) fn graceful_signal(pid: u32) -> Result<()> {
+pub(super) fn graceful_signal(pid: u32, expected_executable_path: &Path) -> Result<()> {
+    let _ = expected_executable_path;
     log::debug!("Sending graceful signal to PID {}", pid);
 
     let raw_pid = super::libc_api::to_pid_t(pid)
@@ -274,7 +338,7 @@ pub fn graceful_shutdown(targets: &[(u32, &Path)]) {
 
     for &(pid, exe) in targets {
         if can_signal_expected_process(pid, exe) {
-            if let Err(e) = graceful_signal(pid) {
+            if let Err(e) = graceful_signal(pid, exe) {
                 log::warn!(
                     "Graceful signal failed for PID {pid}: {e}, will force kill immediately"
                 );

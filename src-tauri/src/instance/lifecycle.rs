@@ -316,8 +316,14 @@ pub async fn launch_instance(
 
     #[cfg(target_os = "windows")]
     {
+        // The launcher sets its process-level CTRL+C ignore flag while
+        // sending graceful signals, and child processes inherit that state.
+        // Spawning the instance in a new process group resets the inherited
+        // ignore state, so instance processes keep handling CTRL+C even after
+        // the launcher previously sent a graceful signal.
+        use windows::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP;
         use windows::Win32::System::Threading::CREATE_NO_WINDOW;
-        cmd.creation_flags(CREATE_NO_WINDOW.0);
+        cmd.creation_flags((CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP).0);
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux"))]

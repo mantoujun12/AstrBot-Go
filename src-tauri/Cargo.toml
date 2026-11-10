@@ -1,5 +1,4 @@
 [workspace]
-members = ["ctrlc_sender"]
 default-members = ["."]
 resolver = "2"
 
@@ -98,9 +97,6 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
-
-[profile.release.package.ctrlc_sender]
-opt-level = "s"
 
 [lints.clippy]
 correctness = { level = "deny", priority = -1 }
