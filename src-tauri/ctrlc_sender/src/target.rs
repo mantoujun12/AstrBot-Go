@@ -15,7 +15,7 @@ use windows::Win32::System::Threading::{
 fn data_dir() -> Result<PathBuf, String> {
     let config = dirs::config_dir()
         .ok_or("Cannot locate launcher configuration")?
-        .join("com.github.raven95676.astrbot-launcher")
+        .join("com.github.mantoujun12.astrbot-launcher-vue")
         .join(".data-dir.json");
     match fs::read_to_string(config) {
         Ok(content) => {
