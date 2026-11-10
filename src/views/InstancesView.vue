@@ -9,9 +9,9 @@ import ConfirmDialog from "../components/common/ConfirmDialog.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import LockCheckDialog from "../components/common/LockCheckDialog.vue";
 import PageHeader from "../components/common/PageHeader.vue";
-import StatusChip from "../components/common/StatusChip.vue";
 import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import InstanceFormDialog from "../components/instances/InstanceFormDialog.vue";
+import InstanceStatusCell from "../components/instances/InstanceStatusCell.vue";
 import HealthCheckDialog from "../components/instances/HealthCheckDialog.vue";
 import RepairDialog from "../components/instances/RepairDialog.vue";
 import ResourceMonitorDialog from "../components/instances/ResourceMonitorDialog.vue";
@@ -90,32 +90,20 @@ const headers = computed<DataTableHeader[]>(() => [
     title: t("instances.list.columns.name"),
     key: "name",
     sortable: false,
-    minWidth: 160,
+    minWidth: 200,
   },
   {
     title: t("instances.list.columns.state"),
     key: "state",
     sortable: false,
-    width: 160,
-  },
-  {
-    title: t("instances.list.columns.version"),
-    key: "version",
-    sortable: false,
-    minWidth: 200,
-  },
-  {
-    title: t("instances.list.columns.port"),
-    key: "port",
-    sortable: false,
-    width: 90,
+    width: 220,
   },
   {
     title: t("instances.list.columns.actions"),
     key: "actions",
     sortable: false,
     align: "end",
-    minWidth: 300,
+    minWidth: 240,
   },
 ]);
 
@@ -1135,116 +1123,180 @@ function openWebui(instance: InstanceStatus): void {
         hover
         :no-data-text="t('instances.list.empty')"
       >
-        <template #item.state="{ item }">
-          <div class="instance-status">
-            <StatusChip :state="item.state" />
-            <v-tooltip
-              v-if="item.pid_tracker_not_available"
-              :text="t('instances.list.pidWarning')"
-              location="top"
+        <template #item.name="{ item }">
+          <div class="page-cell">
+            <span>{{ item.name }}</span>
+            <span
+              class="instance-meta page-muted page-nums"
+              :aria-label="
+                t('instances.list.meta', {
+                  version: item.version,
+                  port:
+                    item.state === 'running' ? item.port : item.configured_port,
+                })
+              "
             >
-              <template #activator="{ props }">
-                <v-icon
-                  v-bind="props"
-                  icon="mdi-alert-outline"
-                  size="16"
-                  color="warning"
-                  tabindex="0"
-                  :aria-label="t('instances.list.aria.pidUnreliable')"
-                />
-              </template>
-            </v-tooltip>
+              <v-icon size="12" icon="mdi-tag-outline" aria-hidden="true" />
+              <span>{{ item.version }}</span>
+              <span aria-hidden="true">·</span>
+              <v-icon size="12" icon="mdi-ethernet" aria-hidden="true" />
+              <span>
+                {{ item.state === "running" ? item.port : item.configured_port }}
+              </span>
+            </span>
           </div>
         </template>
 
-        <template #item.port="{ item }">
-          {{ item.state === "running" ? item.port : item.configured_port }}
-        </template>
-
-        <template #item.version="{ item }">
-          <span class="instance-version page-nums">{{ item.version }}</span>
+        <template #item.state="{ item }">
+          <InstanceStatusCell :instance="item" />
         </template>
 
         <template #item.actions="{ item }">
           <div class="instance-actions page-row">
             <template v-if="item.state === 'stopped'">
-              <v-btn
-                size="small"
-                color="success"
-                variant="tonal"
-                :disabled="isInstanceInteractionDisabled(item.id)"
-                :loading="isBusy(startKey(item.id))"
-                @click="handleStart(item)"
-              >
+              <v-tooltip location="top">
+                <template #activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-bind="tooltipProps"
+                    icon="mdi-play"
+                    color="success"
+                    variant="tonal"
+                    size="small"
+                    :aria-label="t('instances.actions.start')"
+                    :disabled="isInstanceInteractionDisabled(item.id)"
+                    :loading="isBusy(startKey(item.id))"
+                    @click="handleStart(item)"
+                  />
+                </template>
                 {{ t("instances.actions.start") }}
-              </v-btn>
+              </v-tooltip>
             </template>
             <template v-else-if="item.state === 'running'">
-              <v-btn
-                size="small"
-                color="warning"
-                variant="text"
-                :disabled="isInstanceInteractionDisabled(item.id)"
-                :loading="isBusy(stopKey(item.id))"
-                @click="handleStop(item)"
-              >
+              <v-tooltip location="top">
+                <template #activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-bind="tooltipProps"
+                    icon="mdi-stop"
+                    color="warning"
+                    variant="text"
+                    size="small"
+                    :aria-label="t('instances.actions.stop')"
+                    :disabled="isInstanceInteractionDisabled(item.id)"
+                    :loading="isBusy(stopKey(item.id))"
+                    @click="handleStop(item)"
+                  />
+                </template>
                 {{ t("instances.actions.stop") }}
-              </v-btn>
-              <v-btn
-                size="small"
-                variant="text"
-                :disabled="isInstanceInteractionDisabled(item.id)"
-                :loading="isBusy(restartKey(item.id))"
-                @click="handleRestart(item)"
-              >
+              </v-tooltip>
+              <v-tooltip location="top">
+                <template #activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-bind="tooltipProps"
+                    icon="mdi-restart"
+                    variant="text"
+                    size="small"
+                    :aria-label="t('instances.actions.restart')"
+                    :disabled="isInstanceInteractionDisabled(item.id)"
+                    :loading="isBusy(restartKey(item.id))"
+                    @click="handleRestart(item)"
+                  />
+                </template>
                 {{ t("instances.actions.restart") }}
-              </v-btn>
+              </v-tooltip>
             </template>
-            <v-btn v-else size="small" variant="tonal" disabled loading>
+            <v-tooltip v-else location="top">
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  icon="mdi-loading"
+                  variant="tonal"
+                  size="small"
+                  disabled
+                  loading
+                  :aria-label="
+                    item.state === 'starting'
+                      ? t('common.instanceState.starting')
+                      : t('common.instanceState.stopping')
+                  "
+                />
+              </template>
               {{
                 item.state === "starting"
                   ? t("common.instanceState.starting")
                   : t("common.instanceState.stopping")
               }}
-            </v-btn>
+            </v-tooltip>
 
-            <v-btn
+            <v-tooltip
               v-if="updateInfoFor(item.id)?.state === 'available'"
-              size="small"
-              color="primary"
-              variant="text"
-              :disabled="
-                item.state !== 'stopped' ||
-                isInstanceInteractionDisabled(item.id)
-              "
-              :loading="isBusy(upgradeKey(item.id))"
-              :title="
-                item.state !== 'stopped'
-                  ? t('instances.updates.stopFirst')
-                  : undefined
-              "
-              @click="askUpgrade(item)"
+              location="top"
             >
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  icon="mdi-arrow-up-bold-circle"
+                  color="primary"
+                  variant="text"
+                  size="small"
+                  :aria-label="t('instances.actions.upgrade')"
+                  :disabled="
+                    item.state !== 'stopped' ||
+                    isInstanceInteractionDisabled(item.id)
+                  "
+                  :loading="isBusy(upgradeKey(item.id))"
+                  :title="
+                    item.state !== 'stopped'
+                      ? t('instances.updates.stopFirst')
+                      : undefined
+                  "
+                  @click="askUpgrade(item)"
+                />
+              </template>
               {{ t("instances.actions.upgrade") }}
-            </v-btn>
+            </v-tooltip>
 
-            <v-btn
-              size="small"
-              variant="text"
-              :disabled="!item.dashboard_enabled"
-              @click="openWebui(item)"
-            >
-              {{ t("common.actions.open") }}
-            </v-btn>
+            <v-tooltip location="top">
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  icon="mdi-monitor-dashboard"
+                  variant="text"
+                  size="small"
+                  :aria-label="t('instances.actions.openWebui')"
+                  :disabled="!item.dashboard_enabled"
+                  @click="openWebui(item)"
+                />
+              </template>
+              {{ t("instances.actions.openWebui") }}
+            </v-tooltip>
 
-            <v-btn
-              v-if="item.state === 'running'"
-              icon="mdi-chart-timeline-variant"
-              variant="text"
-              size="small"
-              :aria-label="t('resources.open')"
-              @click="openResourceMonitor(item)"
-            />
+            <v-tooltip location="top">
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  icon="mdi-text-box-outline"
+                  variant="text"
+                  size="small"
+                  :aria-label="t('instances.actions.viewLogs')"
+                  @click="openLogs(item)"
+                />
+              </template>
+              {{ t("instances.actions.viewLogs") }}
+            </v-tooltip>
+
+            <v-tooltip v-if="item.state === 'running'" location="top">
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  icon="mdi-chart-timeline-variant"
+                  variant="text"
+                  size="small"
+                  :aria-label="t('resources.open')"
+                  @click="openResourceMonitor(item)"
+                />
+              </template>
+              {{ t("resources.open") }}
+            </v-tooltip>
 
             <v-menu location="bottom end" :disabled="batchUpgradeRunning">
               <template #activator="{ props }">
@@ -1301,11 +1353,6 @@ function openWebui(instance: InstanceStatus): void {
                   prepend-icon="mdi-text-box-outline"
                   :title="t('instances.actions.viewLogs')"
                   @click="openLogs(item)"
-                />
-                <v-list-item
-                  prepend-icon="mdi-chart-timeline-variant"
-                  :title="t('resources.title')"
-                  @click="openResourceMonitor(item)"
                 />
                 <v-list-item
                   prepend-icon="mdi-open-in-new"
@@ -1440,22 +1487,18 @@ function openWebui(instance: InstanceStatus): void {
   gap: 16px;
 }
 
-.instance-version {
-  color: rgba(var(--v-theme-on-surface), 0.68);
-}
-
 .instances-state {
   min-height: 180px;
 }
 
-.instance-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .instance-actions {
   justify-content: flex-end;
+  gap: 4px;
+}
+
+.instance-meta {
+  display: inline-flex;
+  align-items: center;
   gap: 4px;
 }
 

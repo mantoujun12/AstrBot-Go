@@ -91,6 +91,13 @@
   flex-wrap: wrap;
 }
 
+.page-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .page-row--between {
   display: flex;
   align-items: center;

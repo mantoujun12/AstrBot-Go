@@ -28,6 +28,12 @@ const jaJP = {
       stopping: "停止中",
       stopped: "停止済み",
     },
+    duration: {
+      hours: "{hours} 時間",
+      hoursMinutes: "{hours} 時間 {minutes} 分",
+      minutes: "{minutes} 分",
+      lessThanMinute: "< 1 分",
+    },
   },
   launcherUpdate: {
     title: "新しいバージョン {version} が利用可能です",
@@ -50,12 +56,6 @@ const jaJP = {
       stop: "{name} を停止",
       confirmStop: "もう一度クリックして {name} を停止",
       restart: "{name} を再起動",
-    },
-    duration: {
-      hours: "{hours} 時間",
-      hoursMinutes: "{hours} 時間 {minutes} 分",
-      minutes: "{minutes} 分",
-      lessThanMinute: "< 1 分",
     },
   },
   settings: {
@@ -519,6 +519,7 @@ const jaJP = {
       createBackup: "バックアップを作成",
       repair: "インスタンスを修復",
       viewLogs: "ログを表示",
+      openWebui: "WebUI を開く",
       openInBrowser: "ブラウザーで開く",
       clearData: "データを消去",
       clearVenv: "仮想環境を消去",
@@ -588,15 +589,17 @@ const jaJP = {
       columns: {
         name: "名前",
         state: "状態",
-        version: "バージョン",
-        port: "ポート",
         actions: "操作",
       },
+      meta: "バージョン {version} · ポート {port}",
       empty: "インスタンスはありません",
       pidWarning: "WebUI が有効でないため、プロセス状態を追跡できません",
+      lastExit: "前回の終了：{reason}",
+      restartAttempts: "自動再起動 {attempt}/{max} 回",
       aria: {
         moreActions: "その他の操作",
         pidUnreliable: "プロセス状態が不正確な可能性があります",
+        lastExit: "異常終了情報",
       },
     },
     updates: {

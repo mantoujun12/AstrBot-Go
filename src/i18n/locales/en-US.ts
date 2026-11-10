@@ -28,6 +28,12 @@ const enUS = {
       stopping: "Stopping",
       stopped: "Stopped",
     },
+    duration: {
+      hours: "{hours} h",
+      hoursMinutes: "{hours} h {minutes} min",
+      minutes: "{minutes} min",
+      lessThanMinute: "< 1 min",
+    },
   },
   launcherUpdate: {
     title: "New version {version} is available",
@@ -50,12 +56,6 @@ const enUS = {
       stop: "Stop {name}",
       confirmStop: "Click again to stop {name}",
       restart: "Restart {name}",
-    },
-    duration: {
-      hours: "{hours} h",
-      hoursMinutes: "{hours} h {minutes} min",
-      minutes: "{minutes} min",
-      lessThanMinute: "< 1 min",
     },
   },
   settings: {
@@ -520,6 +520,7 @@ const enUS = {
       createBackup: "Create Backup",
       repair: "Repair Instance",
       viewLogs: "View Logs",
+      openWebui: "Open WebUI",
       openInBrowser: "Open in Browser",
       clearData: "Clear Data",
       clearVenv: "Clear Virtual Environment",
@@ -589,15 +590,17 @@ const enUS = {
       columns: {
         name: "Name",
         state: "State",
-        version: "Version",
-        port: "Port",
         actions: "Actions",
       },
+      meta: "Version {version} · Port {port}",
       empty: "No instances",
       pidWarning: "WebUI is not enabled; process status cannot be tracked",
+      lastExit: "Last exit: {reason}",
+      restartAttempts: "Auto-restarted {attempt}/{max} times",
       aria: {
         moreActions: "More actions",
         pidUnreliable: "Process status may be inaccurate",
+        lastExit: "Crash exit info",
       },
     },
     updates: {
