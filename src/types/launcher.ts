@@ -84,6 +84,7 @@ export interface InstanceStatus {
   auto_restart_notify: boolean;
   last_exit_reason: string;
   restart_attempts: number;
+  restarts_completed: number;
   started_at_ms: number | null;
 }
 

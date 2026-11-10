@@ -429,10 +429,10 @@ pub fn list_instances(
             };
 
             let pid_tracker_not_available = !dashboard_enabled && std::env::consts::OS == "windows";
-            let (last_exit_reason, restart_attempts) = restart_info
+            let (last_exit_reason, restart_attempts, restarts_completed) = restart_info
                 .get(id)
                 .cloned()
-                .unwrap_or_else(|| (String::new(), 0));
+                .unwrap_or_else(|| (String::new(), 0, 0));
 
             InstanceStatus {
                 id: id.clone(),
@@ -446,10 +446,11 @@ pub fn list_instances(
                 configured_port: inst.port,
                 check_update_enabled: inst.check_update_enabled,
                 auto_restart_enabled: inst.auto_restart_enabled,
-                auto_restart_max_retries: inst.auto_restart_max_retries,
+                auto_restart_max_retries: inst.auto_restart_max_retries.max(1),
                 auto_restart_notify: inst.auto_restart_notify,
                 last_exit_reason,
                 restart_attempts,
+                restarts_completed,
                 started_at_ms,
             }
         })

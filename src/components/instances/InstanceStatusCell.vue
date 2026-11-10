@@ -71,7 +71,7 @@ const hasIssueInfo = computed(
       <div v-if="instance.restart_attempts > 0" class="instance-status__issue-line">
         {{
           t("instances.list.restartAttempts", {
-            attempt: instance.restart_attempts,
+            attempt: instance.restarts_completed,
             max: instance.auto_restart_max_retries,
           })
         }}

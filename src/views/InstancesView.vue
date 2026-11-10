@@ -1355,6 +1355,11 @@ function openWebui(instance: InstanceStatus): void {
                   @click="openLogs(item)"
                 />
                 <v-list-item
+                  prepend-icon="mdi-chart-timeline-variant"
+                  :title="t('resources.title')"
+                  @click="openResourceMonitor(item)"
+                />
+                <v-list-item
                   prepend-icon="mdi-open-in-new"
                   :title="t('instances.actions.openInBrowser')"
                   :disabled="!item.dashboard_enabled"
