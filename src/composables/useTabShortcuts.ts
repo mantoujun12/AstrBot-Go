@@ -15,6 +15,8 @@ interface ShortcutInput {
   altKey: boolean;
   metaKey: boolean;
   defaultPrevented: boolean;
+  /** True when the event came from the iframe bridge, not a real keydown. */
+  bridge?: boolean;
   preventDefault?: () => void;
 }
 
@@ -42,6 +44,7 @@ function isBridgeMessage(value: unknown): value is BridgeMessage {
  * - Ctrl+Shift+Tab / Ctrl+PageUp: previous tab
  * - Ctrl+1…8: nth tab, Ctrl+9: last tab
  * - Ctrl+W / Ctrl+F4: close the active tab (the home tab stays open)
+ * - Ctrl+Shift+PageUp/PageDown: move the active tab one position
  */
 export function useTabShortcuts(): void {
   const {
@@ -124,7 +127,7 @@ export function useTabShortcuts(): void {
         return;
       case "PageDown":
         event.preventDefault?.();
-        if (event.shiftKey) {
+        if (event.shiftKey && !event.bridge) {
           moveActiveTab(1);
         } else {
           switchBy(1);
@@ -132,7 +135,7 @@ export function useTabShortcuts(): void {
         return;
       case "PageUp":
         event.preventDefault?.();
-        if (event.shiftKey) {
+        if (event.shiftKey && !event.bridge) {
           moveActiveTab(-1);
         } else {
           switchBy(-1);
@@ -179,6 +182,7 @@ export function useTabShortcuts(): void {
       altKey: false,
       metaKey: false,
       defaultPrevented: false,
+      bridge: true,
     });
   }
 
