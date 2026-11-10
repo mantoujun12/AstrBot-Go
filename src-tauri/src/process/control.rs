@@ -248,7 +248,8 @@ pub(super) fn graceful_signal(pid: u32, expected_executable_path: &Path) -> Resu
 
 /// Send a graceful shutdown signal to a process.
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-pub(super) fn graceful_signal(pid: u32) -> Result<()> {
+pub(super) fn graceful_signal(pid: u32, expected_executable_path: &Path) -> Result<()> {
+    let _ = expected_executable_path;
     log::debug!("Sending graceful signal to PID {}", pid);
 
     let raw_pid = super::libc_api::to_pid_t(pid)
