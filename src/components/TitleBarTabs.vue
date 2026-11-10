@@ -68,18 +68,6 @@ function onTabKeydown(event: KeyboardEvent, id: string): void {
     return;
   }
 
-  // Ctrl+Shift+PageUp/PageDown reorder the active tab; the global shortcut
-  // handler in useTabShortcuts does the move, so only stop propagation here.
-  if (
-    event.ctrlKey &&
-    event.shiftKey &&
-    (event.key === "PageUp" || event.key === "PageDown")
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    return;
-  }
-
   if (event.key === "ArrowRight") {
     event.preventDefault();
     focusAndActivate(ids[(index + 1) % ids.length]);
