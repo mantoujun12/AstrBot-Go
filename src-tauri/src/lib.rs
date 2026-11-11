@@ -6,22 +6,21 @@ mod config;
 mod download;
 mod download_control;
 mod error;
-mod github;
 mod i18n;
 mod instance;
 mod migration;
-mod network_config;
+mod network;
 mod platform;
 mod process;
 mod setup;
 mod tasks;
 mod tray;
-mod tray_panel;
-mod update_check;
-mod updater;
 mod utils;
 mod validation;
 mod webview_shortcuts;
+
+pub(crate) use network::{github, network_config, update_check, updater};
+pub(crate) use tray::tray_panel;
 
 use std::sync::RwLock;
 use std::time::Duration;
