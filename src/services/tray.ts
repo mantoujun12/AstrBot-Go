@@ -18,6 +18,14 @@ export function hideTrayPanel(): Promise<void> {
   return invoke("hide_tray_panel");
 }
 
+/**
+ * Reports that the tray panel page finished loading, so the backend may show
+ * it (replaying a queued toggle) with fully loaded styles.
+ */
+export function notifyTrayPanelReady(): Promise<void> {
+  return invoke("notify_tray_panel_ready");
+}
+
 export function quitApp(): Promise<void> {
   return invoke("quit_app");
 }

@@ -14,6 +14,11 @@ pub fn hide_tray_panel(app_handle: AppHandle) {
 }
 
 #[tauri::command]
+pub fn notify_tray_panel_ready(app_handle: AppHandle) {
+    crate::tray_panel::mark_ready(&app_handle);
+}
+
+#[tauri::command]
 pub fn quit_app(app_handle: AppHandle) {
     app_handle.exit(0);
 }

@@ -27,6 +27,11 @@ pub struct TrayPanelState {
     visible: AtomicBool,
     height: AtomicU32,
     last_blur_hide: Mutex<Option<Instant>>,
+    /// Set by the webview once its page finished loading, so the panel is
+    /// never shown with half-loaded styles.
+    ready: AtomicBool,
+    /// A toggle arrived before `ready`; replayed once the webview reports in.
+    show_requested: AtomicBool,
 }
 
 impl Default for TrayPanelState {
@@ -35,6 +40,8 @@ impl Default for TrayPanelState {
             visible: AtomicBool::new(false),
             height: AtomicU32::new(PANEL_DEFAULT_HEIGHT as u32),
             last_blur_hide: Mutex::new(None),
+            ready: AtomicBool::new(false),
+            show_requested: AtomicBool::new(false),
         }
     }
 }
@@ -149,6 +156,15 @@ fn toggle(app: &AppHandle) {
         return;
     }
 
+    // The webview may still be loading its page when the user clicks the tray
+    // icon right after startup; queue the request instead of showing a
+    // half-styled panel.
+    let state = app.state::<TrayPanelState>();
+    if !state.ready.load(Ordering::Acquire) {
+        state.show_requested.store(true, Ordering::Release);
+        return;
+    }
+
     show_panel(app, &window);
 }
 
@@ -163,9 +179,28 @@ fn take_recent_blur_hide(app: &AppHandle) -> bool {
     recent
 }
 
+/// The webview calls this once its page is fully loaded. A display request
+/// queued while the page was loading is replayed here, so the panel only ever
+/// appears with finished styles.
+pub fn mark_ready(app: &AppHandle) {
+    let state = app.state::<TrayPanelState>();
+    state.ready.store(true, Ordering::Release);
+    if !state.show_requested.swap(false, Ordering::AcqRel) {
+        return;
+    }
+    let Some(window) = app.get_webview_window(PANEL_LABEL) else {
+        return;
+    };
+    if window.is_visible().unwrap_or(false) {
+        return;
+    }
+    show_panel(app, &window);
+}
+
 pub fn hide_panel(app: &AppHandle) {
     let state = app.state::<TrayPanelState>();
     state.visible.store(false, Ordering::Release);
+    state.show_requested.store(false, Ordering::Release);
     if let Some(window) = app.get_webview_window(PANEL_LABEL) {
         if let Err(error) = window.hide() {
             log::warn!("Failed to hide the tray panel: {}", error);

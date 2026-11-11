@@ -21,6 +21,7 @@ import {
 } from "../../services/instances";
 import {
   hideTrayPanel,
+  notifyTrayPanelReady,
   quitApp,
   sendTrayPanelAction,
   setTrayPanelHeight,
@@ -467,8 +468,11 @@ onMounted(() => {
     void document.fonts.ready.then(() => {
       if (!disposed) {
         scheduleHeightReport();
+        void notifyTrayPanelReady().catch(() => undefined);
       }
     });
+  } else {
+    void notifyTrayPanelReady().catch(() => undefined);
   }
 });
 
