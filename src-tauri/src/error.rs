@@ -194,16 +194,6 @@ impl AppError {
         Self::with_detail(ErrorKind::Backup, message)
     }
 
-    pub fn backup_arch_mismatch(backup_arch: &str, current_arch: &str) -> Self {
-        Self::new(
-            ErrorKind::Backup,
-            HashMap::from([
-                ("backup_arch".to_string(), backup_arch.to_string()),
-                ("current_arch".to_string(), current_arch.to_string()),
-            ]),
-        )
-    }
-
     pub fn github(message: impl Into<String>) -> Self {
         Self::with_detail(ErrorKind::GitHub, message)
     }
