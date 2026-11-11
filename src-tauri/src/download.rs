@@ -349,7 +349,7 @@ pub async fn download_file(
     finalize_download_async(temp_path, dest.to_path_buf(), outcome).await
 }
 
-pub async fn download_file_with_fallbacks(
+pub(crate) async fn download_file_with_fallbacks(
     client: &Client,
     urls: &[String],
     dest: &Path,
