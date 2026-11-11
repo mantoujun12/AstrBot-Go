@@ -316,11 +316,12 @@ pub async fn launch_instance(
 
     #[cfg(target_os = "windows")]
     {
-        // The launcher sets its process-level CTRL+C ignore flag while
-        // sending graceful signals, and child processes inherit that state.
-        // Spawning the instance in a new process group resets the inherited
-        // ignore state, so instance processes keep handling CTRL+C even after
-        // the launcher previously sent a graceful signal.
+        // `CREATE_NEW_PROCESS_GROUP` makes the instance the root of its own
+        // process group (group id == instance PID). Per MSDN, the flag also
+        // disables CTRL+C for the group — CTRL+BREAK is not affected, so the
+        // graceful shutdown signal is addressed to this group id. The group
+        // also keeps the launcher's console state (e.g. its CTRL+C ignore
+        // flag) from leaking into instance processes.
         use windows::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP;
         use windows::Win32::System::Threading::CREATE_NO_WINDOW;
         cmd.creation_flags((CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP).0);
