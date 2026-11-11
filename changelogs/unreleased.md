@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- The tray panel now waits until its page has fully loaded before appearing: clicking the tray icon right after startup queues the display and shows the panel once the webview reports readiness, instead of occasionally flashing an unstyled or half-rendered card.
 - Auto-restart behavior now reports real data in the instance list: the last crash exit reason stays visible when auto-restart is disabled, the restart line shows the number of auto-restarts actually launched instead of the raw unexpected-exit count, and the retry limit displays at least 1. Stopped instances regained a resource-monitor entry in the row menu.
 
 ## 中文

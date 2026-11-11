@@ -335,7 +335,7 @@ function handleKeydown(event: KeyboardEvent): void {
   void hideTrayPanel().catch(() => undefined);
 }
 
-function reportHeight(): void {
+async function reportHeight(): Promise<void> {
   if (heightFrame !== null) {
     cancelAnimationFrame(heightFrame);
     heightFrame = null;
@@ -365,7 +365,11 @@ function reportHeight(): void {
     return;
   }
   lastReportedHeight = height;
-  void setTrayPanelHeight(height).catch(() => undefined);
+  try {
+    await setTrayPanelHeight(height);
+  } catch {
+    // Height is re-reported on the next content change; never fatal here.
+  }
 }
 
 function scheduleHeightReport(): void {
@@ -464,16 +468,25 @@ onMounted(() => {
   }, CLOCK_INTERVAL_MS);
   void nextTick(scheduleHeightReport);
 
-  if (document.fonts) {
-    void document.fonts.ready.then(() => {
-      if (!disposed) {
-        scheduleHeightReport();
-        void notifyTrayPanelReady().catch(() => undefined);
-      }
-    });
-  } else {
-    void notifyTrayPanelReady().catch(() => undefined);
+async function announceReadiness(): Promise<void> {
+  try {
+    if (document.fonts) {
+      await document.fonts.ready;
+    }
+  } catch {
+    // The fonts API is unavailable; the measured height below is still valid.
   }
+  if (disposed) {
+    return;
+  }
+  scheduleHeightReport();
+  // The measured height must reach the backend before readiness, otherwise a
+  // queued replay would open the panel at a stale height and visibly resize.
+  await reportHeight();
+  void notifyTrayPanelReady().catch(() => undefined);
+}
+
+void announceReadiness();
 });
 
 onBeforeUnmount(() => {
