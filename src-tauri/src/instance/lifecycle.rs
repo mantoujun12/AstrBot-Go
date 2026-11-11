@@ -320,8 +320,8 @@ pub async fn launch_instance(
         // process group (group id == instance PID). Per MSDN, the flag also
         // disables CTRL+C for the group — CTRL+BREAK is not affected, so the
         // graceful shutdown signal is addressed to this group id. The group
-        // also keeps the launcher's console state (e.g. its CTRL+C ignore
-        // flag) from leaking into instance processes.
+        // also keeps the launcher's console state from leaking into instance
+        // processes.
         use windows::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP;
         use windows::Win32::System::Threading::CREATE_NO_WINDOW;
         cmd.creation_flags((CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP).0);

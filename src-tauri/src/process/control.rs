@@ -183,12 +183,17 @@ pub(super) fn graceful_signal(pid: u32, expected_executable_path: &Path) -> Resu
         AttachConsole, FreeConsole, GenerateConsoleCtrlEvent, CTRL_BREAK_EVENT,
     };
 
-    static CONSOLE_SIGNAL_LOCK: Mutex<()> = Mutex::new(());
+    /// PIDs with a signal send currently in flight. Serializing the console
+    /// sequence here also deduplicates concurrent shutdowns (e.g. the exit
+    /// handler racing a manual stop): a duplicate CTRL+BREAK delivered while
+    /// the instance is already handling the first one can cut its cleanup
+    /// short, so a second attempt is skipped instead of re-signalling.
+    static CONSOLE_SIGNAL_STATE: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 
     // A poisoned guard can only result from a panic elsewhere in this scope,
     // which leaves the console state undefined but the sequence still private
     // to this thread; keep going instead of wedging every later shutdown.
-    let _lock = CONSOLE_SIGNAL_LOCK
+    let mut signal_state = CONSOLE_SIGNAL_STATE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
 
@@ -208,6 +213,12 @@ pub(super) fn graceful_signal(pid: u32, expected_executable_path: &Path) -> Resu
         }
     }
 
+    if signal_state.contains(&pid) {
+        log::debug!("Graceful signal for PID {pid} already in flight; skipping duplicate signal");
+        return Ok(());
+    }
+    signal_state.push(pid);
+
     // If the launcher was started from a terminal, detach from its console
     // first so the event can never reach terminal processes. Fails harmlessly
     // when there is no console to detach from.
@@ -215,14 +226,20 @@ pub(super) fn graceful_signal(pid: u32, expected_executable_path: &Path) -> Resu
 
     // On failure we have not attached to anything and are already detached
     // from every console, so returning here cannot leave a stale attachment.
-    unsafe { AttachConsole(pid) }
-        .map_err(|e| AppError::process(format!("Failed to attach to console of PID {pid}: {e}")))?;
+    if let Err(e) = unsafe { AttachConsole(pid) } {
+        signal_state.retain(|&in_flight| in_flight != pid);
+        return Err(AppError::process(format!(
+            "Failed to attach to console of PID {pid}: {e}"
+        )));
+    }
 
     let send_result = unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid) };
     // Always detach from the target console, even on failure, so a later
     // signal to another instance cannot fail because we kept a stale
     // attachment.
     let _ = unsafe { FreeConsole() };
+    signal_state.retain(|&in_flight| in_flight != pid);
+    drop(signal_state);
     send_result.map_err(|e| {
         AppError::process(format!(
             "Failed to generate CTRL+BREAK event for process group {pid}: {e}"
