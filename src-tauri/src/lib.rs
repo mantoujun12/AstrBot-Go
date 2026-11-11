@@ -250,6 +250,7 @@ pub fn run() {
             commands::show_main_window,
             commands::set_tray_panel_height,
             commands::hide_tray_panel,
+            commands::notify_tray_panel_ready,
             commands::quit_app,
             // Config
             commands::save_github_proxy,

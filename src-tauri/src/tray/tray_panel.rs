@@ -23,10 +23,21 @@ const PANEL_MARGIN: f64 = 8.0;
 /// Ignoring a toggle right after that blur keeps the click from reopening it.
 const REOPEN_GUARD: Duration = Duration::from_millis(300);
 
+/// Toggle/hide/ready transitions share one mutex so a queued request can
+/// neither race a hide nor be lost between the readiness check and the queue
+/// consumption.
+struct Gate {
+    ready: bool,
+    /// Tray clicks that arrived before the page was ready. Parity decides the
+    /// replayed outcome: odd → show, even → stay hidden.
+    pending_toggles: u32,
+    last_blur_hide: Option<Instant>,
+}
+
 pub struct TrayPanelState {
     visible: AtomicBool,
     height: AtomicU32,
-    last_blur_hide: Mutex<Option<Instant>>,
+    gate: Mutex<Gate>,
 }
 
 impl Default for TrayPanelState {
@@ -34,7 +45,11 @@ impl Default for TrayPanelState {
         Self {
             visible: AtomicBool::new(false),
             height: AtomicU32::new(PANEL_DEFAULT_HEIGHT as u32),
-            last_blur_hide: Mutex::new(None),
+            gate: Mutex::new(Gate {
+                ready: false,
+                pending_toggles: 0,
+                last_blur_hide: None,
+            }),
         }
     }
 }
@@ -145,27 +160,57 @@ fn toggle(app: &AppHandle) {
         return;
     }
 
-    if take_recent_blur_hide(app) {
+    let state = app.state::<TrayPanelState>();
+    let mut gate = state.gate.lock().unwrap_or_else(PoisonError::into_inner);
+    if matches!(gate.last_blur_hide, Some(at) if at.elapsed() < REOPEN_GUARD) {
+        gate.last_blur_hide = None;
+        drop(gate);
         return;
     }
+    // The webview may still be loading its page when the user clicks the
+    // tray icon right after startup; queue the click instead of showing a
+    // half-styled panel. Parity keeps double-clicks from reopening.
+    if !gate.ready {
+        gate.pending_toggles = gate.pending_toggles.wrapping_add(1);
+        drop(gate);
+        return;
+    }
+    drop(gate);
 
     show_panel(app, &window);
 }
 
-fn take_recent_blur_hide(app: &AppHandle) -> bool {
+/// The webview calls this once its page is fully loaded. Toggle clicks queued
+/// while the page was loading are replayed here by parity, so the panel only
+/// ever appears with finished styles and only while the panel style is active.
+/// The gate is held across `show_panel` so a concurrent hide cannot win the
+/// decision and then lose the race.
+#[allow(clippy::significant_drop_tightening)] // the lock must span `show_panel`
+pub fn mark_ready(app: &AppHandle) {
     let state = app.state::<TrayPanelState>();
-    let mut last = state
-        .last_blur_hide
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
-    let recent = matches!(*last, Some(at) if at.elapsed() < REOPEN_GUARD);
-    *last = None;
-    recent
+    let mut gate = state.gate.lock().unwrap_or_else(PoisonError::into_inner);
+    gate.ready = true;
+    let queued = gate.pending_toggles % 2 == 1;
+    gate.pending_toggles = 0;
+    if !queued || crate::tray::current_style(app) != TrayStyle::Panel {
+        return;
+    }
+    let Some(window) = app.get_webview_window(PANEL_LABEL) else {
+        return;
+    };
+    if window.is_visible().unwrap_or(false) {
+        return;
+    }
+    gate.last_blur_hide = None;
+    show_panel(app, &window);
 }
 
 pub fn hide_panel(app: &AppHandle) {
     let state = app.state::<TrayPanelState>();
+    let mut gate = state.gate.lock().unwrap_or_else(PoisonError::into_inner);
+    gate.pending_toggles = 0;
     state.visible.store(false, Ordering::Release);
+    drop(gate);
     if let Some(window) = app.get_webview_window(PANEL_LABEL) {
         if let Err(error) = window.hide() {
             log::warn!("Failed to hide the tray panel: {}", error);
@@ -191,11 +236,9 @@ pub fn handle_blur(window: &tauri::Window) {
     if let Err(error) = window.hide() {
         log::warn!("Failed to hide the tray panel: {}", error);
     }
-    let mut last = state
-        .last_blur_hide
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
-    *last = Some(Instant::now());
+    let mut gate = state.gate.lock().unwrap_or_else(PoisonError::into_inner);
+    gate.pending_toggles = 0;
+    gate.last_blur_hide = Some(Instant::now());
 }
 
 pub fn set_height(app: &AppHandle, height: f64) {
@@ -252,10 +295,6 @@ fn show_panel(app: &AppHandle, window: &WebviewWindow) {
     }
 
     state.visible.store(true, Ordering::Release);
-    *state
-        .last_blur_hide
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner) = None;
 
     if let Err(error) = window.set_focus() {
         log::warn!("Failed to focus the tray panel: {}", error);

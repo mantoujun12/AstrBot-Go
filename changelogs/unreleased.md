@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- The tray panel now waits until its page has fully loaded before appearing: clicking the tray icon right after startup queues the display and shows the panel once the webview reports readiness, instead of occasionally flashing an unstyled or half-rendered card.
 - Auto-restart behavior now reports real data in the instance list: the last crash exit reason stays visible when auto-restart is disabled, the restart line shows the number of auto-restarts actually launched instead of the raw unexpected-exit count, and the retry limit displays at least 1. Stopped instances regained a resource-monitor entry in the row menu.
 
 ## 中文
@@ -30,4 +31,5 @@
 
 ### 修复
 
+- 托盘面板现在会等页面完全加载后再显示：启动后立刻点击托盘图标会先排队，等 webview 上报就绪再显示，不再偶发出现无样式或渲染不完整的情况。
 - 实例列表修复自动重启相关展示：自动重启关闭时仍保留并显示上次崩溃退出原因；重启行现在显示实际已执行的自动重启次数，而非原始意外退出计数；重试上限展示统一不小于 1；停止的实例在行内菜单重新获得资源监控入口。
