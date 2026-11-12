@@ -319,8 +319,13 @@ function instanceCountLabel(source: InstanceSourceInfo): string {
   });
 }
 
+let discoveryRerunQueued = false;
+
 async function loadDiscovery(): Promise<void> {
   if (discoveryLoading.value) {
+    // A source toggle or scan path saved while discovery is running must
+    // not be lost: queue a rerun after the in-flight request finishes.
+    discoveryRerunQueued = true;
     return;
   }
   discoveryLoading.value = true;
@@ -330,6 +335,10 @@ async function loadDiscovery(): Promise<void> {
     showErrorToast(cause);
   } finally {
     discoveryLoading.value = false;
+    if (discoveryRerunQueued) {
+      discoveryRerunQueued = false;
+      void loadDiscovery();
+    }
   }
 }
 
@@ -365,11 +374,11 @@ const scanPathsSaving = ref(false);
 const scanPaths = computed<string[]>(() => config.value?.instance_scan_paths ?? []);
 
 async function addScanPath(): Promise<void> {
-  if (scanPathsSaving.value) {
-    return;
-  }
   const selected = await pickDirectory();
-  if (!selected || !config.value) {
+  // Recheck after the picker resolves: another save may have started while
+  // the dialog was open, and overlapping whole-list saves could persist
+  // snapshots out of order and drop a directory.
+  if (!selected || !config.value || scanPathsSaving.value) {
     return;
   }
   const previous = scanPaths.value;

@@ -6,7 +6,12 @@
 //! [`InstanceSourceRegistry`], and the unified discovery command returns the
 //! merged instance list together with the registered source metadata.
 
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use std::sync::mpsc::RecvTimeoutError;
 use std::sync::LazyLock;
+use std::time::Duration;
 
 use serde::Serialize;
 
@@ -149,16 +154,180 @@ impl InstanceSource for LauncherManagedSource {
                 id: status.id,
                 name: status.name,
                 webui_url: status.dashboard_enabled.then(|| {
-                    format!(
-                        "http://{}:{}",
-                        status.configured_host, status.configured_port
-                    )
+                    // Match the list-view URL logic: a live instance may run
+                    // on a runtime port different from its configured one.
+                    format!("http://{}:{}", status.configured_host, status.port)
                 }),
                 state: status.state,
                 capabilities: InstanceCapabilities { read_only: false },
             })
             .collect())
     }
+}
+
+/// Upper bound for each discovery subprocess (`where`/`which`, `docker ps`,
+/// `uv tool list`).
+pub(crate) const COMMAND_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Default TCP connect timeout for WebUI liveness probes.
+pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
+
+/// Run a short-lived command with an upper bound on waiting. Output is
+/// captured with pipes and no inherited console; a hang beyond
+/// [`COMMAND_TIMEOUT`] is killed by PID and reported as unavailable.
+///
+/// The child is owned by the waiter thread, so the timeout path can kill it
+/// by PID without contending with `wait()` for a shared mutex.
+pub(crate) fn run_capped(program: &str, args: &[&str]) -> Option<String> {
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt as _;
+        use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+        command.creation_flags(CREATE_NO_WINDOW.0);
+    }
+
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(error) => {
+            log::debug!("discovery: `{program}` unavailable: {error}");
+            return None;
+        }
+    };
+    let pid = child.id();
+    let stdout = child.stdout.take()?;
+
+    // Reader thread drains stdout concurrently so a chatty child cannot
+    // deadlock on a full pipe while we wait for its exit status.
+    let reader = std::thread::spawn(move || {
+        let mut text = String::new();
+        let mut stdout = stdout;
+        let _ = std::io::Read::read_to_string(&mut stdout, &mut text);
+        text
+    });
+    let (tx, rx) = std::sync::mpsc::channel::<std::io::Result<std::process::ExitStatus>>();
+    let join = std::thread::spawn(move || {
+        let _ = tx.send(child.wait());
+    });
+
+    let received = match rx.recv_timeout(COMMAND_TIMEOUT) {
+        Ok(status) => Some(status),
+        Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {
+            kill_process(pid);
+            let _ = join.join();
+            None
+        }
+    };
+    let success =
+        received.is_some_and(|status| status.as_ref().is_ok_and(|status| status.success()));
+    let text = reader.join().unwrap_or_default();
+    if !success || text.trim().is_empty() {
+        return None;
+    }
+    Some(text)
+}
+
+/// Forcefully terminate a spawned discovery child by PID. Uses the platform
+/// termination tool, which lives in system directories and cannot be
+/// shadowed by user PATH entries.
+fn kill_process(pid: u32) {
+    #[cfg(windows)]
+    let mut command = {
+        let mut command = Command::new("taskkill");
+        command.args(["/F", "/T", "/PID", &pid.to_string()]);
+        command
+    };
+    #[cfg(not(windows))]
+    let mut command = {
+        let mut command = Command::new("kill");
+        command.args(["-9", &pid.to_string()]);
+        command
+    };
+    command.stdout(Stdio::null()).stderr(Stdio::null());
+    let _ = command.spawn();
+}
+
+/// Resolve an external program to an absolute path, or `None` when it is
+/// absent. Uses `where` on Windows and `which` elsewhere.
+///
+/// Matches inside the launcher's current working directory are rejected:
+/// on Windows relative PATH entries are searched implicitly, so a dropped-in
+/// executable next to the launcher must not be executed automatically.
+pub(crate) fn locate_program(name: &str) -> Option<PathBuf> {
+    let (locator, arg) = if cfg!(windows) {
+        ("where", name)
+    } else {
+        ("which", name)
+    };
+    let text = run_capped(locator, &[arg])?;
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(PathBuf::from)
+        .find(|path| is_trusted_location(path))
+}
+
+/// Reject relative paths and matches inside the launcher's working
+/// directory (the implicit Windows search target).
+fn is_trusted_location(path: &std::path::Path) -> bool {
+    if !path.is_absolute() {
+        return false;
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        if path.starts_with(&cwd) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Check whether an AstrBot WebUI is actually listening on `port`:
+/// a TCP connect followed by an HTTP `GET /` whose response looks like the
+/// AstrBot dashboard. A plain TCP probe alone would accept any unrelated
+/// listener on the same port (issue #81 false-positive guard).
+pub(crate) fn verify_webui(port: u16) -> bool {
+    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(CONNECT_TIMEOUT));
+    let _ = stream.set_write_timeout(Some(CONNECT_TIMEOUT));
+    let request = format!("GET / HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
+    if std::io::Write::write_all(&mut stream, request.as_bytes()).is_err() {
+        return false;
+    }
+    let mut response = Vec::new();
+    let mut chunk = [0u8; 1024];
+    loop {
+        match std::io::Read::read(&mut stream, &mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                response.extend_from_slice(&chunk[..read]);
+                if response.len() >= 16 * 1024 {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+    let text = String::from_utf8_lossy(&response);
+    let Some(head_end) = text.find("\r\n\r\n") else {
+        return false;
+    };
+    let (head, body) = text.split_at(head_end);
+    // Any 2xx/3xx status plus an AstrBot marker in the response counts as
+    // the dashboard; unrelated services are reported as stopped.
+    let status_ok = head
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .and_then(|code| code.parse::<u16>().ok())
+        .is_some_and(|code| (200..400).contains(&code));
+    status_ok && body.to_ascii_lowercase().contains("astrbot")
 }
 
 fn builtin_registry() -> InstanceSourceRegistry {
@@ -278,7 +447,19 @@ mod tests {
         assert_eq!(infos[3].id, "dir_scan");
         assert_eq!(infos[3].title_key, "settings.instances.sources.dir_scan");
 
-        let instances = with_context(|ctx| registry.discover_all(ctx, &|_| true));
-        assert!(instances.is_empty());
+        // Deterministic subset: only the dir-scan source with an empty scan
+        // root. Docker/uv sources depend on the host and are covered by
+        // their own unit tests with injected commands.
+        let ctx = DiscoveryContext {
+            process_manager: &ProcessManager::new(),
+            manifest: &AppManifest::default(),
+            scan_paths: vec![],
+        };
+        let dirscan_only = registry.discover_all(&ctx, &|id| id == "dir_scan");
+        // Empty default scan root on a bare environment, but whatever is
+        // found must be an external read-only dir-scan instance.
+        assert!(dirscan_only
+            .iter()
+            .all(|instance| instance.source == "dir_scan" && instance.capabilities.read_only));
     }
 }

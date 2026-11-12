@@ -28,6 +28,7 @@ English | [简体中文](./README_zh.md)
 ## Features
 
 - Manage multiple AstrBot instances
+- Discover externally deployed read-only instances (Docker containers, `uv tool` installations, directory scan) and open their WebUI
 - Download and switch AstrBot versions
 - Back up and restore instance data
 - Automatically configure Python / Node.js / uv runtime environments

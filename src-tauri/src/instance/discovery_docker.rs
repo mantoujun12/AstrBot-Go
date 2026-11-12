@@ -6,14 +6,13 @@
 //! daemon may be down; in that case the source silently degrades to an
 //! empty list instead of failing the whole scan.
 
-use std::process::Command;
+use super::discovery::{
+    locate_program, run_capped, DiscoveredInstance, DiscoveryContext, InstanceCapabilities,
+    InstanceSource,
+};
 
 use crate::error::Result;
 use crate::process::InstanceState;
-
-use super::discovery::{
-    DiscoveredInstance, DiscoveryContext, InstanceCapabilities, InstanceSource,
-};
 
 /// Docker source id.
 pub const SOURCE_ID: &str = "docker";
@@ -68,12 +67,15 @@ fn row_matches(row: &DockerContainerRow) -> bool {
     row.image.contains("astrbot") && row.names.contains("astrbot")
 }
 
-/// Extract the host-side port of the first port mapping that forwards the
-/// container WebUI port.
+/// Extract the host-side address and port of the first port mapping that
+/// forwards the container WebUI port.
 ///
 /// Port entries look like `0.0.0.0:6185->6185/tcp, [::]:6185->6185/tcp`
 /// (mapped) or `6185/tcp` (exposed but not published, hence no host port).
-fn host_port_for(ports: &str, target: u16) -> Option<u16> {
+/// The published host address is retained so a port published on a specific
+/// interface gets a URL that can actually reach it; wildcard bindings map
+/// to loopback.
+fn host_port_for(ports: &str, target: u16) -> Option<(String, u16)> {
     ports.split(',').find_map(|entry| {
         let entry = entry.trim();
         let (host, container) = entry.split_once("->")?;
@@ -81,8 +83,16 @@ fn host_port_for(ports: &str, target: u16) -> Option<u16> {
             return None;
         }
         // Host side may be `0.0.0.0:6185`, `[::]:6185`, or `6185`.
-        let port = host.rsplit(':').next()?;
-        port.parse::<u16>().ok()
+        let (address, port) = match host.rsplit_once(':') {
+            Some((address, port)) => (address, port),
+            None => ("127.0.0.1", host),
+        };
+        let port = port.parse::<u16>().ok()?;
+        let address = match address {
+            "0.0.0.0" | "" | "[::]" => "127.0.0.1".to_string(),
+            other => other.to_string(),
+        };
+        Some((address, port))
     })
 }
 
@@ -108,38 +118,42 @@ impl InstanceSource for DockerSource {
     }
 
     fn discover(&self, _ctx: &DiscoveryContext) -> Result<Vec<DiscoveredInstance>> {
-        // Arguments are passed as an array; the format string is never
-        // concatenated into a shell command.
-        let output = Command::new("docker")
-            .args([
-                "ps",
-                "--format",
-                "{{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Ports}}\t{{.State}}",
-            ])
-            .output();
-
-        // Silent degradation: docker CLI missing, daemon not running, or
-        // any other failure yields an empty list. The docker CLI fails
-        // fast in these cases, and discovery already runs on a blocking
-        // thread pool, so no extra hang guard is needed.
-        let Ok(output) = output else {
+        // Resolve the docker CLI to an absolute path; relative/working-dir
+        // matches on PATH are rejected so a dropped-in `docker` executable
+        // is never executed automatically.
+        let Some(docker) = locate_program("docker") else {
+            // Docker CLI absent: degrade silently to an empty list.
             return Ok(Vec::new());
         };
-        if !output.status.success() {
+        // `-a` also lists stopped containers so they keep appearing with a
+        // stopped state instead of vanishing from the list.
+        // Arguments are passed as an array; the format string is never
+        // concatenated into a shell command. The command is capped so an
+        // unresponsive daemon cannot hang the discovery load.
+        let Some(output) = run_capped(
+            docker.to_string_lossy().as_ref(),
+            &[
+                "ps",
+                "-a",
+                "--format",
+                "{{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Ports}}\t{{.State}}",
+            ],
+        ) else {
+            // Silent degradation: docker CLI missing, daemon not running, or
+            // any other failure yields an empty list.
             return Ok(Vec::new());
-        }
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        };
 
-        let instances = parse_rows(&stdout)
+        let instances = parse_rows(&output)
             .into_iter()
             .filter(row_matches)
             .map(|row| {
-                let webui_port = host_port_for(&row.ports, WEBUI_PORT);
+                let webui = host_port_for(&row.ports, WEBUI_PORT);
                 DiscoveredInstance {
                     source: SOURCE_ID.to_string(),
                     id: format!("docker:{}", row.id),
                     name: row.names.split(',').next().unwrap_or_default().to_string(),
-                    webui_url: webui_port.map(|port| format!("http://127.0.0.1:{port}")),
+                    webui_url: webui.map(|(host, port)| format!("http://{host}:{port}")),
                     state: map_state(&row.state),
                     // Docker deployments are observed only; lifecycle stays
                     // with the container runtime.
@@ -217,9 +231,17 @@ mod tests {
     fn extracts_host_port_for_webui_mapping() {
         assert_eq!(
             host_port_for("0.0.0.0:6185->6185/tcp, [::]:6185->6185/tcp", 6185),
-            Some(6185)
+            Some(("127.0.0.1".to_string(), 6185))
         );
-        assert_eq!(host_port_for("0.0.0.0:7000->6185/tcp", 6185), Some(7000));
+        assert_eq!(
+            host_port_for("0.0.0.0:7000->6185/tcp", 6185),
+            Some(("127.0.0.1".to_string(), 7000))
+        );
+        // A port published on a specific interface keeps that address.
+        assert_eq!(
+            host_port_for("192.168.1.7:6185->6185/tcp", 6185),
+            Some(("192.168.1.7".to_string(), 6185))
+        );
         // Exposed without publishing: no host port.
         assert_eq!(host_port_for("6185/tcp", 6185), None);
         // Only other ports are mapped.

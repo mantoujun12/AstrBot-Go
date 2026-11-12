@@ -7,12 +7,10 @@
 //! availability and never manages their lifecycle.
 
 use std::collections::HashSet;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use super::discovery::{
-    DiscoveredInstance, DiscoveryContext, InstanceCapabilities, InstanceSource,
+    verify_webui, DiscoveredInstance, DiscoveryContext, InstanceCapabilities, InstanceSource,
 };
 use super::types::CmdConfig;
 use crate::error::{AppError, Result};
@@ -23,9 +21,6 @@ const SOURCE_TITLE_KEY: &str = "settings.instances.sources.dir_scan";
 
 /// Maximum directory depth below each scan root.
 const MAX_SCAN_DEPTH: usize = 3;
-
-/// TCP probe timeout when deciding whether a WebUI is live.
-const PORT_PROBE_TIMEOUT: Duration = Duration::from_millis(300);
 
 /// Default dashboard port of AstrBot.
 const DEFAULT_DASHBOARD_PORT: u16 = 6185;
@@ -69,6 +64,10 @@ impl InstanceSource for DirScanSource {
 
     fn discover(&self, ctx: &DiscoveryContext) -> Result<Vec<DiscoveredInstance>> {
         let roots = resolve_scan_roots(&ctx.scan_paths);
+        // Launcher-managed instance directories are excluded so a scan root
+        // containing the launcher data dir does not list every managed
+        // instance again as an external read-only row.
+        let managed = managed_instance_roots();
         let mut instances = Vec::new();
         let mut seen: HashSet<PathBuf> = HashSet::new();
         for root in roots {
@@ -76,7 +75,13 @@ impl InstanceSource for DirScanSource {
                 // The same instance may be reachable from several roots; only
                 // the first occurrence is reported.
                 let key = std::fs::canonicalize(&dir).unwrap_or_else(|_| dir.clone());
-                if !seen.insert(key) {
+                if !seen.insert(key.clone()) {
+                    continue;
+                }
+                if managed
+                    .iter()
+                    .any(|root| key.starts_with(root) || dir.starts_with(root))
+                {
                     continue;
                 }
                 if let Some(instance) = build_instance(&dir) {
@@ -86,6 +91,21 @@ impl InstanceSource for DirScanSource {
         }
         Ok(instances)
     }
+}
+
+/// Canonicalized directories holding launcher-managed instances
+/// (`<data dir>/instances/<id>`); any scan match inside one is skipped.
+fn managed_instance_roots() -> Vec<PathBuf> {
+    let instances_dir = crate::utils::paths::get_data_dir().join("instances");
+    let Ok(entries) = std::fs::read_dir(&instances_dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| std::fs::canonicalize(entry.path()).ok())
+        .map(normalize_canonical)
+        .collect()
 }
 
 /// Turn the configured scan paths into actual roots. When nothing is
@@ -155,10 +175,14 @@ fn collect_candidate_dirs(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
         return;
     }
     let entries = match std::fs::read_dir(dir) {
-        // Unreadable directories are silently skipped; one broken branch
-        // must not fail the whole scan.
+        // Unreadable directories are skipped so one broken branch cannot
+        // fail the whole scan, but the skip is logged: without it, missed
+        // instances below the branch look like a complete scan.
         Ok(entries) => entries,
-        Err(_) => return,
+        Err(error) => {
+            log::debug!("Directory scan skipped unreadable {dir:?}: {error}");
+            return;
+        }
     };
     if dir.join("data").join("cmd_config.json").is_file() {
         out.push(dir.to_path_buf());
@@ -187,7 +211,7 @@ pub(crate) fn is_skipped_dir(name: &str) -> bool {
 /// configuration (guards against false positives).
 pub(crate) fn build_instance(dir: &Path) -> Option<DiscoveredInstance> {
     let content = std::fs::read_to_string(dir.join("data").join("cmd_config.json")).ok()?;
-    let port = validate_cmd_config(&content)?;
+    let (port, dashboard_enabled) = validate_cmd_config(&content)?;
 
     let name = dir
         .file_name()
@@ -201,7 +225,10 @@ pub(crate) fn build_instance(dir: &Path) -> Option<DiscoveredInstance> {
         .to_string_lossy()
         .to_string();
 
-    let state = if probe_port(port) {
+    // A plain TCP probe alone would mistake an unrelated listener on the
+    // port for a running instance, so the WebUI is verified over HTTP
+    // (issue #81 false-positive guard).
+    let state = if dashboard_enabled && verify_webui(port) {
         InstanceState::Running
     } else {
         InstanceState::Stopped
@@ -211,40 +238,49 @@ pub(crate) fn build_instance(dir: &Path) -> Option<DiscoveredInstance> {
         source: SOURCE_ID.to_string(),
         id,
         name,
-        webui_url: Some(format!("http://127.0.0.1:{}", port)),
+        webui_url: resolve_dashboard_url(dashboard_enabled, port),
         state,
         capabilities: InstanceCapabilities { read_only: true },
     })
 }
 
+/// Read the dashboard port and enable switch from a deployment's
+/// `data/cmd_config.json`; falls back to the defaults when the file is
+/// absent or does not carry the values.
+pub(crate) fn read_dashboard_config(deployment: &Path) -> (u16, bool) {
+    std::fs::read_to_string(deployment.join("data").join("cmd_config.json"))
+        .ok()
+        .and_then(|content| validate_cmd_config(&content))
+        .unwrap_or((DEFAULT_DASHBOARD_PORT, true))
+}
+
+/// Build the WebUI URL for a dashboard: `None` when the dashboard is
+/// disabled, otherwise `http://127.0.0.1:<port>`.
+pub(crate) fn resolve_dashboard_url(enabled: bool, port: u16) -> Option<String> {
+    enabled.then(|| format!("http://127.0.0.1:{port}"))
+}
+
 /// Validate that parsed `cmd_config.json` content is an AstrBot
 /// configuration and return the dashboard port (default
-/// [`DEFAULT_DASHBOARD_PORT`] when absent).
-pub(crate) fn validate_cmd_config(content: &str) -> Option<u16> {
+/// [`DEFAULT_DASHBOARD_PORT`] when absent) plus the `enable` switch.
+pub(crate) fn validate_cmd_config(content: &str) -> Option<(u16, bool)> {
     let value: serde_json::Value =
         serde_json::from_str(content.trim_start_matches('\u{feff}')).ok()?;
     let dashboard = value.get("dashboard")?.as_object()?;
     // AstrBot signature: a dashboard object with an `enable` switch and a
     // `username` field. Files without these fields are other applications.
-    if !dashboard
+    let enable = dashboard
         .get("enable")
-        .is_some_and(|enable| enable.is_boolean())
-    {
-        return None;
-    }
+        .and_then(|enable| enable.as_bool())?;
     dashboard.get("username")?;
     // Reuse the shared CmdConfig parser so launcher-managed and discovered
     // instances read the dashboard identically.
     let parsed: CmdConfig = serde_json::from_value(value).ok()?;
-    parsed
+    let port = parsed
         .dashboard
         .and_then(|dashboard| dashboard.port)
-        .or(Some(DEFAULT_DASHBOARD_PORT))
-}
-
-fn probe_port(port: u16) -> bool {
-    let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
-    TcpStream::connect_timeout(&address, PORT_PROBE_TIMEOUT).is_ok()
+        .unwrap_or(DEFAULT_DASHBOARD_PORT);
+    Some((port, enable))
 }
 
 #[cfg(test)]
@@ -297,11 +333,17 @@ mod tests {
 
     #[test]
     fn validate_cmd_config_accepts_astrbot_and_rejects_other_files() {
-        assert_eq!(validate_cmd_config(VALID_CONFIG), Some(6185));
+        assert_eq!(validate_cmd_config(VALID_CONFIG), Some((6185, true)));
         // Port falls back to the AstrBot default when absent.
         assert_eq!(
             validate_cmd_config(r#"{"dashboard":{"enable":true,"username":"x"}}"#),
-            Some(DEFAULT_DASHBOARD_PORT)
+            Some((DEFAULT_DASHBOARD_PORT, true))
+        );
+        // A disabled dashboard is still an AstrBot deployment, but without
+        // a usable WebUI.
+        assert_eq!(
+            validate_cmd_config(r#"{"dashboard":{"enable":false,"username":"x","port":7000}}"#),
+            Some((7000, false))
         );
         // Missing signature fields → skipped.
         assert_eq!(validate_cmd_config(r#"{"other":1}"#), None);
@@ -314,12 +356,27 @@ mod tests {
         let temp = std::env::temp_dir().join(format!("dirscan-build-{}", std::process::id()));
         let _ = fs::remove_dir_all(&temp);
         let dir = temp.join("AstrBot");
-        write_config(&dir, VALID_CONFIG)?;
+        // Reserve an ephemeral port then release it: nothing listens, and
+        // the fixed 6185 default would race a real WebUI on this machine.
+        let probe = std::net::TcpListener::bind(("127.0.0.1", 0))
+            .map_err(|error| AppError::other(error.to_string()))?;
+        let port = probe
+            .local_addr()
+            .map_err(|error| AppError::other(error.to_string()))?
+            .port();
+        drop(probe);
+        write_config(
+            &dir,
+            &format!(r#"{{"dashboard":{{"enable":true,"username":"astrbot","port":{port}}}}}"#),
+        )?;
 
         let instance = build_instance(&dir).ok_or_else(|| AppError::other("instance missing"))?;
         assert_eq!(instance.source, "dir_scan");
         assert_eq!(instance.name, "AstrBot");
-        assert_eq!(instance.webui_url.as_deref(), Some("http://127.0.0.1:6185"));
+        assert_eq!(
+            instance.webui_url.as_deref(),
+            Some(&*format!("http://127.0.0.1:{port}"))
+        );
         assert!(instance.capabilities.read_only);
         // Nothing is listening; the instance must be reported stopped.
         assert_eq!(instance.state, InstanceState::Stopped);
@@ -328,6 +385,32 @@ mod tests {
         assert!(build_instance(&temp).is_none());
         fs::remove_dir_all(&temp)?;
         Ok(())
+    }
+
+    #[test]
+    fn disabled_dashboard_gets_no_webui_url() -> Result<()> {
+        let temp = std::env::temp_dir().join(format!("dirscan-disabled-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&temp);
+        let dir = temp.join("AstrBot");
+        write_config(
+            &dir,
+            r#"{"dashboard":{"enable":false,"username":"astrbot","port":6185}}"#,
+        )?;
+
+        let instance = build_instance(&dir).ok_or_else(|| AppError::other("instance missing"))?;
+        // No WebUI link for a disabled dashboard, and always stopped.
+        assert_eq!(instance.webui_url, None);
+        assert_eq!(instance.state, InstanceState::Stopped);
+        fs::remove_dir_all(&temp)?;
+        Ok(())
+    }
+
+    #[test]
+    fn dashboard_config_falls_back_to_defaults() {
+        // Missing file → defaults.
+        let (port, enabled) = read_dashboard_config(Path::new("definitely-missing-dir"));
+        assert_eq!(port, DEFAULT_DASHBOARD_PORT);
+        assert!(enabled);
     }
 
     #[test]

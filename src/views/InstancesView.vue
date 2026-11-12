@@ -246,6 +246,7 @@ watch(
 
 function handleRefresh(): void {
   void refresh();
+  void loadDiscovery();
   void loadUpdateCheck(true);
 }
 
@@ -1152,7 +1153,7 @@ function openWebui(instance: InstanceStatus): void {
     </div>
 
     <div
-      v-else-if="snapshot !== null && instances.length === 0"
+      v-else-if="snapshot !== null && instanceRows.length === 0"
       class="page-table-card"
     >
       <EmptyState :text="t('instances.list.empty')" icon="mdi-server-plus-outline">
