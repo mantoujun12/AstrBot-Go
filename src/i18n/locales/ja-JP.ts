@@ -84,6 +84,7 @@ const jaJP = {
       count: "{count} 件のインスタンス",
       sources: {
         launcher: "ランチャーでデプロイ",
+        uv_tool: "uv tool（astrbot コマンドライン）",
       },
     },
     nav: {

@@ -162,6 +162,7 @@ impl InstanceSource for LauncherManagedSource {
 fn builtin_registry() -> InstanceSourceRegistry {
     let mut registry = InstanceSourceRegistry::new();
     registry.register(Box::new(LauncherManagedSource));
+    registry.register(Box::new(super::discovery_uv::UvToolSource));
     registry
 }
 
@@ -262,9 +263,11 @@ mod tests {
     fn global_registry_exposes_launcher_source() {
         let registry = global_registry();
         let infos = registry.source_infos();
-        assert_eq!(infos.len(), 1);
+        assert_eq!(infos.len(), 2);
         assert_eq!(infos[0].id, "launcher");
         assert_eq!(infos[0].title_key, "settings.instances.sources.launcher");
+        assert_eq!(infos[1].id, "uv_tool");
+        assert_eq!(infos[1].title_key, "settings.instances.sources.uv_tool");
 
         let instances = with_context(|ctx| registry.discover_all(ctx, &|_| true));
         assert!(instances.is_empty());

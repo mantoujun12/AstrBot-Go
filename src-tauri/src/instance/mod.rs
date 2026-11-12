@@ -10,6 +10,7 @@ mod cleanup;
 mod crud;
 mod deploy;
 pub mod discovery;
+pub mod discovery_uv;
 mod health;
 pub(crate) mod lifecycle;
 mod rebuild;

@@ -85,6 +85,7 @@ const enUS = {
       count: "{count} instances",
       sources: {
         launcher: "Launcher-managed",
+        uv_tool: "uv tool (astrbot CLI)",
       },
     },
     nav: {

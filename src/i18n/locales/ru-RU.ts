@@ -85,6 +85,7 @@ const ruRU = {
       count: "Экземпляров: {count}",
       sources: {
         launcher: "Развернуто лаунчером",
+        uv_tool: "uv tool (CLI astrbot)",
       },
     },
     nav: {
