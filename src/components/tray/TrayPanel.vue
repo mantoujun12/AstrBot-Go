@@ -602,7 +602,7 @@ onBeforeUnmount(() => {
                   color="info"
                   variant="tonal"
                   size="x-small"
-                  prepend-icon="mdi-lan"
+                  prepend-icon="mdi-ethernet"
                 >
                   {{ item.port }}
                 </v-chip>

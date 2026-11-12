@@ -2,9 +2,10 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
+import ExternalWebuiView from "../components/instances/ExternalWebuiView.vue";
 import InstanceWebuiView from "../views/InstanceWebuiView.vue";
 import { useLauncherStore } from "../stores/launcher";
-import { HOME_TAB, useTabsStore } from "../stores/tabs";
+import { HOME_TAB, externalTabOf, useTabsStore } from "../stores/tabs";
 
 defineProps<{
   mobile: boolean;
@@ -23,10 +24,14 @@ const homePane = ref<HTMLElement | null>(null);
 const isHome = computed(() => activeTab.value === HOME_TAB);
 
 const instanceTabs = computed(() =>
-  instanceIds.value.map((id) => ({
-    id,
-    exists: instances.value.some((instance) => instance.id === id),
-  })),
+  instanceIds.value.map((id) => {
+    const external = externalTabOf(id);
+    return {
+      id,
+      exists: external !== null || instances.value.some((instance) => instance.id === id),
+      external,
+    };
+  }),
 );
 
 watch(
@@ -80,7 +85,15 @@ watch(
         class="launcher-instance-pane motion-fade-in"
         role="tabpanel"
       >
-        <InstanceWebuiView v-if="tab.exists" :instance-id="tab.id" />
+        <ExternalWebuiView
+          v-if="tab.external"
+          :name="tab.external.name"
+          :url="tab.external.url"
+        />
+        <InstanceWebuiView
+          v-else-if="tab.exists"
+          :instance-id="tab.id"
+        />
       </div>
     </div>
   </v-main>

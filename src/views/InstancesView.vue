@@ -76,7 +76,11 @@ const {
   beginDeploy,
   dismissDeploy,
 } = useProgressStore();
-const { isHomeActive, openInstanceTab } = useTabsStore();
+const {
+  isHomeActive,
+  openInstanceTab,
+  openExternalInstanceTab,
+} = useTabsStore();
 const { t } = useI18n();
 
 const updateCheck = ref<InstanceUpdateCheckResult | null>(null);
@@ -115,6 +119,53 @@ const portsInUse = computed(() =>
   instances.value.map((instance) => instance.configured_port),
 );
 
+/** Port of an external row's WebUI, when the row is running and exposes one. */
+function externalRunningPort(row: DiscoveredInstance): number | null {
+  if (row.detail?.kind === "docker" || row.detail?.kind === "uv_tool") {
+    return row.detail.port;
+  }
+  try {
+    return new URL(row.webui_url ?? "").port
+      ? Number(new URL(row.webui_url ?? "").port)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ports currently held by any running instance, launcher-managed or not. */
+const runningPorts = computed<Set<number>>(() => {
+  const ports = new Set<number>();
+  for (const row of instanceRows.value) {
+    if (row.state !== "running") {
+      continue;
+    }
+    if (row.external) {
+      const port = externalRunningPort(row);
+      if (port !== null) {
+        ports.add(port);
+      }
+    } else {
+      ports.add(row.port);
+    }
+  }
+  return ports;
+});
+
+/**
+ * The port blocking a stopped instance from starting, or `null` when it may
+ * start: an external deployment already listening on the same port would
+ * otherwise fail at runtime with an opaque bind error.
+ */
+function portConflictOf(instance: InstanceStatus): number | null {
+  if (instance.state !== "stopped") {
+    return null;
+  }
+  return runningPorts.value.has(instance.configured_port)
+    ? instance.configured_port
+    : null;
+}
+
 const updatesById = computed(() => {
   const byId = new Map<string, InstanceUpdateInfo>();
   for (const update of updateCheck.value?.instances ?? []) {
@@ -149,7 +200,54 @@ function sourceTitleOf(sourceId: string): string {
   const source = discovered.value?.sources.find(
     (candidate) => candidate.id === sourceId,
   );
-  return source === undefined ? sourceId : t(source.title_key);
+  return source === undefined
+    ? translateDynamicKey(`settings.instances.sources.${sourceId}`, sourceId)
+    : t(source.title_key);
+}
+
+const EXTERNAL_SOURCE_ICONS: Record<string, string> = {
+  launcher: "mdi-rocket-launch-outline",
+  docker: "mdi-docker",
+  uv_tool: "mdi-language-python",
+  dir_scan: "mdi-folder-outline",
+};
+
+function sourceIconOf(sourceId: string): string {
+  return EXTERNAL_SOURCE_ICONS[sourceId] ?? "mdi-server";
+}
+
+/** Launcher-managed rows carry no `source`; they all come from the launcher. */
+function rowSourceOf(instance: InstanceRow): string {
+  return instance.external ? instance.source : "launcher";
+}
+
+interface ExternalMetaPart {
+  icon: string;
+  text: string;
+}
+
+/**
+ * Per-source meta line for an external row: Docker shows the host-side
+ * address and published WebUI port, uv tool shows the tool version and
+ * dashboard port, directory scans show the deployment path.
+ */
+function externalMetaParts(instance: DiscoveredInstance): ExternalMetaPart[] {
+  switch (instance.detail?.kind) {
+    case "docker":
+      return [
+        { icon: "mdi-ip-network-outline", text: instance.detail.host },
+        { icon: "mdi-ethernet", text: String(instance.detail.port) },
+      ];
+    case "uv_tool":
+      return [
+        { icon: "mdi-tag-outline", text: instance.detail.version },
+        { icon: "mdi-ethernet", text: String(instance.detail.port) },
+      ];
+    case "directory":
+      return [{ icon: "mdi-folder-outline", text: instance.detail.path }];
+    default:
+      return [];
+  }
 }
 
 const discovered = ref<DiscoveredInstancesSnapshot | null>(null);
@@ -162,7 +260,16 @@ async function loadDiscovery(): Promise<void> {
   }
 }
 
-async function openExternalWebui(instance: DiscoveredInstance): Promise<void> {
+function openExternalWebui(instance: DiscoveredInstance): void {
+  if (instance.webui_url === null) {
+    return;
+  }
+  openExternalInstanceTab(instance);
+}
+
+async function openExternalInBrowser(
+  instance: DiscoveredInstance,
+): Promise<void> {
   if (instance.webui_url === null) {
     return;
   }
@@ -1183,20 +1290,39 @@ function openWebui(instance: InstanceStatus): void {
         :no-data-text="t('instances.list.empty')"
       >
         <template #item.name="{ item }">
-          <div class="page-cell">
-            <div class="page-row">
+          <div class="page-cell instance-name-cell">
+            <v-tooltip location="top">
+              <template #activator="{ props: tooltipProps }">
+                <v-icon
+                  v-bind="tooltipProps"
+                  size="22"
+                  class="page-muted"
+                  :icon="sourceIconOf(rowSourceOf(item))"
+                  :aria-label="sourceTitleOf(rowSourceOf(item))"
+                />
+              </template>
+              {{ sourceTitleOf(rowSourceOf(item)) }}
+            </v-tooltip>
+            <div class="page-cell">
               <span>{{ item.name }}</span>
-              <v-chip
-                v-if="item.external"
-                size="x-small"
-                variant="tonal"
-                label
-              >
-                {{ sourceTitleOf(item.source) }}
-              </v-chip>
-            </div>
             <span
-              v-if="!item.external"
+              v-if="item.external"
+              class="instance-meta page-muted page-nums"
+            >
+              <template
+                v-for="(part, index) in externalMetaParts(item)"
+                :key="part.icon"
+              >
+                <span
+                  v-if="index > 0"
+                  aria-hidden="true"
+                >·</span>
+                <v-icon size="12" :icon="part.icon" aria-hidden="true" />
+                <span>{{ part.text }}</span>
+              </template>
+            </span>
+            <span
+              v-else
               class="instance-meta page-muted page-nums"
               :aria-label="
                 t('instances.list.meta', {
@@ -1207,13 +1333,18 @@ function openWebui(instance: InstanceStatus): void {
               "
             >
               <v-icon size="12" icon="mdi-tag-outline" aria-hidden="true" />
-              <span>{{ item.version }}</span>
-              <span aria-hidden="true">·</span>
-              <v-icon size="12" icon="mdi-ethernet" aria-hidden="true" />
-              <span>
-                {{ item.state === "running" ? item.port : item.configured_port }}
+                <span>{{ item.version }}</span>
+                <span aria-hidden="true">·</span>
+                <v-icon size="12" icon="mdi-ethernet" aria-hidden="true" />
+                <span>
+                  {{
+                    item.state === "running"
+                      ? item.port
+                      : item.configured_port
+                  }}
+                </span>
               </span>
-            </span>
+            </div>
           </div>
         </template>
 
@@ -1241,6 +1372,20 @@ function openWebui(instance: InstanceStatus): void {
               </template>
               {{ t("instances.actions.openWebui") }}
             </v-tooltip>
+            <v-tooltip location="top">
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  icon="mdi-open-in-new"
+                  variant="text"
+                  size="small"
+                  :aria-label="t('instances.actions.openInBrowser')"
+                  :disabled="item.webui_url === null"
+                  @click="openExternalInBrowser(item)"
+                />
+              </template>
+              {{ t("instances.actions.openInBrowser") }}
+            </v-tooltip>
           </div>
           <div v-else class="instance-actions page-row">
             <template v-if="item.state === 'stopped'">
@@ -1252,13 +1397,28 @@ function openWebui(instance: InstanceStatus): void {
                     color="success"
                     variant="tonal"
                     size="small"
-                    :aria-label="t('instances.actions.start')"
-                    :disabled="isInstanceInteractionDisabled(item.id)"
+                    :aria-label="
+                      portConflictOf(item) !== null
+                        ? t('instances.actions.portConflict', {
+                            port: portConflictOf(item),
+                          })
+                        : t('instances.actions.start')
+                    "
+                    :disabled="
+                      isInstanceInteractionDisabled(item.id) ||
+                      portConflictOf(item) !== null
+                    "
                     :loading="isBusy(startKey(item.id))"
                     @click="handleStart(item)"
                   />
                 </template>
-                {{ t("instances.actions.start") }}
+                {{
+                  portConflictOf(item) !== null
+                    ? t("instances.actions.portConflict", {
+                        port: portConflictOf(item),
+                      })
+                    : t("instances.actions.start")
+                }}
               </v-tooltip>
             </template>
             <template v-else-if="item.state === 'running'">
@@ -1595,6 +1755,13 @@ function openWebui(instance: InstanceStatus): void {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* Icon column on the left, name + meta stacked on the right. */
+.instance-name-cell {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
 
 .instance-menu {

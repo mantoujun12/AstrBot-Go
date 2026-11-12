@@ -8,7 +8,7 @@
 
 use super::discovery::{
     locate_program, run_capped, DiscoveredInstance, DiscoveryContext, InstanceCapabilities,
-    InstanceSource,
+    InstanceDetail, InstanceSource,
 };
 
 use crate::error::Result;
@@ -153,11 +153,14 @@ impl InstanceSource for DockerSource {
                     source: SOURCE_ID.to_string(),
                     id: format!("docker:{}", row.id),
                     name: row.names.split(',').next().unwrap_or_default().to_string(),
-                    webui_url: webui.map(|(host, port)| format!("http://{host}:{port}")),
+                    webui_url: webui
+                        .as_ref()
+                        .map(|(host, port)| format!("http://{host}:{port}")),
                     state: map_state(&row.state),
                     // Docker deployments are observed only; lifecycle stays
                     // with the container runtime.
                     capabilities: InstanceCapabilities { read_only: true },
+                    detail: webui.map(|(host, port)| InstanceDetail::Docker { host, port }),
                 }
             })
             .collect();

@@ -10,7 +10,8 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use super::discovery::{
-    verify_webui, DiscoveredInstance, DiscoveryContext, InstanceCapabilities, InstanceSource,
+    verify_webui, DiscoveredInstance, DiscoveryContext, InstanceCapabilities, InstanceDetail,
+    InstanceSource,
 };
 use super::types::CmdConfig;
 use crate::error::{AppError, Result};
@@ -76,7 +77,9 @@ impl InstanceSource for DirScanSource {
             for dir in scan_root(&root) {
                 // The same instance may be reachable from several roots; only
                 // the first occurrence is reported.
-                let key = std::fs::canonicalize(&dir).unwrap_or_else(|_| dir.clone());
+                let key = normalize_canonical(
+                    std::fs::canonicalize(&dir).unwrap_or_else(|_| dir.clone()),
+                );
                 if !seen.insert(key.clone()) {
                     continue;
                 }
@@ -225,8 +228,7 @@ pub(crate) fn build_instance_with(
     if name.is_empty() {
         return None;
     }
-    let id = std::fs::canonicalize(dir)
-        .unwrap_or_else(|_| dir.to_path_buf())
+    let id = normalize_canonical(std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf()))
         .to_string_lossy()
         .to_string();
 
@@ -240,6 +242,7 @@ pub(crate) fn build_instance_with(
         InstanceState::Stopped
     };
 
+    let detail = InstanceDetail::Directory { path: id.clone() };
     Some(DiscoveredInstance {
         source: SOURCE_ID.to_string(),
         id,
@@ -247,6 +250,7 @@ pub(crate) fn build_instance_with(
         webui_url: resolve_dashboard_url(dashboard_enabled, port),
         state,
         capabilities: InstanceCapabilities { read_only: true },
+        detail: Some(detail),
     })
 }
 

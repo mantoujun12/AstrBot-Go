@@ -30,6 +30,19 @@ pub struct InstanceCapabilities {
     pub read_only: bool,
 }
 
+/// Per-source display details of a discovered instance, rendered as the
+/// list row meta line.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum InstanceDetail {
+    /// Docker deployment: host-side address and published WebUI port.
+    Docker { host: String, port: u16 },
+    /// uv tool deployment: tool version and dashboard port.
+    UvTool { version: String, port: u16 },
+    /// Directory-scan deployment: canonicalized deployment path.
+    Directory { path: String },
+}
+
 /// A unified instance record produced by a discovery source.
 #[derive(Debug, Clone, Serialize)]
 pub struct DiscoveredInstance {
@@ -42,6 +55,8 @@ pub struct DiscoveredInstance {
     pub webui_url: Option<String>,
     pub state: InstanceState,
     pub capabilities: InstanceCapabilities,
+    /// Source-specific details shown in the instance list meta line.
+    pub detail: Option<InstanceDetail>,
 }
 
 /// Metadata of a registered discovery source, used to render the settings.
@@ -160,6 +175,7 @@ impl InstanceSource for LauncherManagedSource {
                 }),
                 state: status.state,
                 capabilities: InstanceCapabilities { read_only: false },
+                detail: None,
             })
             .collect())
     }
@@ -377,6 +393,7 @@ mod tests {
                 webui_url: None,
                 state: InstanceState::Stopped,
                 capabilities: InstanceCapabilities::default(),
+                detail: None,
             }])
         }
     }

@@ -297,8 +297,18 @@ const discovered = ref<DiscoveredInstancesSnapshot | null>(null);
 const discoveryLoading = ref(false);
 const sourceSaving = reactive<Record<string, boolean>>({});
 
+/**
+ * Sources with a settings toggle. The launcher-managed source is excluded:
+ * launcher-deployed instances are always discovered, so there is nothing to
+ * hide behind a switch.
+ */
+const LAUNCHER_SOURCE_ID = "launcher";
+
 const instanceSources = computed<InstanceSourceInfo[]>(
-  () => discovered.value?.sources ?? [],
+  () =>
+    discovered.value?.sources.filter(
+      (source) => source.id !== LAUNCHER_SOURCE_ID,
+    ) ?? [],
 );
 
 const instanceCounts = computed<Record<string, number>>(() => {

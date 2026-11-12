@@ -548,6 +548,7 @@ const ruRU = {
     actions: {
       create: "Создать экземпляр",
       start: "Запустить",
+      portConflict: "Порт {port} уже занят запущенным экземпляром",
       stop: "Остановить",
       restart: "Перезапустить",
       openCoreFolder: "Открыть каталог ядра",
