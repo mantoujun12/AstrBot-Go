@@ -68,6 +68,8 @@ impl InstanceSource for DirScanSource {
         // containing the launcher data dir does not list every managed
         // instance again as an external read-only row.
         let managed = managed_instance_roots();
+        // One process snapshot per scan, shared by every candidate dir.
+        let processes = main_py_processes();
         let mut instances = Vec::new();
         let mut seen: HashSet<PathBuf> = HashSet::new();
         for root in roots {
@@ -84,7 +86,7 @@ impl InstanceSource for DirScanSource {
                 {
                     continue;
                 }
-                if let Some(instance) = build_instance(&dir) {
+                if let Some(instance) = build_instance_with(&dir, &processes) {
                     instances.push(instance);
                 }
             }
@@ -209,7 +211,10 @@ pub(crate) fn is_skipped_dir(name: &str) -> bool {
 /// Build a discovered instance from a directory holding
 /// `data/cmd_config.json`, or `None` when the file is not a valid AstrBot
 /// configuration (guards against false positives).
-pub(crate) fn build_instance(dir: &Path) -> Option<DiscoveredInstance> {
+pub(crate) fn build_instance_with(
+    dir: &Path,
+    processes: &[(PathBuf, String)],
+) -> Option<DiscoveredInstance> {
     let content = std::fs::read_to_string(dir.join("data").join("cmd_config.json")).ok()?;
     let (port, dashboard_enabled) = validate_cmd_config(&content)?;
 
@@ -225,10 +230,11 @@ pub(crate) fn build_instance(dir: &Path) -> Option<DiscoveredInstance> {
         .to_string_lossy()
         .to_string();
 
-    // A plain TCP probe alone would mistake an unrelated listener on the
-    // port for a running instance, so the WebUI is verified over HTTP
-    // (issue #81 false-positive guard).
-    let state = if dashboard_enabled && verify_webui(port) {
+    // Running state comes from two independent signals (issue #81):
+    // a feature-confirmed WebUI on the dashboard port, or a `main.py`
+    // process belonging to this directory, which also catches instances
+    // whose dashboard is disabled or unreachable.
+    let state = if (dashboard_enabled && verify_webui(port)) || runs_main_py(dir, processes) {
         InstanceState::Running
     } else {
         InstanceState::Stopped
@@ -258,6 +264,108 @@ pub(crate) fn read_dashboard_config(deployment: &Path) -> (u16, bool) {
 /// disabled, otherwise `http://127.0.0.1:<port>`.
 pub(crate) fn resolve_dashboard_url(enabled: bool, port: u16) -> Option<String> {
     enabled.then(|| format!("http://127.0.0.1:{port}"))
+}
+
+/// Case-insensitive prefix test on a path string (Windows is case
+/// insensitive; POSIX is too in practice for these install locations).
+fn path_starts_with(candidate: &Path, dir: &Path) -> bool {
+    let candidate = candidate.to_string_lossy().to_lowercase();
+    let dir = dir.to_string_lossy().to_lowercase();
+    candidate.starts_with(&dir)
+}
+
+/// Whether one of the running `main.py` processes belongs to `dir`:
+/// its executable or its command line lives inside the deployment
+/// directory (e.g. a venv interpreter under `dir/.venv`). An empty
+/// process list means no attribution is possible.
+fn runs_main_py(dir: &Path, processes: &[(PathBuf, String)]) -> bool {
+    processes.iter().any(|(executable, command_line)| {
+        path_starts_with(executable, dir)
+            || command_line
+                .to_lowercase()
+                .contains(&dir.to_string_lossy().to_lowercase())
+    })
+}
+
+/// Snapshot of running processes whose command line contains `main.py`
+/// (issue #81 running-state signal), as `(executable, command line)`.
+/// Best effort: returns an empty list when enumeration fails or times
+/// out, and the HTTP dashboard probe remains the primary signal.
+pub(crate) fn main_py_processes() -> Vec<(PathBuf, String)> {
+    let text: Option<String> = {
+        #[cfg(windows)]
+        {
+            // One snapshot per scan instead of one query per instance.
+            super::discovery::run_capped(
+                "powershell",
+                &[
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    "Get-CimInstance Win32_Process | \
+                     Where-Object { $_.CommandLine -like '*main.py*' } | \
+                     Select-Object ProcessId,ExecutablePath,CommandLine | \
+                     ConvertTo-Json -Compress -Depth 2",
+                ],
+            )
+        }
+        #[cfg(not(windows))]
+        {
+            read_proc_main_py()
+        }
+    };
+    let Some(text) = text else {
+        return Vec::new();
+    };
+    parse_main_py_processes(&text)
+}
+
+/// Enumerate running processes from `/proc` on Unix.
+#[cfg(not(windows))]
+fn read_proc_main_py() -> Option<String> {
+    use serde_json::json;
+    let mut out = Vec::new();
+    let entries = std::fs::read_dir("/proc").ok()?;
+    for entry in entries.flatten() {
+        let pid: u32 = match entry.file_name().to_string_lossy().parse() {
+            Ok(pid) => pid,
+            Err(_) => continue,
+        };
+        let cmdline = std::fs::read_to_string(entry.path().join("cmdline"))
+            .map(|text| text.replace('\0', " "));
+        let cmdline = match cmdline {
+            Ok(cmdline) if cmdline.contains("main.py") => cmdline,
+            _ => continue,
+        };
+        let exe = std::fs::read_link(entry.path().join("exe")).unwrap_or_default();
+        out.push(json!({"p": pid, "e": exe, "c": cmdline}));
+    }
+    serde_json::to_string(&out).ok()
+}
+
+/// Parse the JSON snapshot into `(executable, command line)` pairs.
+/// Accepts a single object or an array (PowerShell emits either
+/// depending on the result count).
+pub(crate) fn parse_main_py_processes(text: &str) -> Vec<(PathBuf, String)> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(text) else {
+        return Vec::new();
+    };
+    let items: Vec<serde_json::Value> = match value {
+        serde_json::Value::Array(items) => items,
+        serde_json::Value::Object(_) => vec![value],
+        _ => return Vec::new(),
+    };
+    items
+        .into_iter()
+        .filter_map(|item| {
+            let executable = item.get("e").and_then(|e| e.as_str()).unwrap_or_default();
+            let command_line = item.get("c").and_then(|c| c.as_str()).unwrap_or_default();
+            if command_line.is_empty() {
+                return None;
+            }
+            Some((PathBuf::from(executable), command_line.to_string()))
+        })
+        .collect()
 }
 
 /// Validate that parsed `cmd_config.json` content is an AstrBot
@@ -370,7 +478,8 @@ mod tests {
             &format!(r#"{{"dashboard":{{"enable":true,"username":"astrbot","port":{port}}}}}"#),
         )?;
 
-        let instance = build_instance(&dir).ok_or_else(|| AppError::other("instance missing"))?;
+        let instance =
+            build_instance_with(&dir, &[]).ok_or_else(|| AppError::other("instance missing"))?;
         assert_eq!(instance.source, "dir_scan");
         assert_eq!(instance.name, "AstrBot");
         assert_eq!(
@@ -382,7 +491,71 @@ mod tests {
         assert_eq!(instance.state, InstanceState::Stopped);
         assert!(instance.id.contains("AstrBot"));
 
-        assert!(build_instance(&temp).is_none());
+        assert!(build_instance_with(&temp, &[]).is_none());
+        fs::remove_dir_all(&temp)?;
+        Ok(())
+    }
+
+    #[test]
+    fn main_py_processes_parse_and_attribute() {
+        // PowerShell emits a single object for one match, an array for more.
+        let single = r#"{"p":1,"e":"C:/bots/.venv/Scripts/python.exe","c":"python main.py"}"#;
+        assert_eq!(
+            parse_main_py_processes(single),
+            vec![(
+                PathBuf::from("C:/bots/.venv/Scripts/python.exe"),
+                "python main.py".to_string()
+            )]
+        );
+        let array = r#"[{"p":1,"e":"C:/bots/.venv/Scripts/python.exe","c":"python main.py"},{"p":2,"e":"","c":"only main.py"}]"#;
+        assert_eq!(parse_main_py_processes(array).len(), 2);
+        // Unparsable or empty output → no signals, never an error.
+        assert!(parse_main_py_processes("").is_empty());
+        assert!(parse_main_py_processes("not json").is_empty());
+    }
+
+    #[test]
+    fn running_state_matches_main_py_process_of_the_directory() -> Result<()> {
+        let temp = std::env::temp_dir().join(format!("dirscan-proc-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&temp);
+        let dir = temp.join("AstrBot");
+        // Ephemeral port released before the probe: the fixed 6185 default
+        // would race a real WebUI on this machine.
+        let probe = std::net::TcpListener::bind(("127.0.0.1", 0))
+            .map_err(|error| AppError::other(error.to_string()))?;
+        let port = probe
+            .local_addr()
+            .map_err(|error| AppError::other(error.to_string()))?
+            .port();
+        drop(probe);
+        write_config(
+            &dir,
+            &format!(r#"{{"dashboard":{{"enable":true,"username":"astrbot","port":{port}}}}}"#),
+        )?;
+        // A venv interpreter inside the deployment dir running main.py.
+        let inside = vec![(
+            dir.join(".venv").join("Scripts").join("python.exe"),
+            "python main.py".to_string(),
+        )];
+        let instance = build_instance_with(&dir, &inside)
+            .ok_or_else(|| AppError::other("instance missing"))?;
+        // Nothing listens on the port, but the process signal reports it
+        // as running (dashboard-independent, issue #81).
+        assert_eq!(instance.state, InstanceState::Running);
+
+        // An unrelated main.py process must not light this instance up.
+        let outside = vec![(
+            PathBuf::from("C:/other/tool/python.exe"),
+            "python main.py".to_string(),
+        )];
+        let instance = build_instance_with(&dir, &outside)
+            .ok_or_else(|| AppError::other("instance missing"))?;
+        assert_eq!(instance.state, InstanceState::Stopped);
+
+        // Explicit empty snapshot → stopped, same as before.
+        let instance =
+            build_instance_with(&dir, &[]).ok_or_else(|| AppError::other("instance missing"))?;
+        assert_eq!(instance.state, InstanceState::Stopped);
         fs::remove_dir_all(&temp)?;
         Ok(())
     }
@@ -397,7 +570,8 @@ mod tests {
             r#"{"dashboard":{"enable":false,"username":"astrbot","port":6185}}"#,
         )?;
 
-        let instance = build_instance(&dir).ok_or_else(|| AppError::other("instance missing"))?;
+        let instance =
+            build_instance_with(&dir, &[]).ok_or_else(|| AppError::other("instance missing"))?;
         // No WebUI link for a disabled dashboard, and always stopped.
         assert_eq!(instance.webui_url, None);
         assert_eq!(instance.state, InstanceState::Stopped);
