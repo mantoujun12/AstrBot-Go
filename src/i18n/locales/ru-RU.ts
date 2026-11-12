@@ -85,6 +85,7 @@ const ruRU = {
       count: "Экземпляров: {count}",
       sources: {
         launcher: "Развернуто лаунчером",
+        docker: "Развернуто в Docker",
       },
     },
     nav: {

@@ -81,7 +81,8 @@ const zhCN = {
       "refresh": "刷新",
       "count": "{count} 个实例",
       "sources": {
-        "launcher": "启动器部署"
+        "launcher": "启动器部署",
+        "docker": "Docker 部署"
       }
     },
     "nav": {
