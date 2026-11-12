@@ -52,7 +52,11 @@ import {
   testHttpProxy,
   type NetworkProbeResult,
 } from "../services/network";
-import { rebuildInstanceManifest } from "../services/instances";
+import {
+  discoverInstances,
+  rebuildInstanceManifest,
+  saveInstanceSourceEnabled,
+} from "../services/instances";
 import { useLauncherStore } from "../stores/launcher";
 import { showErrorToast, showToast } from "../stores/toast";
 import {
@@ -69,6 +73,8 @@ import { setReduceMotionPreference } from "../composables/useReduceMotion";
 import { isLanguagePreference } from "../i18n/locale";
 import type {
   AppConfig,
+  DiscoveredInstancesSnapshot,
+  InstanceSourceInfo,
   LanguagePreference,
   ReduceMotionPreference,
   ThemePreference,
@@ -80,7 +86,13 @@ import { cacheTheme } from "../utils/themeCache";
 
 const { config, dataDir, loading, error, refresh } = useLauncherStore();
 
-type SettingsSection = "general" | "appearance" | "network" | "data" | "about";
+type SettingsSection =
+  | "general"
+  | "appearance"
+  | "instances"
+  | "network"
+  | "data"
+  | "about";
 
 interface SettingsNavItem {
   id: SettingsSection;
@@ -98,6 +110,11 @@ const sections: SettingsNavItem[] = [
     id: "appearance",
     labelKey: "settings.nav.appearance",
     icon: "mdi-palette-outline",
+  },
+  {
+    id: "instances",
+    labelKey: "settings.nav.instances",
+    icon: "mdi-monitor-multiple",
   },
   {
     id: "network",
@@ -270,6 +287,74 @@ async function changeTrayStyle(value: unknown): Promise<void> {
     } catch {
       // Keep the optimistic value when the resync fails as well.
     }
+  }
+}
+
+/* Instance sources */
+
+const discovered = ref<DiscoveredInstancesSnapshot | null>(null);
+const discoveryLoading = ref(false);
+const sourceSaving = reactive<Record<string, boolean>>({});
+
+const instanceSources = computed<InstanceSourceInfo[]>(
+  () => discovered.value?.sources ?? [],
+);
+
+const instanceCounts = computed<Record<string, number>>(() => {
+  const counts: Record<string, number> = {};
+  for (const instance of discovered.value?.instances ?? []) {
+    counts[instance.source] = (counts[instance.source] ?? 0) + 1;
+  }
+  return counts;
+});
+
+function isSourceEnabled(source: InstanceSourceInfo): boolean {
+  return config.value?.instance_source_enabled[source.id] ?? true;
+}
+
+function instanceCountLabel(source: InstanceSourceInfo): string {
+  return t("settings.instances.count", {
+    count: instanceCounts.value[source.id] ?? 0,
+  });
+}
+
+async function loadDiscovery(): Promise<void> {
+  if (discoveryLoading.value) {
+    return;
+  }
+  discoveryLoading.value = true;
+  try {
+    discovered.value = await discoverInstances();
+  } catch (cause) {
+    showErrorToast(cause);
+  } finally {
+    discoveryLoading.value = false;
+  }
+}
+
+async function changeSourceEnabled(
+  source: InstanceSourceInfo,
+  value: unknown,
+): Promise<void> {
+  if (sourceSaving[source.id] || !config.value) {
+    return;
+  }
+  const enabled = value === true;
+  if (enabled === isSourceEnabled(source)) {
+    return;
+  }
+
+  const previous = config.value.instance_source_enabled[source.id] ?? true;
+  config.value.instance_source_enabled[source.id] = enabled;
+  sourceSaving[source.id] = true;
+  try {
+    await saveInstanceSourceEnabled(source.id, enabled);
+    await loadDiscovery();
+  } catch (cause) {
+    config.value.instance_source_enabled[source.id] = previous;
+    showErrorToast(cause);
+  } finally {
+    sourceSaving[source.id] = false;
   }
 }
 
@@ -840,6 +925,7 @@ onMounted(() => {
   void loadAppVersion();
   void loadAutostartState();
   void detectPlatform();
+  void loadDiscovery();
 });
 </script>
 
@@ -1090,6 +1176,51 @@ onMounted(() => {
                   {{ t("settings.tray.nativeMenu") }}
                 </v-btn>
               </v-btn-toggle>
+            </SettingsItem>
+          </div>
+        </section>
+
+        <section
+          v-show="activeSection === 'instances'"
+          id="settings-instances"
+          class="settings-section"
+          aria-labelledby="settings-instances-title"
+        >
+          <h2 id="settings-instances-title" class="settings-section__title">
+            {{ t("settings.nav.instances") }}
+          </h2>
+          <div class="settings-list-card">
+            <SettingsItem
+              v-for="source in instanceSources"
+              :key="source.id"
+              :title="t(source.title_key)"
+              :subtitle="instanceCountLabel(source)"
+              :label-for="`setting-instance-source-${source.id}`"
+              wide
+            >
+              <v-switch
+                :id="`setting-instance-source-${source.id}`"
+                :model-value="isSourceEnabled(source)"
+                :loading="sourceSaving[source.id]"
+                :disabled="sourceSaving[source.id]"
+                color="primary"
+                density="compact"
+                hide-details
+                :aria-label="t(source.title_key)"
+                @update:model-value="(value) => changeSourceEnabled(source, value)"
+              />
+            </SettingsItem>
+          </div>
+          <div class="settings-list-card">
+            <SettingsItem :title="t('settings.instances.advanced')" stacked>
+              <v-btn
+                variant="outlined"
+                prepend-icon="mdi-refresh"
+                :loading="discoveryLoading"
+                @click="loadDiscovery"
+              >
+                {{ t("settings.instances.refresh") }}
+              </v-btn>
             </SettingsItem>
           </div>
         </section>

@@ -79,9 +79,18 @@ const ruRU = {
     loading: "Загрузка настроек…",
     loadFailed: "Не удалось загрузить настройки",
     saved: "Сохранено",
+    instances: {
+      advanced: "Дополнительно",
+      refresh: "Обновить",
+      count: "Экземпляров: {count}",
+      sources: {
+        launcher: "Развернуто лаунчером",
+      },
+    },
     nav: {
       general: "Общие",
       appearance: "Внешний вид",
+      instances: "Экземпляры",
       network: "Сеть",
       data: "Данные и обслуживание",
       about: "О программе",

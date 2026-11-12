@@ -78,9 +78,18 @@ const jaJP = {
     loading: "設定を読み込み中…",
     loadFailed: "設定の読み込みに失敗しました",
     saved: "保存しました",
+    instances: {
+      advanced: "詳細",
+      refresh: "更新",
+      count: "{count} 件のインスタンス",
+      sources: {
+        launcher: "ランチャーでデプロイ",
+      },
+    },
     nav: {
       general: "一般",
       appearance: "外観",
+      instances: "インスタンス",
       network: "ネットワーク",
       data: "データとメンテナンス",
       about: "このアプリについて",

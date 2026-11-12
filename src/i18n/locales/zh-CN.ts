@@ -76,9 +76,18 @@ const zhCN = {
     "loading": "正在加载设置…",
     "loadFailed": "设置加载失败",
     "saved": "已保存",
+    "instances": {
+      "advanced": "高级",
+      "refresh": "刷新",
+      "count": "{count} 个实例",
+      "sources": {
+        "launcher": "启动器部署"
+      }
+    },
     "nav": {
       "general": "常规",
       "appearance": "外观",
+      "instances": "实例",
       "network": "网络",
       "data": "数据与维护",
       "about": "关于",
