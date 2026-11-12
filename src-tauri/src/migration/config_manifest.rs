@@ -84,6 +84,7 @@ impl LegacyAppConfig {
             ignore_external_path: self.ignore_external_path,
             use_short_instance_id: false,
             lock_check_extension_whitelist: false,
+            instance_source_enabled: HashMap::new(),
             theme_preference: self.theme_preference,
             language_preference: LanguagePreference::System,
             reduce_motion_preference: ReduceMotionPreference::default(),
