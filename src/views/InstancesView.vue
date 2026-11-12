@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import type { DataTableHeader } from "vuetify";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
@@ -12,6 +12,7 @@ import PageHeader from "../components/common/PageHeader.vue";
 import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import InstanceFormDialog from "../components/instances/InstanceFormDialog.vue";
 import InstanceStatusCell from "../components/instances/InstanceStatusCell.vue";
+import StatusChip from "../components/common/StatusChip.vue";
 import HealthCheckDialog from "../components/instances/HealthCheckDialog.vue";
 import RepairDialog from "../components/instances/RepairDialog.vue";
 import ResourceMonitorDialog from "../components/instances/ResourceMonitorDialog.vue";
@@ -32,6 +33,7 @@ import {
   checkInstanceHealth,
   createInstance,
   deleteInstance,
+  discoverInstances,
   openInstanceCoreFolder,
   repairInstance,
   restartInstance,
@@ -47,6 +49,8 @@ import { useProgressStore } from "../stores/progress";
 import { useTabsStore } from "../stores/tabs";
 import { showErrorToast, showToast } from "../stores/toast";
 import type {
+  DiscoveredInstance,
+  DiscoveredInstancesSnapshot,
   GitHubRelease,
   InstanceStatus,
   InstanceHealthReport,
@@ -119,6 +123,60 @@ const updatesById = computed(() => {
   return byId;
 });
 
+/* External instances */
+
+type ExternalInstanceRow = DiscoveredInstance & { external: true };
+
+const externalInstances = computed<ExternalInstanceRow[]>(() => {
+  if (discovered.value === null) {
+    return [];
+  }
+  return discovered.value.instances
+    .filter((instance) => instance.source !== "launcher")
+    .map((instance) => ({ ...instance, external: true }));
+});
+
+type InstanceRow =
+  | (InstanceStatus & { external?: false })
+  | ExternalInstanceRow;
+
+const instanceRows = computed<InstanceRow[]>(() => [
+  ...instances.value,
+  ...externalInstances.value,
+]);
+
+function sourceTitleOf(sourceId: string): string {
+  const source = discovered.value?.sources.find(
+    (candidate) => candidate.id === sourceId,
+  );
+  return source === undefined ? sourceId : t(source.title_key);
+}
+
+const discovered = ref<DiscoveredInstancesSnapshot | null>(null);
+
+async function loadDiscovery(): Promise<void> {
+  try {
+    discovered.value = await discoverInstances();
+  } catch (cause) {
+    showErrorToast(cause);
+  }
+}
+
+async function openExternalWebui(instance: DiscoveredInstance): Promise<void> {
+  if (instance.webui_url === null) {
+    return;
+  }
+  try {
+    await openExternalUrl(instance.webui_url);
+  } catch (cause) {
+    showErrorToast(cause);
+  }
+}
+
+onMounted(() => {
+  void loadDiscovery();
+});
+
 function updateInfoFor(instanceId: string): InstanceUpdateInfo | null {
   return updatesById.value.get(instanceId) ?? null;
 }
@@ -188,6 +246,7 @@ watch(
 
 function handleRefresh(): void {
   void refresh();
+  void loadDiscovery();
   void loadUpdateCheck(true);
 }
 
@@ -1094,7 +1153,7 @@ function openWebui(instance: InstanceStatus): void {
     </div>
 
     <div
-      v-else-if="snapshot !== null && instances.length === 0"
+      v-else-if="snapshot !== null && instanceRows.length === 0"
       class="page-table-card"
     >
       <EmptyState :text="t('instances.list.empty')" icon="mdi-server-plus-outline">
@@ -1113,7 +1172,7 @@ function openWebui(instance: InstanceStatus): void {
     <div v-else-if="snapshot !== null" class="page-table-card">
       <v-data-table
         :headers="headers"
-        :items="instances"
+        :items="instanceRows"
         item-value="id"
         :mobile="mdAndDown"
         :loading="loading"
@@ -1125,8 +1184,19 @@ function openWebui(instance: InstanceStatus): void {
       >
         <template #item.name="{ item }">
           <div class="page-cell">
-            <span>{{ item.name }}</span>
+            <div class="page-row">
+              <span>{{ item.name }}</span>
+              <v-chip
+                v-if="item.external"
+                size="x-small"
+                variant="tonal"
+                label
+              >
+                {{ sourceTitleOf(item.source) }}
+              </v-chip>
+            </div>
             <span
+              v-if="!item.external"
               class="instance-meta page-muted page-nums"
               :aria-label="
                 t('instances.list.meta', {
@@ -1148,11 +1218,31 @@ function openWebui(instance: InstanceStatus): void {
         </template>
 
         <template #item.state="{ item }">
-          <InstanceStatusCell :instance="item" />
+          <StatusChip
+            v-if="item.external"
+            :state="item.state"
+          />
+          <InstanceStatusCell v-else :instance="item" />
         </template>
 
         <template #item.actions="{ item }">
-          <div class="instance-actions page-row">
+          <div v-if="item.external" class="instance-actions page-row">
+            <v-tooltip location="top">
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="tooltipProps"
+                  icon="mdi-monitor-dashboard"
+                  variant="text"
+                  size="small"
+                  :aria-label="t('instances.actions.openWebui')"
+                  :disabled="item.webui_url === null"
+                  @click="openExternalWebui(item)"
+                />
+              </template>
+              {{ t("instances.actions.openWebui") }}
+            </v-tooltip>
+          </div>
+          <div v-else class="instance-actions page-row">
             <template v-if="item.state === 'stopped'">
               <v-tooltip location="top">
                 <template #activator="{ props: tooltipProps }">

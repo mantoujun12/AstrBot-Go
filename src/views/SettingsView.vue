@@ -52,7 +52,12 @@ import {
   testHttpProxy,
   type NetworkProbeResult,
 } from "../services/network";
-import { rebuildInstanceManifest } from "../services/instances";
+import {
+  discoverInstances,
+  rebuildInstanceManifest,
+  saveInstanceScanPaths,
+  saveInstanceSourceEnabled,
+} from "../services/instances";
 import { useLauncherStore } from "../stores/launcher";
 import { showErrorToast, showToast } from "../stores/toast";
 import {
@@ -69,6 +74,8 @@ import { setReduceMotionPreference } from "../composables/useReduceMotion";
 import { isLanguagePreference } from "../i18n/locale";
 import type {
   AppConfig,
+  DiscoveredInstancesSnapshot,
+  InstanceSourceInfo,
   LanguagePreference,
   ReduceMotionPreference,
   ThemePreference,
@@ -80,7 +87,13 @@ import { cacheTheme } from "../utils/themeCache";
 
 const { config, dataDir, loading, error, refresh } = useLauncherStore();
 
-type SettingsSection = "general" | "appearance" | "network" | "data" | "about";
+type SettingsSection =
+  | "general"
+  | "appearance"
+  | "instances"
+  | "network"
+  | "data"
+  | "about";
 
 interface SettingsNavItem {
   id: SettingsSection;
@@ -98,6 +111,11 @@ const sections: SettingsNavItem[] = [
     id: "appearance",
     labelKey: "settings.nav.appearance",
     icon: "mdi-palette-outline",
+  },
+  {
+    id: "instances",
+    labelKey: "settings.nav.instances",
+    icon: "mdi-monitor-multiple",
   },
   {
     id: "network",
@@ -270,6 +288,126 @@ async function changeTrayStyle(value: unknown): Promise<void> {
     } catch {
       // Keep the optimistic value when the resync fails as well.
     }
+  }
+}
+
+/* Instance sources */
+
+const discovered = ref<DiscoveredInstancesSnapshot | null>(null);
+const discoveryLoading = ref(false);
+const sourceSaving = reactive<Record<string, boolean>>({});
+
+const instanceSources = computed<InstanceSourceInfo[]>(
+  () => discovered.value?.sources ?? [],
+);
+
+const instanceCounts = computed<Record<string, number>>(() => {
+  const counts: Record<string, number> = {};
+  for (const instance of discovered.value?.instances ?? []) {
+    counts[instance.source] = (counts[instance.source] ?? 0) + 1;
+  }
+  return counts;
+});
+
+function isSourceEnabled(source: InstanceSourceInfo): boolean {
+  return config.value?.instance_source_enabled[source.id] ?? true;
+}
+
+function instanceCountLabel(source: InstanceSourceInfo): string {
+  return t("settings.instances.count", {
+    count: instanceCounts.value[source.id] ?? 0,
+  });
+}
+
+let discoveryRerunQueued = false;
+
+async function loadDiscovery(): Promise<void> {
+  if (discoveryLoading.value) {
+    // A source toggle or scan path saved while discovery is running must
+    // not be lost: queue a rerun after the in-flight request finishes.
+    discoveryRerunQueued = true;
+    return;
+  }
+  discoveryLoading.value = true;
+  try {
+    discovered.value = await discoverInstances();
+  } catch (cause) {
+    showErrorToast(cause);
+  } finally {
+    discoveryLoading.value = false;
+    if (discoveryRerunQueued) {
+      discoveryRerunQueued = false;
+      void loadDiscovery();
+    }
+  }
+}
+
+async function changeSourceEnabled(
+  source: InstanceSourceInfo,
+  value: unknown,
+): Promise<void> {
+  if (sourceSaving[source.id] || !config.value) {
+    return;
+  }
+  const enabled = value === true;
+  if (enabled === isSourceEnabled(source)) {
+    return;
+  }
+
+  const previous = config.value.instance_source_enabled[source.id] ?? true;
+  config.value.instance_source_enabled[source.id] = enabled;
+  sourceSaving[source.id] = true;
+  try {
+    await saveInstanceSourceEnabled(source.id, enabled);
+    await loadDiscovery();
+  } catch (cause) {
+    config.value.instance_source_enabled[source.id] = previous;
+    showErrorToast(cause);
+  } finally {
+    sourceSaving[source.id] = false;
+  }
+}
+
+/* Instance scan paths */
+
+const scanPathsSaving = ref(false);
+const scanPaths = computed<string[]>(() => config.value?.instance_scan_paths ?? []);
+
+async function addScanPath(): Promise<void> {
+  const selected = await pickDirectory();
+  // Recheck after the picker resolves: another save may have started while
+  // the dialog was open, and overlapping whole-list saves could persist
+  // snapshots out of order and drop a directory.
+  if (!selected || !config.value || scanPathsSaving.value) {
+    return;
+  }
+  const previous = scanPaths.value;
+  config.value!.instance_scan_paths = [...previous, selected];
+  await saveScanPaths(previous);
+}
+
+async function removeScanPath(path: string): Promise<void> {
+  if (scanPathsSaving.value || !config.value) {
+    return;
+  }
+  const previous = scanPaths.value;
+  config.value!.instance_scan_paths = previous.filter(
+    (item) => item !== path,
+  );
+  await saveScanPaths(previous);
+}
+
+async function saveScanPaths(previous: string[]): Promise<void> {
+  scanPathsSaving.value = true;
+  try {
+    const saved = await saveInstanceScanPaths(scanPaths.value);
+    config.value!.instance_scan_paths = saved;
+    await loadDiscovery();
+  } catch (cause) {
+    config.value!.instance_scan_paths = previous;
+    showErrorToast(cause);
+  } finally {
+    scanPathsSaving.value = false;
   }
 }
 
@@ -840,6 +978,7 @@ onMounted(() => {
   void loadAppVersion();
   void loadAutostartState();
   void detectPlatform();
+  void loadDiscovery();
 });
 </script>
 
@@ -1090,6 +1229,82 @@ onMounted(() => {
                   {{ t("settings.tray.nativeMenu") }}
                 </v-btn>
               </v-btn-toggle>
+            </SettingsItem>
+          </div>
+        </section>
+
+        <section
+          v-show="activeSection === 'instances'"
+          id="settings-instances"
+          class="settings-section"
+          aria-labelledby="settings-instances-title"
+        >
+          <h2 id="settings-instances-title" class="settings-section__title">
+            {{ t("settings.nav.instances") }}
+          </h2>
+          <div class="settings-list-card">
+            <SettingsItem
+              v-for="source in instanceSources"
+              :key="source.id"
+              :title="t(source.title_key)"
+              :subtitle="instanceCountLabel(source)"
+              :label-for="`setting-instance-source-${source.id}`"
+              wide
+            >
+              <v-switch
+                :id="`setting-instance-source-${source.id}`"
+                :model-value="isSourceEnabled(source)"
+                :loading="sourceSaving[source.id]"
+                :disabled="sourceSaving[source.id]"
+                color="primary"
+                density="compact"
+                hide-details
+                :aria-label="t(source.title_key)"
+                @update:model-value="(value) => changeSourceEnabled(source, value)"
+              />
+            </SettingsItem>
+          </div>
+          <div class="settings-list-card">
+            <SettingsItem :title="t('settings.instances.advanced')" stacked>
+              <div class="settings-instance-scan__row">
+                <v-btn
+                  variant="outlined"
+                  prepend-icon="mdi-refresh"
+                  :loading="discoveryLoading"
+                  @click="loadDiscovery"
+                >
+                  {{ t("settings.instances.refresh") }}
+                </v-btn>
+                <v-btn
+                  variant="outlined"
+                  prepend-icon="mdi-folder-plus"
+                  :loading="scanPathsSaving"
+                  @click="addScanPath"
+                >
+                  {{ t("settings.instances.scanPaths.add") }}
+                </v-btn>
+              </div>
+            </SettingsItem>
+            <SettingsItem
+              v-if="scanPaths.length > 0"
+              :title="t('settings.instances.scanPaths.title')"
+              stacked
+            >
+              <div
+                v-for="path in scanPaths"
+                :key="path"
+                class="settings-instance-scan__row"
+              >
+                <span class="settings-instance-scan__path text-truncate">{{ path }}</span>
+                <v-btn
+                  icon="mdi-delete"
+                  variant="text"
+                  density="compact"
+                  :aria-label="t('settings.instances.scanPaths.remove')"
+                  :disabled="scanPathsSaving"
+                  @click="removeScanPath(path)"
+                />
+              </div>
             </SettingsItem>
           </div>
         </section>
@@ -1585,6 +1800,24 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   margin-left: auto;
+}
+
+.settings-instance-scan__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-instance-scan__row + .settings-instance-scan__row {
+  margin-top: 6px;
+}
+
+.settings-instance-scan__path {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 0.8rem;
 }
 
 .settings-proxy-result {

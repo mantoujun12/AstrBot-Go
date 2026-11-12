@@ -28,6 +28,7 @@
 ## 功能
 
 - 管理多个 AstrBot 实例
+- 发现外部部署的只读实例（Docker 容器、uv tool 安装、目录扫描）并打开其 WebUI
 - 下载并切换 AstrBot 版本
 - 备份与恢复实例数据
 - 自动配置 Python / Node.js / uv 运行环境

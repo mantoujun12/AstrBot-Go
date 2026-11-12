@@ -127,6 +127,7 @@ pub struct DeployProgress {
 #[derive(Debug, Deserialize)]
 pub(crate) struct CmdConfigDashboard {
     pub enable: Option<bool>,
+    pub port: Option<u16>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -76,9 +76,26 @@ const zhCN = {
     "loading": "正在加载设置…",
     "loadFailed": "设置加载失败",
     "saved": "已保存",
+    "instances": {
+      "advanced": "高级",
+      "refresh": "刷新",
+      "count": "{count} 个实例",
+      "sources": {
+        "launcher": "启动器部署",
+        "docker": "Docker 部署",
+        "uv_tool": "uv tool（astrbot 命令行）",
+        "dir_scan": "目录扫描"
+      },
+      "scanPaths": {
+        "title": "扫描目录",
+        "add": "添加目录",
+        "remove": "移除目录"
+      },
+    },
     "nav": {
       "general": "常规",
       "appearance": "外观",
+      "instances": "实例",
       "network": "网络",
       "data": "数据与维护",
       "about": "关于",

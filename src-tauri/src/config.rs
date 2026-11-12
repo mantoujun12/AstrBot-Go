@@ -136,6 +136,14 @@ pub struct AppConfig {
     pub use_short_instance_id: bool,
     #[serde(default)]
     pub lock_check_extension_whitelist: bool,
+    /// Discovery toggles per registered instance source; a missing entry means
+    /// the source is enabled. Only explicit opt-outs are stored.
+    #[serde(default)]
+    pub instance_source_enabled: HashMap<String, bool>,
+    /// Roots scanned by the directory-scan discovery source. Empty means the
+    /// user's home directory is scanned.
+    #[serde(default)]
+    pub instance_scan_paths: Vec<String>,
     #[serde(default)]
     pub theme_preference: ThemePreference,
     #[serde(default)]
@@ -170,6 +178,8 @@ impl Default for AppConfig {
             ignore_external_path: false,
             use_short_instance_id: false,
             lock_check_extension_whitelist: false,
+            instance_source_enabled: HashMap::new(),
+            instance_scan_paths: Vec::new(),
             theme_preference: ThemePreference::System,
             language_preference: LanguagePreference::System,
             reduce_motion_preference: ReduceMotionPreference::System,

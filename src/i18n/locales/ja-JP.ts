@@ -78,9 +78,26 @@ const jaJP = {
     loading: "設定を読み込み中…",
     loadFailed: "設定の読み込みに失敗しました",
     saved: "保存しました",
+    instances: {
+      advanced: "詳細",
+      refresh: "更新",
+      count: "{count} 件のインスタンス",
+      sources: {
+        launcher: "ランチャーでデプロイ",
+        docker: "Docker でデプロイ",
+        uv_tool: "uv tool（astrbot コマンドライン）",
+        dir_scan: "ディレクトリスキャン",
+      },
+      scanPaths: {
+        title: "スキャン対象ディレクトリ",
+        add: "ディレクトリを追加",
+        remove: "ディレクトリを削除",
+      },
+    },
     nav: {
       general: "一般",
       appearance: "外観",
+      instances: "インスタンス",
       network: "ネットワーク",
       data: "データとメンテナンス",
       about: "このアプリについて",
