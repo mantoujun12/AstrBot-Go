@@ -85,6 +85,7 @@ const enUS = {
       count: "{count} instances",
       sources: {
         launcher: "Launcher-managed",
+        docker: "Docker-deployed",
       },
     },
     nav: {

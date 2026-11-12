@@ -10,6 +10,7 @@ mod cleanup;
 mod crud;
 mod deploy;
 pub mod discovery;
+mod discovery_docker;
 mod health;
 pub(crate) mod lifecycle;
 mod rebuild;

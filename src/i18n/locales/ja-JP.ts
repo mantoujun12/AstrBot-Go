@@ -84,6 +84,7 @@ const jaJP = {
       count: "{count} 件のインスタンス",
       sources: {
         launcher: "ランチャーでデプロイ",
+        docker: "Docker でデプロイ",
       },
     },
     nav: {
