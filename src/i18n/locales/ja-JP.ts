@@ -85,6 +85,7 @@ const jaJP = {
       sources: {
         launcher: "ランチャーでデプロイ",
         docker: "Docker でデプロイ",
+        uv_tool: "uv tool（astrbot コマンドライン）",
       },
     },
     nav: {

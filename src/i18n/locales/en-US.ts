@@ -86,6 +86,8 @@ const enUS = {
       sources: {
         launcher: "Launcher-managed",
         docker: "Docker-deployed",
+=======
+        uv_tool: "uv tool (astrbot CLI)",
       },
     },
     nav: {

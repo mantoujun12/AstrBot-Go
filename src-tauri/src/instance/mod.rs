@@ -11,6 +11,7 @@ mod crud;
 mod deploy;
 pub mod discovery;
 mod discovery_docker;
+pub mod discovery_uv;
 mod health;
 pub(crate) mod lifecycle;
 mod rebuild;

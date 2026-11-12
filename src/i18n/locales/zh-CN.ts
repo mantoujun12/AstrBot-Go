@@ -82,8 +82,8 @@ const zhCN = {
       "count": "{count} 个实例",
       "sources": {
         "launcher": "启动器部署",
-        "docker": "Docker 部署"
-      }
+        "docker": "Docker 部署",
+        "uv_tool": "uv tool（astrbot 命令行）"
     },
     "nav": {
       "general": "常规",

@@ -86,6 +86,8 @@ const ruRU = {
       sources: {
         launcher: "Развернуто лаунчером",
         docker: "Развернуто в Docker",
+=======
+        uv_tool: "uv tool (CLI astrbot)",
       },
     },
     nav: {
