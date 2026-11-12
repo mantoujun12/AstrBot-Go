@@ -86,8 +86,13 @@ const enUS = {
       sources: {
         launcher: "Launcher-managed",
         docker: "Docker-deployed",
-=======
         uv_tool: "uv tool (astrbot CLI)",
+        dir_scan: "Directory scan",
+      },
+      scanPaths: {
+        title: "Scan directories",
+        add: "Add directory",
+        remove: "Remove directory",
       },
     },
     nav: {

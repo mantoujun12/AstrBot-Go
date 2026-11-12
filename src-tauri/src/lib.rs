@@ -272,6 +272,7 @@ pub fn run() {
             commands::save_lock_check_extension_whitelist,
             commands::save_ignored_launcher_version,
             commands::save_instance_source_enabled,
+            commands::save_instance_scan_paths,
             commands::save_theme_preference,
             commands::save_reduce_motion_preference,
             commands::save_language_preference,

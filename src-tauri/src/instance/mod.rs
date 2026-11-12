@@ -12,6 +12,7 @@ mod deploy;
 pub mod discovery;
 mod discovery_docker;
 pub mod discovery_uv;
+mod discovery_dirscan;
 mod health;
 pub(crate) mod lifecycle;
 mod rebuild;
@@ -35,3 +36,4 @@ pub use deploy::{repair_instance, RepairPreserveScope};
 
 // Re-export discovery framework
 pub use discovery::{global_registry, DiscoveredInstancesSnapshot, DiscoveryContext};
+pub use discovery_dirscan::validate_scan_paths;

@@ -58,6 +58,8 @@ pub struct DiscoveredInstancesSnapshot {
 pub struct DiscoveryContext<'a> {
     pub process_manager: &'a ProcessManager,
     pub manifest: &'a AppManifest,
+    /// Configured roots for the directory-scan source; empty = home dir.
+    pub scan_paths: Vec<String>,
 }
 
 /// A provider of instances from one deployment mechanism.
@@ -164,6 +166,7 @@ fn builtin_registry() -> InstanceSourceRegistry {
     registry.register(Box::new(LauncherManagedSource));
     registry.register(Box::new(super::discovery_docker::DockerSource));
     registry.register(Box::new(super::discovery_uv::UvToolSource));
+    registry.register(Box::new(super::discovery_dirscan::DirScanSource));
     registry
 }
 
@@ -215,6 +218,7 @@ mod tests {
         let ctx = DiscoveryContext {
             process_manager: &process_manager,
             manifest: &manifest,
+            scan_paths: Vec::new(),
         };
         run(&ctx)
     }
@@ -261,16 +265,18 @@ mod tests {
     }
 
     #[test]
-    fn global_registry_exposes_launcher_source() {
+    fn global_registry_exposes_builtin_sources() {
         let registry = global_registry();
         let infos = registry.source_infos();
-        assert_eq!(infos.len(), 3);
+        assert_eq!(infos.len(), 4);
         assert_eq!(infos[0].id, "launcher");
         assert_eq!(infos[0].title_key, "settings.instances.sources.launcher");
         assert_eq!(infos[1].id, "docker");
         assert_eq!(infos[1].title_key, "settings.instances.sources.docker");
         assert_eq!(infos[2].id, "uv_tool");
         assert_eq!(infos[2].title_key, "settings.instances.sources.uv_tool");
+        assert_eq!(infos[3].id, "dir_scan");
+        assert_eq!(infos[3].title_key, "settings.instances.sources.dir_scan");
 
         let instances = with_context(|ctx| registry.discover_all(ctx, &|_| true));
         assert!(instances.is_empty());

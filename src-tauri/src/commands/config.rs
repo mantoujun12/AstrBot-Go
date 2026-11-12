@@ -343,3 +343,14 @@ pub async fn save_instance_source_enabled(source: String, enabled: bool) -> Resu
         Ok(())
     })
 }
+
+#[tauri::command]
+pub async fn save_instance_scan_paths(paths: Vec<String>) -> Result<Vec<String>> {
+    let paths = crate::instance::validate_scan_paths(&paths)?;
+    let stored = paths.clone();
+    with_config_mut(move |config| {
+        config.instance_scan_paths = stored;
+        Ok(())
+    })?;
+    Ok(paths)
+}

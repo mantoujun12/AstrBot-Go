@@ -83,7 +83,14 @@ const zhCN = {
       "sources": {
         "launcher": "启动器部署",
         "docker": "Docker 部署",
-        "uv_tool": "uv tool（astrbot 命令行）"
+        "uv_tool": "uv tool（astrbot 命令行）",
+        "dir_scan": "目录扫描"
+      },
+      "scanPaths": {
+        "title": "扫描目录",
+        "add": "添加目录",
+        "remove": "移除目录"
+      },
     },
     "nav": {
       "general": "常规",

@@ -86,6 +86,12 @@ const jaJP = {
         launcher: "ランチャーでデプロイ",
         docker: "Docker でデプロイ",
         uv_tool: "uv tool（astrbot コマンドライン）",
+        dir_scan: "ディレクトリスキャン",
+      },
+      scanPaths: {
+        title: "スキャン対象ディレクトリ",
+        add: "ディレクトリを追加",
+        remove: "ディレクトリを削除",
       },
     },
     nav: {

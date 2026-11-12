@@ -55,6 +55,7 @@ import {
 import {
   discoverInstances,
   rebuildInstanceManifest,
+  saveInstanceScanPaths,
   saveInstanceSourceEnabled,
 } from "../services/instances";
 import { useLauncherStore } from "../stores/launcher";
@@ -355,6 +356,49 @@ async function changeSourceEnabled(
     showErrorToast(cause);
   } finally {
     sourceSaving[source.id] = false;
+  }
+}
+
+/* Instance scan paths */
+
+const scanPathsSaving = ref(false);
+const scanPaths = computed<string[]>(() => config.value?.instance_scan_paths ?? []);
+
+async function addScanPath(): Promise<void> {
+  if (scanPathsSaving.value) {
+    return;
+  }
+  const selected = await pickDirectory();
+  if (!selected || !config.value) {
+    return;
+  }
+  const previous = scanPaths.value;
+  config.value!.instance_scan_paths = [...previous, selected];
+  await saveScanPaths(previous);
+}
+
+async function removeScanPath(path: string): Promise<void> {
+  if (scanPathsSaving.value || !config.value) {
+    return;
+  }
+  const previous = scanPaths.value;
+  config.value!.instance_scan_paths = previous.filter(
+    (item) => item !== path,
+  );
+  await saveScanPaths(previous);
+}
+
+async function saveScanPaths(previous: string[]): Promise<void> {
+  scanPathsSaving.value = true;
+  try {
+    const saved = await saveInstanceScanPaths(scanPaths.value);
+    config.value!.instance_scan_paths = saved;
+    await loadDiscovery();
+  } catch (cause) {
+    config.value!.instance_scan_paths = previous;
+    showErrorToast(cause);
+  } finally {
+    scanPathsSaving.value = false;
   }
 }
 
@@ -1213,14 +1257,45 @@ onMounted(() => {
           </div>
           <div class="settings-list-card">
             <SettingsItem :title="t('settings.instances.advanced')" stacked>
-              <v-btn
-                variant="outlined"
-                prepend-icon="mdi-refresh"
-                :loading="discoveryLoading"
-                @click="loadDiscovery"
+              <div class="settings-instance-scan__row">
+                <v-btn
+                  variant="outlined"
+                  prepend-icon="mdi-refresh"
+                  :loading="discoveryLoading"
+                  @click="loadDiscovery"
+                >
+                  {{ t("settings.instances.refresh") }}
+                </v-btn>
+                <v-btn
+                  variant="outlined"
+                  prepend-icon="mdi-folder-plus"
+                  :loading="scanPathsSaving"
+                  @click="addScanPath"
+                >
+                  {{ t("settings.instances.scanPaths.add") }}
+                </v-btn>
+              </div>
+            </SettingsItem>
+            <SettingsItem
+              v-if="scanPaths.length > 0"
+              :title="t('settings.instances.scanPaths.title')"
+              stacked
+            >
+              <div
+                v-for="path in scanPaths"
+                :key="path"
+                class="settings-instance-scan__row"
               >
-                {{ t("settings.instances.refresh") }}
-              </v-btn>
+                <span class="settings-instance-scan__path text-truncate">{{ path }}</span>
+                <v-btn
+                  icon="mdi-delete"
+                  variant="text"
+                  density="compact"
+                  :aria-label="t('settings.instances.scanPaths.remove')"
+                  :disabled="scanPathsSaving"
+                  @click="removeScanPath(path)"
+                />
+              </div>
             </SettingsItem>
           </div>
         </section>
@@ -1716,6 +1791,24 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   margin-left: auto;
+}
+
+.settings-instance-scan__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-instance-scan__row + .settings-instance-scan__row {
+  margin-top: 6px;
+}
+
+.settings-instance-scan__path {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 0.8rem;
 }
 
 .settings-proxy-result {
