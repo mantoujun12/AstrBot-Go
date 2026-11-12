@@ -66,6 +66,30 @@ export interface AppConfig {
   language_preference: LanguagePreference;
   reduce_motion_preference: ReduceMotionPreference;
   ignored_launcher_version: string;
+  instance_source_enabled: Record<string, boolean>;
+}
+
+export interface InstanceCapabilities {
+  read_only: boolean;
+}
+
+export interface DiscoveredInstance {
+  source: string;
+  id: string;
+  name: string;
+  webui_url: string | null;
+  state: InstanceState;
+  capabilities: InstanceCapabilities;
+}
+
+export interface InstanceSourceInfo {
+  id: string;
+  title_key: string;
+}
+
+export interface DiscoveredInstancesSnapshot {
+  sources: InstanceSourceInfo[];
+  instances: DiscoveredInstance[];
 }
 
 export interface InstanceStatus {

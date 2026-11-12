@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   LockCheckTarget,
   InstanceHealthReport,
+  DiscoveredInstancesSnapshot,
   RebuildInstanceManifestResult,
   RepairPreserveScope,
   UpdateInstanceRequest,
@@ -90,4 +91,15 @@ export function repairInstance(
 
 export function rebuildInstanceManifest(): Promise<RebuildInstanceManifestResult> {
   return invoke<RebuildInstanceManifestResult>("rebuild_instance_manifest");
+}
+
+export function discoverInstances(): Promise<DiscoveredInstancesSnapshot> {
+  return invoke<DiscoveredInstancesSnapshot>("list_discovered_instances");
+}
+
+export function saveInstanceSourceEnabled(
+  source: string,
+  enabled: boolean,
+): Promise<void> {
+  return invoke("save_instance_source_enabled", { source, enabled });
 }
