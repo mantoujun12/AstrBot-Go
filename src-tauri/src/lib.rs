@@ -271,6 +271,7 @@ pub fn run() {
             commands::save_use_short_instance_id,
             commands::save_lock_check_extension_whitelist,
             commands::save_ignored_launcher_version,
+            commands::save_instance_source_enabled,
             commands::save_theme_preference,
             commands::save_reduce_motion_preference,
             commands::save_language_preference,
@@ -325,6 +326,7 @@ pub fn run() {
             commands::restart_instance,
             commands::get_instance_port,
             commands::check_instance_health,
+            commands::list_discovered_instances,
             // Resource Monitoring
             commands::get_instance_resource_history,
             commands::get_resources_snapshot,

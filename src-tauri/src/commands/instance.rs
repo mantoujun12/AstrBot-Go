@@ -1,6 +1,6 @@
 use super::instance_task_spec;
 use super::AppState;
-use crate::config::load_manifest;
+use crate::config::{load_config, load_manifest};
 use crate::error::{AppError, Result};
 use crate::instance;
 use crate::process::InstanceRuntimeInfo;
@@ -207,4 +207,27 @@ pub async fn check_instance_health(
         is_transitioning,
     )
     .await)
+}
+
+#[tauri::command]
+pub async fn list_discovered_instances(
+    state: State<'_, AppState>,
+) -> Result<instance::DiscoveredInstancesSnapshot> {
+    let pm = state.process_manager.clone();
+    tokio::task::spawn_blocking(move || {
+        let manifest = load_manifest()?;
+        let config = load_config()?;
+        let enabled = config.instance_source_enabled.clone();
+        let registry = instance::global_registry();
+        let ctx = instance::DiscoveryContext {
+            process_manager: &pm,
+            manifest: manifest.as_ref(),
+        };
+        let sources = registry.source_infos();
+        let instances =
+            registry.discover_all(&ctx, &|source| enabled.get(source).copied().unwrap_or(true));
+        Ok(instance::DiscoveredInstancesSnapshot { sources, instances })
+    })
+    .await
+    .map_err(|e| AppError::process(format!("Discovery task panicked: {}", e)))?
 }

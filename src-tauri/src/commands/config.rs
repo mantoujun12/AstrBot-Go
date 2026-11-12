@@ -318,3 +318,28 @@ pub fn save_tray_style(tray_style: TrayStyle, app_handle: AppHandle) -> Result<(
 
     Err(error)
 }
+
+#[tauri::command]
+pub async fn save_instance_source_enabled(source: String, enabled: bool) -> Result<()> {
+    let source = source.trim().to_string();
+    // Only accept ids of registered sources so the config cannot accumulate
+    // entries for unknown or retired integrations.
+    let registered = crate::instance::discovery::global_registry()
+        .source_infos()
+        .iter()
+        .any(|info| info.id == source);
+    if !registered {
+        return Err(AppError::other(format!(
+            "Unknown instance source: {}",
+            source
+        )));
+    }
+    with_config_mut(move |config| {
+        if enabled {
+            config.instance_source_enabled.remove(&source);
+        } else {
+            config.instance_source_enabled.insert(source, false);
+        }
+        Ok(())
+    })
+}
