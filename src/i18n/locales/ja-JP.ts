@@ -84,6 +84,12 @@ const jaJP = {
       count: "{count} 件のインスタンス",
       sources: {
         launcher: "ランチャーでデプロイ",
+        dir_scan: "ディレクトリスキャン",
+      },
+      scanPaths: {
+        title: "スキャン対象ディレクトリ",
+        add: "ディレクトリを追加",
+        remove: "ディレクトリを削除",
       },
     },
     nav: {

@@ -222,6 +222,7 @@ pub async fn list_discovered_instances(
         let ctx = instance::DiscoveryContext {
             process_manager: &pm,
             manifest: manifest.as_ref(),
+            scan_paths: config.instance_scan_paths.clone(),
         };
         let sources = registry.source_infos();
         let instances =

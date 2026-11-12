@@ -85,6 +85,12 @@ const enUS = {
       count: "{count} instances",
       sources: {
         launcher: "Launcher-managed",
+        dir_scan: "Directory scan",
+      },
+      scanPaths: {
+        title: "Scan directories",
+        add: "Add directory",
+        remove: "Remove directory",
       },
     },
     nav: {

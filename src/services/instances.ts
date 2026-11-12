@@ -103,3 +103,7 @@ export function saveInstanceSourceEnabled(
 ): Promise<void> {
   return invoke("save_instance_source_enabled", { source, enabled });
 }
+
+export function saveInstanceScanPaths(paths: string[]): Promise<string[]> {
+  return invoke<string[]>("save_instance_scan_paths", { paths });
+}

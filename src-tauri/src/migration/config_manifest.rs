@@ -85,6 +85,7 @@ impl LegacyAppConfig {
             use_short_instance_id: false,
             lock_check_extension_whitelist: false,
             instance_source_enabled: HashMap::new(),
+            instance_scan_paths: Vec::new(),
             theme_preference: self.theme_preference,
             language_preference: LanguagePreference::System,
             reduce_motion_preference: ReduceMotionPreference::default(),

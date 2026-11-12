@@ -67,6 +67,7 @@ export interface AppConfig {
   reduce_motion_preference: ReduceMotionPreference;
   ignored_launcher_version: string;
   instance_source_enabled: Record<string, boolean>;
+  instance_scan_paths: string[];
 }
 
 export interface InstanceCapabilities {

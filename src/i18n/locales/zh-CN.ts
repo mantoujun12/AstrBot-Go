@@ -81,8 +81,14 @@ const zhCN = {
       "refresh": "刷新",
       "count": "{count} 个实例",
       "sources": {
-        "launcher": "启动器部署"
-      }
+        "launcher": "启动器部署",
+        "dir_scan": "目录扫描"
+      },
+      "scanPaths": {
+        "title": "扫描目录",
+        "add": "添加目录",
+        "remove": "移除目录"
+      },
     },
     "nav": {
       "general": "常规",
