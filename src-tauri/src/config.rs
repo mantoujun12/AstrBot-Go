@@ -1,15 +1,19 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::fs;
+use std::path::Path;
+use std::sync::{Arc, LazyLock, Mutex};
 
-use once_cell::sync::OnceCell;
-use redb::{Database, ReadableDatabase as _, ReadableTable as _, TableDefinition};
+use redb::{Database, ReadableDatabase as _, TableDefinition};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
 use crate::network_config::apply_legacy_mainland_presets;
-use crate::utils::paths::{data_db_path, ensure_data_dirs};
+use crate::utils::paths::{config_json_path, data_db_path, ensure_data_dirs, manifest_json_path};
 
-static CONFIG_DB: OnceCell<Database> = OnceCell::new();
+static STORE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+// Legacy `data.redb` table definitions, kept for the one-time migration into
+// the JSON config files.
 const CONFIG_TABLE: TableDefinition<u8, &[u8]> = TableDefinition::new("app_config");
 const MANIFEST_TABLE: TableDefinition<u8, &[u8]> = TableDefinition::new("app_manifest");
 const ROOT_ROW_KEY: u8 = 0;
@@ -202,45 +206,105 @@ fn map_redb_error(err: impl std::fmt::Display) -> AppError {
     AppError::config(err.to_string())
 }
 
-fn open_config_db() -> Result<Database> {
-    ensure_data_dirs()?;
-    let db = Database::create(data_db_path()).map_err(map_redb_error)?;
-    let write_txn = db.begin_write().map_err(map_redb_error)?;
-    {
-        write_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
-        write_txn
-            .open_table(MANIFEST_TABLE)
-            .map_err(map_redb_error)?;
-    }
-    write_txn.commit().map_err(map_redb_error)?;
-    Ok(db)
-}
-
-fn config_db() -> Result<&'static Database> {
-    CONFIG_DB.get_or_try_init(open_config_db)
-}
-
-fn serialize_value<T: Serialize>(value: &T) -> Result<Vec<u8>> {
-    serde_json::to_vec(value).map_err(|e| AppError::config(e.to_string()))
-}
-
 fn deserialize_value<T: DeserializeOwned>(raw: &[u8]) -> Result<T> {
     serde_json::from_slice(raw).map_err(|e| AppError::config(e.to_string()))
 }
 
-fn insert_manifest_value(value: &AppManifest) -> Result<()> {
-    let payload = serialize_value(value)?;
-    let db = config_db()?;
-    let write_txn = db.begin_write().map_err(map_redb_error)?;
-    {
-        let mut table = write_txn
-            .open_table(MANIFEST_TABLE)
-            .map_err(map_redb_error)?;
-        table
-            .insert(&ROOT_ROW_KEY, payload.as_slice())
-            .map_err(map_redb_error)?;
+/// Serialize and write a JSON record atomically (temp file + rename).
+fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+    ensure_data_dirs()?;
+    let payload = serde_json::to_vec_pretty(value).map_err(|e| AppError::config(e.to_string()))?;
+    let temp = path.with_extension("json.tmp");
+    fs::write(&temp, payload)
+        .map_err(|e| AppError::config(format!("write {}: {}", path.display(), e)))?;
+    fs::rename(&temp, path)
+        .map_err(|e| AppError::config(format!("rename {}: {}", path.display(), e)))?;
+    Ok(())
+}
+
+/// Read a JSON record file, returning `None` when the file does not exist.
+fn read_json_text(path: &Path) -> Result<Option<String>> {
+    if !path.exists() {
+        return Ok(None);
     }
-    write_txn.commit().map_err(map_redb_error)?;
+    fs::read_to_string(path)
+        .map(Some)
+        .map_err(|e| AppError::config(format!("read {}: {}", path.display(), e)))
+}
+
+/// Migrate records stored in the legacy `data.redb` database into
+/// `config.json` / `manifest.json`.
+///
+/// Idempotent: each JSON file is only written when it does not exist yet, and
+/// the whole step is skipped when the legacy database is absent.
+fn migrate_legacy_redb_records() -> Result<()> {
+    let config_path = config_json_path();
+    let manifest_path = manifest_json_path();
+    if config_path.exists() && manifest_path.exists() {
+        return Ok(());
+    }
+    let db_path = data_db_path();
+    if !db_path.exists() {
+        return Ok(());
+    }
+
+    let db = Database::create(&db_path).map_err(map_redb_error)?;
+    let read_txn = db.begin_read().map_err(map_redb_error)?;
+
+    if !config_path.exists() {
+        let config = {
+            let table = read_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
+            let raw = table
+                .get(&ROOT_ROW_KEY)
+                .map_err(map_redb_error)?
+                .map(|guard| guard.value().to_vec());
+            let text = raw
+                .as_deref()
+                .and_then(|bytes| std::str::from_utf8(bytes).ok().map(|text| text.to_string()));
+            match classify_config_str(text.as_deref()) {
+                StoredConfig::Ready(config) => config,
+                StoredConfig::NeedsMigration(mut config) => {
+                    apply_legacy_mainland_presets(&mut config);
+                    config
+                }
+                StoredConfig::Corrupted(error) => {
+                    log::warn!(
+                        "Config record is corrupted JSON, resetting to default value: {}",
+                        error
+                    );
+                    AppConfig::default()
+                }
+                StoredConfig::Missing => AppConfig::default(),
+            }
+        };
+        write_json_atomic(&config_path, &config)?;
+    }
+
+    if !manifest_path.exists() {
+        let manifest = {
+            let table = read_txn
+                .open_table(MANIFEST_TABLE)
+                .map_err(map_redb_error)?;
+            match table
+                .get(&ROOT_ROW_KEY)
+                .map_err(map_redb_error)?
+                .map(|guard| deserialize_value::<AppManifest>(guard.value()))
+            {
+                Some(Ok(manifest)) => manifest,
+                Some(Err(error)) => {
+                    log::warn!(
+                        "Manifest record is corrupted JSON, resetting to default value: {}",
+                        error
+                    );
+                    AppManifest::default()
+                }
+                None => AppManifest::default(),
+            }
+        };
+        write_json_atomic(&manifest_path, &manifest)?;
+    }
+
+    log::info!("Migrated legacy data.redb records into config.json and manifest.json");
     Ok(())
 }
 
@@ -258,16 +322,16 @@ enum StoredConfig {
     Missing,
 }
 
-fn classify_config_record(raw: Option<&[u8]>) -> StoredConfig {
+fn classify_config_str(raw: Option<&str>) -> StoredConfig {
     let Some(raw) = raw else {
         return StoredConfig::Missing;
     };
 
-    let config = match deserialize_value::<AppConfig>(raw) {
+    let config = match serde_json::from_str::<AppConfig>(raw) {
         Ok(config) => config,
         Err(error) => return StoredConfig::Corrupted(error.to_string()),
     };
-    let legacy = serde_json::from_slice::<LegacyNetworkConfig>(raw).unwrap_or_default();
+    let legacy = serde_json::from_str::<LegacyNetworkConfig>(raw).unwrap_or_default();
 
     if legacy.mainland_acceleration {
         StoredConfig::NeedsMigration(config)
@@ -276,81 +340,45 @@ fn classify_config_record(raw: Option<&[u8]>) -> StoredConfig {
     }
 }
 
-fn read_config_record(db: &Database) -> Result<Option<Vec<u8>>> {
-    let read_txn = db.begin_read().map_err(map_redb_error)?;
-    let table = read_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
-    let raw = table.get(&ROOT_ROW_KEY).map_err(map_redb_error)?;
-    Ok(raw.map(|raw| raw.value().to_vec()))
-}
-
 /// Migrate the legacy mainland switch or initialize a missing record.
-///
-/// The record is read again inside the write transaction so a concurrent save
-/// cannot be overwritten by a stale migration.
-fn rewrite_config_record(db: &Database) -> Result<AppConfig> {
-    let write_txn = db.begin_write().map_err(map_redb_error)?;
-
-    let config = {
-        let mut table = write_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
-        let raw = table
-            .get(&ROOT_ROW_KEY)
-            .map_err(map_redb_error)?
-            .map(|raw| raw.value().to_vec());
-
-        let (config, should_write) = match classify_config_record(raw.as_deref()) {
-            StoredConfig::Ready(config) => (config, false),
-            StoredConfig::NeedsMigration(mut config) => {
-                apply_legacy_mainland_presets(&mut config);
-                log::info!("Migrated legacy mainland acceleration to per-source settings");
-                (config, true)
-            }
-            StoredConfig::Corrupted(error) => {
-                log::warn!(
-                    "Config record is corrupted JSON, resetting to default value: {}",
-                    error
-                );
-                (AppConfig::default(), true)
-            }
-            StoredConfig::Missing => (AppConfig::default(), true),
-        };
-
-        if should_write {
-            let payload = serialize_value(&config)?;
-            table
-                .insert(&ROOT_ROW_KEY, payload.as_slice())
-                .map_err(map_redb_error)?;
-        }
-
-        config
-    };
-
-    write_txn.commit().map_err(map_redb_error)?;
+fn write_config_record(path: &Path, config: AppConfig) -> Result<AppConfig> {
+    write_json_atomic(path, &config)?;
     Ok(config)
 }
 
 fn load_or_init_config_value() -> Result<AppConfig> {
-    let db = config_db()?;
+    migrate_legacy_redb_records()?;
+    let _guard = STORE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    match classify_config_record(read_config_record(db)?.as_deref()) {
+    let path = config_json_path();
+    match classify_config_str(read_json_text(&path)?.as_deref()) {
         StoredConfig::Ready(config) => Ok(config),
-        StoredConfig::NeedsMigration(_) | StoredConfig::Corrupted(_) | StoredConfig::Missing => {
-            rewrite_config_record(db)
+        StoredConfig::NeedsMigration(mut config) => {
+            apply_legacy_mainland_presets(&mut config);
+            log::info!("Migrated legacy mainland acceleration to per-source settings");
+            write_config_record(&path, config)
         }
+        StoredConfig::Corrupted(error) => {
+            log::warn!(
+                "Config record is corrupted JSON, resetting to default value: {}",
+                error
+            );
+            write_config_record(&path, AppConfig::default())
+        }
+        StoredConfig::Missing => write_config_record(&path, AppConfig::default()),
     }
 }
 
 fn load_or_init_manifest_value() -> Result<AppManifest> {
-    let stored = {
-        let db = config_db()?;
-        let read_txn = db.begin_read().map_err(map_redb_error)?;
-        let table = read_txn
-            .open_table(MANIFEST_TABLE)
-            .map_err(map_redb_error)?;
-        table
-            .get(&ROOT_ROW_KEY)
-            .map_err(map_redb_error)?
-            .map(|raw| deserialize_value::<AppManifest>(raw.value()))
-    };
+    migrate_legacy_redb_records()?;
+    let _guard = STORE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    let path = manifest_json_path();
+    let stored = read_json_text(&path)?.map(|text| serde_json::from_str::<AppManifest>(&text));
 
     if let Some(Ok(manifest)) = stored {
         return Ok(manifest);
@@ -364,7 +392,7 @@ fn load_or_init_manifest_value() -> Result<AppManifest> {
     }
 
     let default = AppManifest::default();
-    insert_manifest_value(&default)?;
+    write_json_atomic(&path, &default)?;
     Ok(default)
 }
 
@@ -372,41 +400,31 @@ fn with_config_value_mut<F, R>(f: F) -> Result<R>
 where
     F: FnOnce(&mut AppConfig) -> Result<R>,
 {
-    let db = config_db()?;
-    let write_txn = db.begin_write().map_err(map_redb_error)?;
+    migrate_legacy_redb_records()?;
+    let _guard = STORE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    let mut config = {
-        let table = write_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
-        let existing = table.get(&ROOT_ROW_KEY).map_err(map_redb_error)?;
-        let raw = existing.as_ref().map(|raw| raw.value());
-        match classify_config_record(raw) {
-            StoredConfig::Ready(config) => config,
-            StoredConfig::NeedsMigration(mut config) => {
-                apply_legacy_mainland_presets(&mut config);
-                log::info!("Migrated legacy mainland acceleration to per-source settings");
-                config
-            }
-            StoredConfig::Corrupted(error) => {
-                log::warn!(
-                    "Config record is corrupted JSON, replacing with default before update: {}",
-                    error
-                );
-                AppConfig::default()
-            }
-            StoredConfig::Missing => AppConfig::default(),
+    let path = config_json_path();
+    let mut config = match classify_config_str(read_json_text(&path)?.as_deref()) {
+        StoredConfig::Ready(config) => config,
+        StoredConfig::NeedsMigration(mut config) => {
+            apply_legacy_mainland_presets(&mut config);
+            log::info!("Migrated legacy mainland acceleration to per-source settings");
+            config
         }
+        StoredConfig::Corrupted(error) => {
+            log::warn!(
+                "Config record is corrupted JSON, replacing with default before update: {}",
+                error
+            );
+            AppConfig::default()
+        }
+        StoredConfig::Missing => AppConfig::default(),
     };
 
     let result = f(&mut config)?;
-    let payload = serialize_value(&config)?;
-
-    {
-        let mut table = write_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
-        table
-            .insert(&ROOT_ROW_KEY, payload.as_slice())
-            .map_err(map_redb_error)?;
-    }
-    write_txn.commit().map_err(map_redb_error)?;
+    write_json_atomic(&path, &config)?;
 
     Ok(result)
 }
@@ -415,62 +433,39 @@ fn with_manifest_value_mut<F, R>(f: F) -> Result<R>
 where
     F: FnOnce(&mut AppManifest) -> Result<R>,
 {
-    let db = config_db()?;
-    let write_txn = db.begin_write().map_err(map_redb_error)?;
+    migrate_legacy_redb_records()?;
+    let _guard = STORE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    let mut manifest = {
-        let table = write_txn
-            .open_table(MANIFEST_TABLE)
-            .map_err(map_redb_error)?;
-        let existing = table.get(&ROOT_ROW_KEY).map_err(map_redb_error)?;
-        if let Some(raw) = existing {
-            match deserialize_value::<AppManifest>(raw.value()) {
-                Ok(manifest) => manifest,
-                Err(error) => {
-                    log::warn!(
-                        "Manifest record is corrupted JSON, replacing with default before update: {}",
-                        error
-                    );
-                    AppManifest::default()
-                }
+    let path = manifest_json_path();
+    let mut manifest =
+        match read_json_text(&path)?.map(|text| serde_json::from_str::<AppManifest>(&text)) {
+            Some(Ok(manifest)) => manifest,
+            Some(Err(error)) => {
+                log::warn!(
+                    "Manifest record is corrupted JSON, replacing with default before update: {}",
+                    error
+                );
+                AppManifest::default()
             }
-        } else {
-            AppManifest::default()
-        }
-    };
+            None => AppManifest::default(),
+        };
 
     let result = f(&mut manifest)?;
-    let payload = serialize_value(&manifest)?;
-
-    {
-        let mut table = write_txn
-            .open_table(MANIFEST_TABLE)
-            .map_err(map_redb_error)?;
-        table
-            .insert(&ROOT_ROW_KEY, payload.as_slice())
-            .map_err(map_redb_error)?;
-    }
-    write_txn.commit().map_err(map_redb_error)?;
+    write_json_atomic(&path, &manifest)?;
 
     Ok(result)
 }
 
 fn has_config_record_value() -> Result<bool> {
-    let db = config_db()?;
-    let read_txn = db.begin_read().map_err(map_redb_error)?;
-    let table = read_txn.open_table(CONFIG_TABLE).map_err(map_redb_error)?;
-    let value = table.get(&ROOT_ROW_KEY).map_err(map_redb_error)?;
-    Ok(value.is_some())
+    migrate_legacy_redb_records()?;
+    Ok(config_json_path().exists())
 }
 
 fn has_manifest_record_value() -> Result<bool> {
-    let db = config_db()?;
-    let read_txn = db.begin_read().map_err(map_redb_error)?;
-    let table = read_txn
-        .open_table(MANIFEST_TABLE)
-        .map_err(map_redb_error)?;
-    let value = table.get(&ROOT_ROW_KEY).map_err(map_redb_error)?;
-    Ok(value.is_some())
+    migrate_legacy_redb_records()?;
+    Ok(manifest_json_path().exists())
 }
 
 /// Execute a transactional read-modify-write operation on app config.
@@ -611,7 +606,7 @@ mod tests {
         assert_eq!(panel, TrayStyle::Panel);
 
         // A value written by a newer build must not invalidate the whole
-        // config record, which classify_config_record would reset.
+        // config record, which classify_config_str would reset.
         let unknown: TrayStyle = serde_json::from_str(r#""compact_cards""#)?;
         assert_eq!(unknown, TrayStyle::Panel);
 
@@ -781,8 +776,8 @@ version = "v4.0.0"
 
     #[test]
     fn stored_config_is_classified_for_migration() {
-        let legacy = br#"{"mainland_acceleration":true,"nodejs_mirror":"https://custom.example/"}"#;
-        let needs_migration = classify_config_record(Some(legacy));
+        let legacy = r#"{"mainland_acceleration":true,"nodejs_mirror":"https://custom.example/"}"#;
+        let needs_migration = classify_config_str(Some(legacy));
         assert!(matches!(needs_migration, StoredConfig::NeedsMigration(_)));
         if let StoredConfig::NeedsMigration(config) = needs_migration {
             assert!(config.github_proxy.is_empty());
@@ -790,19 +785,16 @@ version = "v4.0.0"
         }
 
         let migrated =
-            br#"{"mainland_acceleration":false,"nodejs_mirror":"https://custom.example/"}"#;
-        let ready = classify_config_record(Some(migrated));
+            r#"{"mainland_acceleration":false,"nodejs_mirror":"https://custom.example/"}"#;
+        let ready = classify_config_str(Some(migrated));
         assert!(matches!(ready, StoredConfig::Ready(_)));
         if let StoredConfig::Ready(config) = ready {
             assert_eq!(config.nodejs_mirror, "https://custom.example/");
         }
 
+        assert!(matches!(classify_config_str(None), StoredConfig::Missing));
         assert!(matches!(
-            classify_config_record(None),
-            StoredConfig::Missing
-        ));
-        assert!(matches!(
-            classify_config_record(Some(b"not json")),
+            classify_config_str(Some("not json")),
             StoredConfig::Corrupted(_)
         ));
     }
