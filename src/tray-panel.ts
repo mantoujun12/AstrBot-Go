@@ -5,6 +5,7 @@ import { en, ja, ru, zhHans } from "vuetify/locale";
 import "@fontsource-variable/outfit";
 import "@mdi/font/css/materialdesignicons.css";
 import "vuetify/styles";
+import "./scss/_radius-tokens.scss";
 import TrayPanel from "./components/tray/TrayPanel.vue";
 import { i18n, initialLocale } from "./i18n";
 import { applyThemeColors, readStoredThemeColors } from "./theme/customColors";

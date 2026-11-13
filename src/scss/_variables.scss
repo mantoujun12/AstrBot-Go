@@ -1,6 +1,7 @@
 @use 'sass:math';
 @use 'sass:map';
 @use 'sass:meta';
+@use './radius-tokens';
 
 @function map-deep-merge($base, $override) {
   @if meta.type-of($base) != map or meta.type-of($override) != map {
@@ -35,12 +36,6 @@ $code-text-color: #111827 !default;
   --astrbot-font-cjk-sans: #{$cjk-sans-fallback};
   --astrbot-font-cjk-mono: #{$cjk-mono-fallback};
   --astrbot-code-color: #{$code-text-color};
-  --astrbot-radius-control: 12px;
-  --astrbot-radius-navigation: 16px;
-  --astrbot-radius-menu: 16px;
-  --astrbot-radius-card: 20px;
-  --astrbot-radius-dialog: 28px;
-  --astrbot-radius-pill: 9999px;
 }
 
 $body-font-family: 'Outfit Variable', 'Outfit', 'Noto Sans', $cjk-sans-fallback, sans-serif !default;
