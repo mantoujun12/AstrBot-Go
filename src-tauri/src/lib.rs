@@ -284,6 +284,9 @@ pub fn run() {
             // Data Directory
             commands::set_data_dir,
             commands::open_folder,
+            commands::detect_legacy_data_dir,
+            commands::migrate_legacy_data_dir,
+            commands::dismiss_legacy_data_dir_migration,
             // Components
             commands::install_component,
             commands::reinstall_component,

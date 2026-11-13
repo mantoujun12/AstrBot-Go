@@ -377,6 +377,17 @@ export interface DataDirChangeResult {
   new_dir: string;
 }
 
+export interface LegacyDataDirPrompt {
+  legacy_dir: string;
+  data_dir: string;
+}
+
+export interface LegacyDataDirMigrationResult {
+  copied_entries: number;
+  legacy_dir: string;
+  data_dir: string;
+}
+
 export interface RebuildInstanceManifestResult {
   instances: number;
   versions: number;
