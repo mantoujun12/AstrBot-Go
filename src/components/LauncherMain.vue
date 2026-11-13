@@ -63,7 +63,7 @@ watch(
         v-show="isHome"
         id="tabpanel-home"
         ref="homePane"
-        class="launcher-home-pane motion-fade-in"
+        class="launcher-home-pane"
         role="tabpanel"
         :aria-label="t('shell.main.home')"
       >
@@ -79,7 +79,7 @@ watch(
         :key="tab.id"
         v-show="activeTab === tab.id"
         :id="`tabpanel-${tab.id}`"
-        class="launcher-instance-pane motion-fade-in"
+        class="launcher-instance-pane"
         role="tabpanel"
       >
         <ExternalWebuiView
