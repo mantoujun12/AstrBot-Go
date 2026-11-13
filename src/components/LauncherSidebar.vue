@@ -26,7 +26,6 @@ const toggleLabel = computed(() =>
   <v-navigation-drawer
     v-model="drawerOpen"
     class="launcher-sidebar"
-    color="surface"
     :elevation="0"
     :permanent="props.permanent"
     :rail="props.rail"
@@ -121,7 +120,7 @@ const toggleLabel = computed(() =>
   left: 0 !important;
   height: calc(100% - var(--launcher-titlebar-height)) !important;
   border-inline-end: 0;
-  background: rgb(var(--v-theme-surface)) !important;
+  background: rgb(var(--launcher-chrome-bg) / var(--launcher-chrome-alpha, 1)) !important;
   box-shadow: none !important;
   transition:
     width 180ms cubic-bezier(0.2, 0, 0, 1),
@@ -132,20 +131,21 @@ const toggleLabel = computed(() =>
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: 12px 10px;
 }
 
+/* 对齐上游 VerticalSidebar：列表内边距 2px 16px 12px，导航项圆角走导航 token。 */
 .launcher-sidebar__nav {
   flex: 0 0 auto;
-  padding: 0;
+  padding: 2px 16px 12px;
+  background: transparent;
 }
 
 .launcher-sidebar__nav :deep(.v-list-item) {
   min-height: 36px;
   margin-bottom: 2px;
   padding-inline: 10px;
-  border-radius: 8px;
-  color: rgba(var(--v-theme-on-surface), 0.7);
+  border-radius: var(--astrbot-radius-navigation);
+  color: rgba(var(--v-theme-on-surface), 0.76);
   font-size: 0.9rem;
   font-weight: 500;
   transition:
@@ -154,13 +154,13 @@ const toggleLabel = computed(() =>
 }
 
 .launcher-sidebar__nav :deep(.v-list-item:hover) {
-  color: rgb(var(--v-theme-primary));
-  background: rgba(var(--v-theme-primary), 0.07);
+  color: rgb(var(--v-theme-on-surface));
+  background: rgba(var(--v-theme-on-surface), 0.05);
 }
 
 .launcher-sidebar__nav :deep(.v-list-item--active) {
   color: rgb(var(--v-theme-primary));
-  background: rgba(var(--v-theme-primary), 0.12);
+  background: rgba(var(--v-theme-primary), 0.08);
   font-weight: 600;
 }
 
@@ -197,7 +197,7 @@ const toggleLabel = computed(() =>
   justify-content: space-between;
   gap: 6px;
   margin-top: auto;
-  padding-top: 10px;
+  padding: 10px 16px 12px;
 }
 
 .launcher-sidebar__footer-nav {
@@ -209,7 +209,7 @@ const toggleLabel = computed(() =>
 .launcher-sidebar__toggle {
   flex: 0 0 auto;
   min-height: 44px;
-  border-radius: 12px;
+  border-radius: var(--astrbot-radius-control);
   color: rgba(var(--v-theme-on-surface), 0.58);
 }
 
@@ -218,8 +218,9 @@ const toggleLabel = computed(() =>
   background: rgba(var(--v-theme-primary), 0.07);
 }
 
+/* 折叠为 rail 时导航项收为 40px，列表内边距随之收窄。 */
 .launcher-sidebar.v-navigation-drawer--rail
-  .launcher-sidebar__content {
+  .launcher-sidebar__nav {
   padding-inline: 8px;
 }
 
@@ -251,5 +252,6 @@ const toggleLabel = computed(() =>
   flex-direction: column;
   justify-content: center;
   gap: 4px;
+  padding-inline: 8px;
 }
 </style>
