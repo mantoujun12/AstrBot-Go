@@ -112,16 +112,15 @@ watch(
   overflow: hidden;
 }
 
-/* 首页内容为浮动圆角卡片：背景刻意不透明，原生毛玻璃只露在卡片外。 */
+/* 首页内容为浮动圆角裁剪容器：与侧边栏共享同一 chrome／Mica 底面，
+   自身无背景无边框，分隔由内部卡片（1px 边框 + surface 背景）承担。 */
 .launcher-home-pane {
   box-sizing: border-box;
   width: calc(100% - var(--launcher-content-gap));
   height: calc(100% - var(--launcher-content-gap));
   min-height: 0;
   padding: 16px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: var(--astrbot-radius-navigation);
-  background: rgb(var(--v-theme-surface));
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -148,7 +147,6 @@ watch(
 
   .launcher-home-pane {
     padding: 72px 16px 16px;
-    border: 0;
     border-radius: 0;
   }
 }
