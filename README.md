@@ -2,7 +2,7 @@
 
 ![AstrBot-Logo-Simplified](https://github.com/user-attachments/assets/36fb04e4-cc75-4454-bd8b-049d11aa86f9)
 
-# AstrBot Launcher (Vue Version)
+# AstrBot Go
 
 <!-- badge -->
 
