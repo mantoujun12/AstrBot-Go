@@ -51,17 +51,6 @@ $sizes: (
   }
 }
 
-.customizer-btn {
-  position: fixed;
-  top: 25%;
-  right: 10px;
-  border-radius: 50% 50% 4px;
-  .icon {
-    animation: progress-circular-rotate 1.4s linear infinite;
-    transform-origin: center center;
-    transition: all 0.2s ease-in-out;
-  }
-}
 .w-100 {
   width: 100%;
 }
