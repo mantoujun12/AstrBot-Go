@@ -155,6 +155,13 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   }
 }
 
+// Layout: Vuetify transitions v-main's padding (0.2s) whenever the sidebar
+// mounts/unmounts (home tab ↔ instance tabs), which reads as a zoom on the
+// pane. Tab switching must be direct, so the layout transition is off.
+.v-main {
+  transition: none;
+}
+
 // Dark mode global overrides
 .v-theme--dark {
   // Override code text color for dark mode
