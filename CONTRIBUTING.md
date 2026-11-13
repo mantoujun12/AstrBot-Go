@@ -6,7 +6,7 @@ This document is written in English and Simplified Chinese. English comes first,
 
 ## English
 
-Thank you for contributing to `astrbot-launcher-vue`. Please read this guide and our [Code of Conduct](./CODE_OF_CONDUCT.md) before opening an issue or pull request.
+Thank you for contributing to `astrbot-go`. Please read this guide and our [Code of Conduct](./CODE_OF_CONDUCT.md) before opening an issue or pull request.
 
 ### Prerequisites
 
@@ -102,7 +102,7 @@ Follow [changelogs/README.md](./changelogs/README.md):
 
 ## 中文
 
-感谢为 `astrbot-launcher-vue` 做出贡献。在提交 Issue 或 Pull Request 前，请先阅读本指南以及[行为准则](./CODE_OF_CONDUCT_zh.md)。
+感谢为 `astrbot-go` 做出贡献。在提交 Issue 或 Pull Request 前，请先阅读本指南以及[行为准则](./CODE_OF_CONDUCT_zh.md)。
 
 ### 环境要求
 

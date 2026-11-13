@@ -43,7 +43,7 @@ const ruRU = {
     noNotes: "Примечания к выпуску отсутствуют",
   },
   trayPanel: {
-    title: "AstrBot Launcher",
+    title: "AstrBot Go",
     openMainWindow: "Открыть главное окно",
     openSettings: "Открыть настройки",
     quit: "Выход",
@@ -218,7 +218,7 @@ const ruRU = {
       currentRepoDescription: "Текущая реализация для компьютера на Tauri 2 и Vue 3.",
       astrbotRepoDescription: "Вышестоящий основной репозиторий AstrBot.",
       openLauncherRepo: "Открыть основной репозиторий astrbot-launcher",
-      openCurrentRepo: "Открыть текущий репозиторий astrbot-launcher-vue",
+      openCurrentRepo: "Открыть текущий репозиторий astrbot-go",
       openAstrbotRepo: "Открыть репозиторий AstrBot",
       openRepository: "Открыть репозиторий",
       openLinkFailed: "Не удалось открыть ссылку: {detail}",

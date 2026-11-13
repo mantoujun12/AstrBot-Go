@@ -12,7 +12,7 @@
 
 ## Project Overview
 
-`astrbot-launcher-vue` is a desktop application built with Tauri 2, Vue 3, and pnpm. It provides a fast way to manage AstrBot instances, including version downloads, data backups, and automated Python runtime configuration.
+`astrbot-go` is a desktop application built with Tauri 2, Vue 3, and pnpm. It provides a fast way to manage AstrBot instances, including version downloads, data backups, and automated Python runtime configuration.
 
 Reference links:
 
@@ -133,7 +133,7 @@ References:
 - Versions follow [Semantic Versioning](https://semver.org/); changelog entries follow [Keep a Changelog](https://keepachangelog.com/).
 - After a release, continue development and keep adding entries to `changelogs/unreleased.md`; do not bump the version until you are ready to release.
 - When ready to release, create a version update pull request that bumps `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` to the release version, updates `src-tauri/Cargo.lock` by running `cargo check` in `src-tauri/`, renames `changelogs/unreleased.md` to `changelogs/v<version>.md`, and recreates an empty `changelogs/unreleased.md` for the next cycle.
-- In that release pull request, annotate every entry with its source pull request number as a full Markdown link: `([#12](https://github.com/mantoujun12/astrbot-launcher-vue/pull/12))` in English sections and `（[#12](https://github.com/mantoujun12/astrbot-launcher-vue/pull/12)）` in Chinese sections. Both language versions of an entry must link to the same pull request.
+- In that release pull request, annotate every entry with its source pull request number as a full Markdown link: `([#12](https://github.com/mantoujun12/AstrBot-Go/pull/12))` in English sections and `（[#12](https://github.com/mantoujun12/AstrBot-Go/pull/12)）` in Chinese sections. Both language versions of an entry must link to the same pull request.
 - Do not backfill pull request links into historical version files such as `changelogs/v0.1.1.md`.
 - Before merging, rebase the version update pull request onto the latest `main` and move concurrent `unreleased.md` entries into the new draft so they stay in the next release cycle.
 - Merge the version update pull request into `main`. `.github/workflows/auto-release.yml` builds the Windows installers and publishes the GitHub Release.

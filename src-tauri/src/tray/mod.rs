@@ -174,7 +174,7 @@ fn update_tooltip(app: &AppHandle, data: &TrayMenuData) {
     };
     let locale = current_locale();
     let text = format!(
-        "AstrBot Launcher · {}",
+        "AstrBot Go · {}",
         locale.tray_status(data.running, data.total)
     );
     if let Err(error) = tray.set_tooltip(Some(text)) {
@@ -409,7 +409,7 @@ fn create_tray(app: &AppHandle, style: TrayStyle) -> tauri::Result<()> {
     let data = current_menu_data(app);
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().expect("no default icon").clone())
-        .tooltip("AstrBot Launcher")
+        .tooltip("AstrBot Go")
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| handle_menu_event(app, event.id.as_ref()))
         .on_tray_icon_event(|tray, event| {

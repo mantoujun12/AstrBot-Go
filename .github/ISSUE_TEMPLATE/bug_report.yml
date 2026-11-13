@@ -6,10 +6,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve AstrBot Launcher (Vue Version)
+        Thanks for helping improve AstrBot Go
         Before submitting, please go to issue page to check whether this issue has already been reported. 
 
-        感谢你帮助改进 AstrBot Launcher (Vue Version)
+        感谢你帮助改进 AstrBot Go
         提交前请先前往 issue 页面确认是否已有相同的问题。
 
   - type: textarea
@@ -40,7 +40,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: AstrBot Launcher (Vue Version) Version / 版本
+      label: AstrBot Go Version / 版本
       description: The version in which the issue occurred. / 发生问题的版本。
     validations:
       required: true
@@ -49,7 +49,7 @@ body:
     id: os
     attributes:
       label: Operating System / 操作系统
-      description: The operating system on which AstrBot Launcher (Vue Version) is running. / AstrBot Launcher (Vue Version) 运行所在的操作系统。
+      description: The operating system on which AstrBot Go is running. / AstrBot Go 运行所在的操作系统。
       options:
         - "Windows"
         - "MacOS"

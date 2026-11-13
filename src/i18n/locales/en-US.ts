@@ -43,7 +43,7 @@ const enUS = {
     noNotes: "No release notes for this version",
   },
   trayPanel: {
-    title: "AstrBot Launcher",
+    title: "AstrBot Go",
     openMainWindow: "Open main window",
     openSettings: "Open settings",
     quit: "Quit",
@@ -213,7 +213,7 @@ const enUS = {
       currentRepoDescription: "Current Tauri 2 + Vue 3 desktop implementation.",
       astrbotRepoDescription: "Upstream AstrBot core repository.",
       openLauncherRepo: "Open the main astrbot-launcher repository",
-      openCurrentRepo: "Open the current astrbot-launcher-vue repository",
+      openCurrentRepo: "Open the current astrbot-go repository",
       openAstrbotRepo: "Open AstrBot repository",
       openRepository: "Open repository",
       openLinkFailed: "Unable to open link: {detail}",

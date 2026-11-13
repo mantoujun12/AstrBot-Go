@@ -1,7 +1,7 @@
 {
-  "name": "astrbot-launcher-vue",
+  "name": "astrbot-go",
   "description": "Desktop launcher for AstrBot",
-  "homepage": "https://github.com/mantoujun12/astrbot-launcher-vue",
+  "homepage": "https://github.com/mantoujun12/AstrBot-Go",
   "license": "MIT",
   "author": "mantoujun12",
   "private": true,

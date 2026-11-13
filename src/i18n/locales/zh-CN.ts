@@ -41,7 +41,7 @@ const zhCN = {
     "noNotes": "此版本暂无更新说明"
   },
   "trayPanel": {
-    "title": "AstrBot Launcher",
+    "title": "AstrBot Go",
     "openMainWindow": "打开主窗口",
     "openSettings": "打开设置",
     "quit": "退出",
@@ -197,7 +197,7 @@ const zhCN = {
       "currentRepoDescription": "当前桌面端仓库，基于 Tauri 2 与 Vue 3 实现。",
       "astrbotRepoDescription": "AstrBot 核心项目上游仓库。",
       "openLauncherRepo": "打开 astrbot-launcher 主仓库",
-      "openCurrentRepo": "打开 astrbot-launcher-vue 当前仓库",
+      "openCurrentRepo": "打开 astrbot-go 当前仓库",
       "openAstrbotRepo": "打开 AstrBot 仓库",
       "openRepository": "打开仓库",
       "openLinkFailed": "无法打开链接：{detail}",
