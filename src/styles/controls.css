@@ -1,33 +1,19 @@
 /*
- * 全局控件统一层：开关（v-switch）的中性配色。
- * 目标观感（对齐上游 AstrBot dashboard 的设置行开关）：
- *   启用 = 主色轨道 + 亮色中性滑块（Material 3 的 on-primary 滑块）；
- *   关闭/禁用 = 主题中性灰轨道 + 中性滑块，两种主题下规则一致。
- * Vuetify 默认启用态滑块直接用主色、禁用态滑块用 dark 专属的
- * surface-bright（薰衣草紫 #ccbfd6），与本应用的蓝灰主题不搭，故在此统一。
+ * 全局控件统一层：开关（v-switch）滑块的中性配色。
+ *
+ * 轨道颜色不做任何覆盖：启用态由 color="primary" 生成的 bg-primary 工具类
+ * （@layer vuetify-utilities）着色，关闭/禁用态走 Vuetify 默认的
+ * surface-variant——上游 dashboard 即此默认行为，未自定义。
+ * 此处只修一点：Vuetify 暗色默认的滑块色 surface-bright 是薰衣草紫
+ * （#ccbfd6，见 vuetify composables/theme.js 默认 dark 主题），与本应用
+ * 的蓝灰主题不搭，故滑块统一为主题中性亮色。
  */
 
-/* 滑块：浅色主题用 surface（纯白），暗色主题用 on-surface（亮灰白）。
-   未分层样式压过 Vuetify @layer 的默认规则，无需 !important。 */
+/* 滑块：浅色主题用 surface（纯白），暗色主题用 on-surface（亮灰白）。 */
 .v-switch__thumb {
   background-color: rgb(var(--v-theme-surface));
 }
 
 .v-theme--dark .v-switch__thumb {
   background-color: rgb(var(--v-theme-on-surface));
-}
-
-/* 轨道：关闭态转中性灰；启用态轨道保持主色（color 属性的默认规则不动）。 */
-.v-switch__track:not(.v-switch__track-true) {
-  background-color: rgba(var(--v-theme-on-surface), 0.3);
-  opacity: 1;
-}
-
-/* 禁用态：滑块与轨道同步降为中性灰，避免亮滑块悬在隐形轨道上。 */
-.v-selection-control--disabled .v-switch__thumb {
-  background-color: rgba(var(--v-theme-on-surface), 0.38);
-}
-
-.v-selection-control--disabled .v-switch__track:not(.v-switch__track-true) {
-  background-color: rgba(var(--v-theme-on-surface), 0.12);
 }
