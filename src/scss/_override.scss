@@ -105,12 +105,49 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   }
 }
 
-// Dialogs: Vuetify pins the surface radius to 4px. Follow the app's dialog radius token.
-.v-dialog > .v-overlay__content > .v-card,
-.v-dialog > .v-overlay__content > .v-sheet,
-.v-dialog > .v-overlay__content > form > .v-card,
-.v-dialog > .v-overlay__content > form > .v-sheet {
-  border-radius: var(--astrbot-radius-dialog);
+// Dialogs: Vuetify pins the surface radius to 4px. Follow the app's dialog
+// radius token, and unify the dialog finish (no border, soft shadow, weighted
+// title, roomy action bar) to match the upstream dashboard dialogs.
+.v-dialog {
+  --astrbot-dialog-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  > .v-overlay__content > .v-card,
+  > .v-overlay__content > .v-sheet,
+  > .v-overlay__content > form > .v-card,
+  > .v-overlay__content > form > .v-sheet {
+    border: 0 !important;
+    border-radius: var(--astrbot-radius-dialog) !important;
+    box-shadow: var(--astrbot-dialog-shadow) !important;
+
+    > .v-card-title,
+    > .v-card-item .v-card-title {
+      padding-top: 24px !important;
+      color: rgb(var(--v-theme-on-surface)) !important;
+      font-size: 1.25rem !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.01em;
+    }
+
+    > .v-card-actions {
+      padding: 16px 24px 24px !important;
+    }
+  }
+
+  // 操作按钮全圆角；启用态文本按钮保持主题主色，禁用态交给 Vuetify 淡化。
+  .v-card-actions .v-btn {
+    border-radius: var(--astrbot-radius-pill) !important;
+  }
+}
+
+.v-dialog--fullscreen {
+  --astrbot-dialog-shadow: none;
+
+  > .v-overlay__content > .v-card,
+  > .v-overlay__content > .v-sheet,
+  > .v-overlay__content > form > .v-card,
+  > .v-overlay__content > form > .v-sheet {
+    border-radius: 0 !important;
+  }
 }
 
 // Dark mode global overrides
