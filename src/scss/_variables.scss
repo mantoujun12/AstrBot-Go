@@ -1,6 +1,7 @@
 @use 'sass:math';
 @use 'sass:map';
 @use 'sass:meta';
+@use './radius-tokens';
 
 @function map-deep-merge($base, $override) {
   @if meta.type-of($base) != map or meta.type-of($override) != map {
@@ -52,6 +53,8 @@ $rounded: map-deep-merge(
     'md': $border-radius-root * 1,
     'lg': $border-radius-root * 2,
     'xl': $border-radius-root * 6,
+    'control': var(--astrbot-radius-control),
+    'card': var(--astrbot-radius-card),
     'pill': 9999px,
     'circle': 50%,
     'shaped': $border-radius-root * 6 0

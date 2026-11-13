@@ -46,10 +46,7 @@ watch(
 
 <template>
   <v-main class="launcher-main">
-    <div
-      class="launcher-main__canvas"
-      :class="{ 'launcher-main__canvas--full': !isHome }"
-    >
+    <div class="launcher-main__canvas">
       <v-btn
         v-if="mobile && isHome"
         class="launcher-mobile-menu"
@@ -66,7 +63,7 @@ watch(
         v-show="isHome"
         id="tabpanel-home"
         ref="homePane"
-        class="launcher-home-pane motion-fade-in"
+        class="launcher-home-pane"
         role="tabpanel"
         :aria-label="t('shell.main.home')"
       >
@@ -82,7 +79,7 @@ watch(
         :key="tab.id"
         v-show="activeTab === tab.id"
         :id="`tabpanel-${tab.id}`"
-        class="launcher-instance-pane motion-fade-in"
+        class="launcher-instance-pane"
         role="tabpanel"
       >
         <ExternalWebuiView
@@ -98,9 +95,9 @@ watch(
     </div>
   </v-main>
 </template>
-
 <style scoped>
 .launcher-main {
+  --launcher-content-gap: 6px;
   height: calc(100% - var(--launcher-titlebar-height));
   min-height: 0;
   margin-top: var(--launcher-titlebar-height);
@@ -110,28 +107,20 @@ watch(
 
 .launcher-main__canvas {
   position: relative;
-  box-sizing: border-box;
-  height: calc(100% - 16px);
+  height: 100%;
   min-height: 0;
-  margin: 8px;
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 12px;
-  background: rgb(var(--v-theme-background));
 }
 
-/* Instance tabs fill the whole window: no outer gap, border, or rounding. */
-.launcher-main__canvas--full {
-  height: 100%;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-}
-
+/* 首页内容为浮动圆角裁剪容器：与侧边栏共享同一 chrome／Mica 底面，
+   自身无背景无边框，分隔由内部卡片（1px 边框 + surface 背景）承担。 */
 .launcher-home-pane {
-  height: 100%;
+  box-sizing: border-box;
+  width: calc(100% - var(--launcher-content-gap));
+  height: calc(100% - var(--launcher-content-gap));
   min-height: 0;
   padding: 16px;
+  border-radius: var(--astrbot-radius-navigation);
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -150,9 +139,15 @@ watch(
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
-@media (max-width: 959px) {
+/* 移动端对齐上游 ≤959.98px：无缝隙、无圆角、无边框，内容全幅。 */
+@media (max-width: 959.98px) {
+  .launcher-main {
+    --launcher-content-gap: 0px;
+  }
+
   .launcher-home-pane {
     padding: 72px 16px 16px;
+    border-radius: 0;
   }
 }
 </style>

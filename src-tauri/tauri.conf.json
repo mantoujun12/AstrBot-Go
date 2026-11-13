@@ -20,15 +20,18 @@
         "minHeight": 480,
         "create": false,
         "visible": false,
-        "backgroundColor": "#242424",
         "decorations": false,
         "titleBarStyle": "Overlay",
         "dragDropEnabled": false,
         "hiddenTitle": true,
-        "transparent": false,
-        "shadow": true
+        "transparent": true,
+        "shadow": true,
+        "windowEffects": {
+          "effects": ["mica", "sidebar"]
+        }
       }
     ],
+    "macOSPrivateApi": true,
     "withGlobalTauri": true,
     "security": {
       "csp": null

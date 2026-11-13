@@ -294,7 +294,7 @@ function errorText(task: TaskRecord): string {
 .tasks-view__filters {
   max-width: 100%;
   margin-bottom: 12px;
-  border-radius: 999px;
+  border-radius: var(--astrbot-radius-pill);
   overflow-x: auto;
   overflow-y: hidden;
 }

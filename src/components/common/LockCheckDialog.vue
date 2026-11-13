@@ -87,7 +87,7 @@ function close(): void {
 .lock-dialog__list {
   margin: 12px 0 0;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
   background: rgba(var(--v-theme-on-surface), 0.05);
   color: rgba(var(--v-theme-on-surface), 0.7);
   font-family: "Consolas", "Cascadia Mono", monospace;

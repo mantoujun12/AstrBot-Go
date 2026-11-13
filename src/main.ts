@@ -7,6 +7,8 @@ import "@mdi/font/css/materialdesignicons.css";
 import "vuetify/styles";
 import "./scss/style.scss";
 import "./styles/pages.css";
+import "./styles/controls.css";
+import "./styles/platform-effects.css";
 import App from "./App.vue";
 import { i18n, initialLocale } from "./i18n";
 import { PurpleTheme } from "./theme/LightTheme";
@@ -15,6 +17,21 @@ import { router } from "./router";
 import { applyThemeColors, readStoredThemeColors } from "./theme/customColors";
 import { readCachedTheme } from "./utils/themeCache";
 import { showMainWindow } from "./services/windowControls";
+
+type DesktopPlatform = "macos" | "windows" | "web";
+
+// Outside the Tauri webview there is no native window material, so the page
+// keeps its opaque styling. Inside Tauri the UA picks the native platform.
+function detectPlatform(): DesktopPlatform {
+  if (!("__TAURI_INTERNALS__" in window)) return "web";
+  if (/Macintosh|Mac OS X/.test(navigator.userAgent)) return "macos";
+  if (/Windows/.test(navigator.userAgent)) return "windows";
+  return "web";
+}
+
+// Set synchronously before createApp so the first paint already has the
+// platform effects applied.
+document.documentElement.dataset.platform = detectPlatform();
 
 document.documentElement.lang = initialLocale;
 

@@ -13,6 +13,7 @@ import LauncherMain from "./components/LauncherMain.vue";
 import LauncherSidebar from "./components/LauncherSidebar.vue";
 import { setReduceMotionPreference } from "./composables/useReduceMotion";
 import { useTabShortcuts } from "./composables/useTabShortcuts";
+import { useFadingScrollbars } from "./composables/useFadingScrollbars";
 import { applyLanguagePreference, i18n } from "./i18n";
 import { isSupportedLocale } from "./i18n/locale";
 import {
@@ -21,6 +22,7 @@ import {
   listenResourceAlert,
   listenTrayPanelAction,
 } from "./services/events";
+import { syncWindowTheme } from "./services/nativeWindow";
 import { detectLegacyDataDir } from "./services/app";
 import type { TrayPanelAction } from "./services/tray";
 import { useLauncherStore } from "./stores/launcher";
@@ -51,6 +53,7 @@ const { init: initProgress } = useProgressStore();
 const { init: initTasks } = useTaskStore();
 
 useTabShortcuts();
+useFadingScrollbars();
 
 const isCollapsed = ref(false);
 const mobileDrawerOpen = ref(false);
@@ -140,6 +143,15 @@ watch(
     }
     void theme.change(preference);
     cacheTheme(preference);
+  },
+  { immediate: true },
+);
+
+// 直接监听解析后的生效主题：偏好为 system 时 OS 切换深浅也要同步原生窗口染色。
+watch(
+  () => theme.global.current.value.dark,
+  (dark) => {
+    void syncWindowTheme(dark);
   },
   { immediate: true },
 );
@@ -329,6 +341,11 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
-  background: rgb(var(--v-theme-surface));
+  background: rgba(var(--launcher-chrome-bg), var(--launcher-chrome-alpha, 1));
+}
+
+/* 窗口底色 token：默认跟随主题 surface，平台效果层可按平台覆盖 alpha。 */
+:global(:root) {
+  --launcher-chrome-bg: var(--v-theme-surface);
 }
 </style>

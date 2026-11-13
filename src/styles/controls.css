@@ -1,0 +1,24 @@
+/*
+ * 全局控件统一层：开关（v-switch）滑块的中性配色。
+ *
+ * 轨道颜色不做任何覆盖：启用态由 color="primary" 生成的 bg-primary 工具类
+ * （@layer vuetify-utilities）着色，关闭/禁用态走 Vuetify 默认的
+ * surface-variant——上游 dashboard 即此默认行为，未自定义。
+ * 此处只修一点：Vuetify 暗色默认的滑块色 surface-bright 是薰衣草紫
+ * （#ccbfd6，见 vuetify composables/theme.js 默认 dark 主题），与本应用
+ * 的蓝灰主题不搭，故滑块统一为主题中性亮色。
+ */
+
+/* 滑块：浅色主题用 surface（纯白），暗色主题用 on-surface（亮灰白）。 */
+.v-switch__thumb {
+  background-color: rgb(var(--v-theme-surface));
+}
+
+.v-theme--dark .v-switch__thumb {
+  background-color: rgb(var(--v-theme-on-surface));
+}
+
+/* 校验错误态保留 Vuetify 的红色滑块，不被上面的中性色覆盖。 */
+.v-selection-control--error:not(.v-selection-control--disabled) .v-switch__thumb {
+  background-color: rgb(var(--v-theme-error));
+}

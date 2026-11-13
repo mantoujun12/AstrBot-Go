@@ -15,9 +15,18 @@
   }
 }
 
-.v-btn {
+// 未分层样式会压过 Vuetify @layer 里的 .v-btn--icon 圆角与 rounded="pill"
+// 工具类（.rounded-pill），两者都需显式排除。
+.v-btn:not(.v-btn--icon):not(.rounded-pill) {
   text-transform: capitalize;
   letter-spacing: $btn-letter-spacing;
+  border-radius: var(--astrbot-radius-control);
+}
+
+// 同理，按钮组（v-btn-toggle/v-btn-group）内按钮必须保持 Vuetify 的直角拼接，
+// 由组容器统一给出轮廓；全局圆角会破坏 divided/outlined 的边框拼合并裁掉末位按钮。
+.v-btn-group .v-btn {
+  border-radius: 0;
 }
 .v-btn--icon.v-btn--density-default {
   width: calc(var(--v-btn-height) + 6px);

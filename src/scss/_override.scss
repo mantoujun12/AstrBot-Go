@@ -23,7 +23,7 @@ html {
 
   .v-snackbar__wrapper {
     min-height: 52px;
-    border-radius: 8px !important;
+    border-radius: var(--astrbot-radius-menu) !important;
     box-shadow: 0 10px 24px rgba(16, 24, 40, 0.16) !important;
   }
 
@@ -58,12 +58,6 @@ html {
   }
 }
 
-.customizer-btn .icon {
-  animation: progress-circular-rotate 1.4s linear infinite;
-  transform-origin: center center;
-  transition: all 0.2s ease-in-out;
-}
-
 .no-spacer {
   .v-list-item__spacer {
     display: none !important;
@@ -91,7 +85,7 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   max-width: min(360px, calc(100vw - 24px));
   padding: 8px 12px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
   background: rgb(var(--v-theme-surface));
   color: rgb(var(--v-theme-on-surface));
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
@@ -111,12 +105,61 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   }
 }
 
-// Dialogs: Vuetify pins the surface radius to 4px. Follow the app's 16px cards.
-.v-dialog > .v-overlay__content > .v-card,
-.v-dialog > .v-overlay__content > .v-sheet,
-.v-dialog > .v-overlay__content > form > .v-card,
-.v-dialog > .v-overlay__content > form > .v-sheet {
-  border-radius: 16px;
+// Dialogs: Vuetify pins the surface radius to 4px. Follow the app's dialog
+// radius token, and unify the dialog finish (no border, soft shadow, weighted
+// title, roomy action bar) to match the upstream dashboard dialogs.
+.v-dialog {
+  --astrbot-dialog-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  > .v-overlay__content > .v-card,
+  > .v-overlay__content > .v-sheet,
+  > .v-overlay__content > form > .v-card,
+  > .v-overlay__content > form > .v-sheet {
+    border: 0 !important;
+    border-radius: var(--astrbot-radius-dialog) !important;
+    box-shadow: var(--astrbot-dialog-shadow) !important;
+
+    > .v-card-title,
+    > .v-card-item .v-card-title {
+      padding-top: 24px !important;
+      color: rgb(var(--v-theme-on-surface)) !important;
+      font-size: 1.25rem !important;
+      font-weight: 400 !important;
+    }
+
+    > .v-card-actions {
+      padding: 16px 24px 24px !important;
+    }
+  }
+
+  // 操作按钮全圆角；主操作对齐上游 tonal 观感：主色浅染底替代深色实心，
+  // 启用态文本按钮保持主题主色，禁用态交给 Vuetify 淡化。
+  .v-card-actions .v-btn {
+    border-radius: var(--astrbot-radius-pill) !important;
+  }
+
+  .v-card-actions .v-btn--variant-flat.bg-primary {
+    background-color: rgba(var(--v-theme-primary), 0.15) !important;
+    color: rgb(var(--v-theme-primary)) !important;
+  }
+}
+
+.v-dialog--fullscreen {
+  --astrbot-dialog-shadow: none;
+
+  > .v-overlay__content > .v-card,
+  > .v-overlay__content > .v-sheet,
+  > .v-overlay__content > form > .v-card,
+  > .v-overlay__content > form > .v-sheet {
+    border-radius: 0 !important;
+  }
+}
+
+// Layout: Vuetify transitions v-main's padding (0.2s) whenever the sidebar
+// mounts/unmounts (home tab ↔ instance tabs), which reads as a zoom on the
+// pane. Tab switching must be direct, so the layout transition is off.
+.v-main {
+  transition: none;
 }
 
 // Dark mode global overrides

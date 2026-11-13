@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager as _};
 
 // === Window ===
 
@@ -38,5 +38,55 @@ pub fn show_main_window(app: AppHandle) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_window_theme(dark: bool, app_handle: AppHandle) -> Result<()> {
+    let window = app_handle
+        .get_webview_window("main")
+        .ok_or_else(|| AppError::other("Failed to set the window theme: main window not found"))?;
+    apply_window_theme(&window, dark)
+}
+
+/// Mica takes its tint from the immersive dark-mode attribute, not the system
+/// setting, so the window follows the app theme.
+#[cfg(target_os = "windows")]
+fn apply_window_theme(window: &tauri::WebviewWindow, dark: bool) -> Result<()> {
+    use std::ffi::c_void;
+    use windows::core::BOOL;
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE};
+
+    let hwnd = window.hwnd().map_err(|error| {
+        AppError::other(format!("Failed to read the main window handle: {}", error))
+    })?;
+    let value: BOOL = dark.into();
+    unsafe {
+        DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_USE_IMMERSIVE_DARK_MODE,
+            std::ptr::from_ref(&value).cast::<c_void>(),
+            std::mem::size_of::<BOOL>() as u32,
+        )
+    }
+    .map_err(|error| AppError::other(format!("Failed to set the immersive dark mode: {}", error)))
+}
+
+#[cfg(target_os = "macos")]
+fn apply_window_theme(window: &tauri::WebviewWindow, dark: bool) -> Result<()> {
+    let theme = if dark {
+        tauri::Theme::Dark
+    } else {
+        tauri::Theme::Light
+    };
+    window.set_theme(Some(theme)).map_err(|error| {
+        AppError::other(format!("Failed to set the native window theme: {}", error))
+    })
+}
+
+// 平台统一的 Result 契约：无主题可设的平台是纯 no-op，此处允许常量 Ok 返回。
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+#[allow(clippy::unnecessary_wraps)]
+fn apply_window_theme(_window: &tauri::WebviewWindow, _dark: bool) -> Result<()> {
     Ok(())
 }

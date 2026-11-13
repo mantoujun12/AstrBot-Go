@@ -356,7 +356,7 @@ watch(
   gap: 12px;
   margin-bottom: 12px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--astrbot-radius-control);
   background: rgba(var(--v-theme-on-surface), 0.05);
   color: rgba(var(--v-theme-on-surface), 0.64);
   font-size: 0.85rem;
