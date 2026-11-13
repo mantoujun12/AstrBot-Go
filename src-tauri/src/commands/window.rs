@@ -84,7 +84,9 @@ fn apply_window_theme(window: &tauri::WebviewWindow, dark: bool) -> Result<()> {
     })
 }
 
+// 平台统一的 Result 契约：无主题可设的平台是纯 no-op，此处允许常量 Ok 返回。
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+#[allow(clippy::unnecessary_wraps)]
 fn apply_window_theme(_window: &tauri::WebviewWindow, _dark: bool) -> Result<()> {
     Ok(())
 }
