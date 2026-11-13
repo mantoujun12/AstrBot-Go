@@ -15,9 +15,11 @@
   }
 }
 
-.v-btn {
+// 未分层样式会压过 Vuetify @layer 里的 .v-btn--icon 圆角，图标按钮需显式排除。
+.v-btn:not(.v-btn--icon) {
   text-transform: capitalize;
   letter-spacing: $btn-letter-spacing;
+  border-radius: var(--astrbot-radius-control);
 }
 .v-btn--icon.v-btn--density-default {
   width: calc(var(--v-btn-height) + 6px);
