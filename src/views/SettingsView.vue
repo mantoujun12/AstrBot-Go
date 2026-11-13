@@ -1054,6 +1054,7 @@ onMounted(() => {
             >
               <v-switch
                 id="setting-autostart"
+                inset
                 :model-value="autostartEnabled"
                 :loading="autostartLoading || autostartSaving"
                 :disabled="
@@ -1075,6 +1076,7 @@ onMounted(() => {
             >
               <v-switch
                 :id="`setting-${item.key}`"
+                inset
                 :model-value="toggleValues[item.key]"
                 :loading="toggleSaving[item.key]"
                 :disabled="toggleSaving[item.key]"
@@ -1263,6 +1265,7 @@ onMounted(() => {
             >
               <v-switch
                 :id="`setting-instance-source-${source.id}`"
+                inset
                 :model-value="isSourceEnabled(source)"
                 :loading="sourceSaving[source.id]"
                 :disabled="sourceSaving[source.id]"
@@ -1337,6 +1340,7 @@ onMounted(() => {
             >
               <v-switch
                 id="setting-allow-local-dns-probe"
+                inset
                 :model-value="allowLocalDnsProbe"
                 :loading="allowLocalDnsProbeSaving"
                 :disabled="allowLocalDnsProbeSaving"

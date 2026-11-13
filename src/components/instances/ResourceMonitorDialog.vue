@@ -572,6 +572,7 @@ onBeforeUnmount(stopPolling);
           </h3>
           <v-switch
             v-model="alertEnabled"
+            inset
             color="primary"
             density="compact"
             hide-details
