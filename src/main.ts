@@ -7,6 +7,7 @@ import "@mdi/font/css/materialdesignicons.css";
 import "vuetify/styles";
 import "./scss/style.scss";
 import "./styles/pages.css";
+import "./styles/controls.css";
 import "./styles/platform-effects.css";
 import App from "./App.vue";
 import { i18n, initialLocale } from "./i18n";
