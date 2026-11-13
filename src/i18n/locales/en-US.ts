@@ -531,6 +531,7 @@ const enUS = {
     actions: {
       create: "Create Instance",
       start: "Start",
+      portConflict: "Port {port} is already in use by a running instance",
       stop: "Stop",
       restart: "Restart",
       openCoreFolder: "Open Core Folder",

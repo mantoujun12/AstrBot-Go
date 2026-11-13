@@ -515,6 +515,7 @@ const zhCN = {
     "actions": {
       "create": "创建实例",
       "start": "启动",
+      "portConflict": "端口 {port} 已被其他运行中的实例占用，无法启动",
       "stop": "停止",
       "restart": "重启",
       "openCoreFolder": "打开核心目录",

@@ -74,6 +74,11 @@ export interface InstanceCapabilities {
   read_only: boolean;
 }
 
+export type InstanceDetail =
+  | { kind: "docker"; host: string; port: number }
+  | { kind: "uv_tool"; version: string; port: number }
+  | { kind: "directory"; path: string };
+
 export interface DiscoveredInstance {
   source: string;
   id: string;
@@ -81,6 +86,7 @@ export interface DiscoveredInstance {
   webui_url: string | null;
   state: InstanceState;
   capabilities: InstanceCapabilities;
+  detail: InstanceDetail | null;
 }
 
 export interface InstanceSourceInfo {

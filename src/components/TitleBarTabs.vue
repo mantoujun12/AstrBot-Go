@@ -3,7 +3,7 @@ import { computed, nextTick, ref, type ComponentPublicInstance } from "vue";
 import { useI18n } from "vue-i18n";
 import logoUrl from "../assets/favicon.svg";
 import { useLauncherStore } from "../stores/launcher";
-import { HOME_TAB, useTabsStore } from "../stores/tabs";
+import { HOME_TAB, externalTabOf, useTabsStore } from "../stores/tabs";
 
 const {
   instanceIds,
@@ -23,10 +23,11 @@ const isMac = navigator.userAgent.includes("Mac");
 const tabs = computed(() =>
   instanceIds.value.map((id) => {
     const instance = instances.value.find((item) => item.id === id) ?? null;
+    const external = externalTabOf(id);
     return {
       id,
-      name: instance?.name ?? id,
-      state: instance?.state ?? "stopped",
+      name: instance?.name ?? external?.name ?? id,
+      state: instance?.state ?? external?.state ?? "stopped",
     };
   }),
 );

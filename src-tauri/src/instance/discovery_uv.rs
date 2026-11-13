@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use super::discovery::{
     locate_program, run_capped, verify_webui, DiscoveredInstance, DiscoveryContext,
-    InstanceCapabilities, InstanceSource,
+    InstanceCapabilities, InstanceDetail, InstanceSource,
 };
 use super::discovery_dirscan::{read_dashboard_config, resolve_dashboard_url};
 use crate::error::Result;
@@ -77,6 +77,7 @@ impl InstanceSource for UvToolSource {
                 InstanceState::Stopped
             },
             capabilities: InstanceCapabilities { read_only: true },
+            detail: Some(InstanceDetail::UvTool { version, port }),
         }])
     }
 }

@@ -530,6 +530,7 @@ const jaJP = {
     actions: {
       create: "インスタンスを作成",
       start: "起動",
+      portConflict: "ポート {port} は実行中のインスタンスで使用中のため、起動できません",
       stop: "停止",
       restart: "再起動",
       openCoreFolder: "コアディレクトリを開く",
