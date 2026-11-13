@@ -21,8 +21,9 @@ const DATA_DIR_OVERRIDE_FILE: &str = ".data-dir.json";
 /// Resolved data directory. Initialized from the override file (if any) or the
 /// default location on first use, and re-resolved whenever the override
 /// changes.
-static DATA_DIR_CACHE: Lazy<RwLock<PathBuf>> =
-    Lazy::new(|| RwLock::new(load_data_dir_override().unwrap_or_else(default_data_dir)));
+static DATA_DIR_CACHE: Lazy<RwLock<PathBuf>> = Lazy::new(|| {
+    RwLock::new(load_data_dir_override().unwrap_or_else(default_data_dir_with_legacy_migration))
+});
 
 /// Get the launcher config directory (`<config_dir>/com.github.mantoujun12.astrbot-go`).
 pub(crate) fn launcher_config_dir() -> Option<PathBuf> {
@@ -33,11 +34,49 @@ fn data_dir_override_path() -> Option<PathBuf> {
     launcher_config_dir().map(|dir| dir.join(DATA_DIR_OVERRIDE_FILE))
 }
 
-/// The default data directory (~/.astrbot_launcher).
+/// The default data directory (~/.astrbot_go).
 #[allow(clippy::expect_used)]
 pub(crate) fn default_data_dir() -> PathBuf {
     let home = dirs::home_dir().expect("Cannot find home directory");
-    home.join(".astrbot_launcher")
+    home.join(".astrbot_go")
+}
+
+/// Data directory used by versions of the app before the rename.
+const LEGACY_DATA_DIR_NAME: &str = ".astrbot_launcher";
+
+/// Resolve the default data directory, renaming the legacy
+/// `~/.astrbot_launcher` directory to `~/.astrbot_go` first when it exists and
+/// the new directory does not. If the rename fails (for example because the
+/// directory is locked by another process), fall back to the legacy directory
+/// and retry on the next launch.
+fn default_data_dir_with_legacy_migration() -> PathBuf {
+    let default = default_data_dir();
+    if default.exists() {
+        return default;
+    }
+
+    let legacy = match dirs::home_dir() {
+        Some(home) => home.join(LEGACY_DATA_DIR_NAME),
+        None => return default,
+    };
+    if !legacy.exists() {
+        return default;
+    }
+
+    match fs::rename(&legacy, &default) {
+        Ok(()) => {
+            log::info!("Migrated legacy data directory to the new default location");
+            default
+        }
+        Err(error) => {
+            log::warn!(
+                "Failed to migrate legacy data directory, continuing with the legacy location for this launch: {}",
+                log_redact::path_name(&legacy)
+            );
+            let _ = error;
+            legacy
+        }
+    }
 }
 
 /// Validate a user-provided data directory path.
@@ -89,7 +128,7 @@ fn load_data_dir_override() -> Option<PathBuf> {
 /// Get the root data directory for the application.
 ///
 /// Uses the user-configured override if present, otherwise falls back to
-/// the default (~/.astrbot_launcher).
+/// the default (~/.astrbot_go).
 pub(crate) fn get_data_dir() -> PathBuf {
     read_lock_recover(&DATA_DIR_CACHE, "DATA_DIR_CACHE").clone()
 }
@@ -134,9 +173,19 @@ pub(crate) fn set_data_dir_override(new_dir: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
-/// Get the path to the unified application data database.
+/// Get the path to the legacy redb database (migration only).
 pub(crate) fn data_db_path() -> PathBuf {
     get_data_dir().join("data.redb")
+}
+
+/// Get the path to the unified application config JSON file.
+pub(crate) fn config_json_path() -> PathBuf {
+    get_data_dir().join("config.json")
+}
+
+/// Get the path to the unified application manifest JSON file.
+pub(crate) fn manifest_json_path() -> PathBuf {
+    get_data_dir().join("manifest.json")
 }
 
 /// Get the path to the legacy config TOML file (migration only).
