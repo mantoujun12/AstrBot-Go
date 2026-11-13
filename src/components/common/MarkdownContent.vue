@@ -71,7 +71,7 @@ function handleAuxClick(event: MouseEvent): void {
 .markdown-content :deep(h6) {
   margin: 1.1em 0 0.45em;
   color: rgb(var(--v-theme-on-surface));
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.35;
 }
@@ -123,7 +123,7 @@ function handleAuxClick(event: MouseEvent): void {
 
 .markdown-content :deep(strong) {
   color: rgb(var(--v-theme-on-surface));
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .markdown-content :deep(code) {

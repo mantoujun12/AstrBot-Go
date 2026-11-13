@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
 .launcher-update-prompt__title {
   padding: 20px 20px 0;
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: 600;
   white-space: normal;
 }
 

@@ -732,7 +732,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   overflow: hidden;
   font-size: 0.84rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -881,7 +881,7 @@ onBeforeUnmount(() => {
 .tray-panel__name {
   overflow: hidden;
   font-size: 0.82rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;

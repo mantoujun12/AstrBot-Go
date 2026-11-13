@@ -41,7 +41,7 @@ interface CompositionItem {
   color: string;
 }
 
-const CHART_FONT_FAMILY = '"Outfit", "Noto Sans", sans-serif';
+const CHART_FONT_FAMILY = '"Outfit Variable", "Outfit", "Noto Sans", sans-serif';
 const COMPONENT_TOTAL = 3;
 const STATE_ORDER: readonly InstanceState[] = [
   "running",
@@ -836,7 +836,7 @@ function retry(): void {
 .section-title {
   margin: 0;
   font-size: 19px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
@@ -995,7 +995,7 @@ function retry(): void {
 .card-title {
   margin: 0 0 12px;
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 

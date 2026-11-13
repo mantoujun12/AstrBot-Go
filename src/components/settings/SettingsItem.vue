@@ -74,7 +74,7 @@ label.settings-item__label {
   display: block;
   color: rgb(var(--v-theme-on-surface));
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.4;
 }
 

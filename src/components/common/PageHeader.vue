@@ -28,7 +28,7 @@ defineProps<{
   color: rgb(var(--v-theme-on-surface));
   font-size: 1.5rem;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0;
 }
 

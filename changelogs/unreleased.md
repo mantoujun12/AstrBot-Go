@@ -13,6 +13,7 @@
 
 - Redesigned the external instance rows: a source icon with tooltip replaces the badge, each source shows its own meta line (Docker host and port, uv tool version and port, deployment path for directory scans), and the WebUI button opens the dashboard in an embedded launcher tab; opening in an external browser moved to a secondary action.
 - The default data directory is now `~/.astrbot_go`. On first launch, if a legacy `~/.astrbot_launcher` directory exists, a migration dialog appears and lets you choose whether to copy its data into AstrBot Go's data directory or keep it for now; the original directory is always preserved so the legacy app and AstrBot Go do not conflict. Application config and manifest are now stored as `config.json` and `manifest.json` in the data directory instead of the `data.redb` database; migrated data is converted on first load and the database file is kept as a backup.
+- Text now always renders with the bundled Outfit variable font instead of depending on fonts installed on the system, and emphasis weights were consolidated to 500 and 600 so titles and labels no longer look bolder than the upstream AstrBot dashboard.
 
 ## 中文
 
@@ -27,3 +28,4 @@
 
 - 重构外部实例行展示：来源徽标改为名称左侧图标，悬浮显示部署方式；按来源补充专属信息行（Docker 显示主机地址与端口、uv tool 显示版本与端口、目录扫描显示部署路径）；WebUI 按钮改为在启动器内嵌标签页打开，改为在浏览器中打开为次要操作。
 - 默认数据目录改为 `~/.astrbot_go`。首次启动时，若检测到旧目录 `~/.astrbot_launcher`，会弹出迁移向导，由你选择是否将旧数据复制到 AstrBot Go 的数据目录，或暂不迁移；原目录始终保留，旧版应用与 AstrBot Go 互不冲突。应用配置与清单改为存储在数据目录下的 `config.json` 与 `manifest.json`，不再使用 `data.redb` 数据库；迁移的数据在首次加载时自动转换，数据库文件保留作为备份。
+- 界面字体固定使用随应用打包的 Outfit 可变字体，不再依赖系统是否安装该字体；强调字重统一收敛为 500 与 600，标题与标签的粗细与上游 AstrBot 面板保持一致，不再偏粗。
