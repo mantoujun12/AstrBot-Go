@@ -7,6 +7,7 @@ import { useDisplay, useLocale as useVuetifyLocale, useTheme } from "vuetify";
 import AppSnackbar from "./components/common/AppSnackbar.vue";
 import DefaultCredentialsDialog from "./components/common/DefaultCredentialsDialog.vue";
 import LauncherUpdatePrompt from "./components/common/LauncherUpdatePrompt.vue";
+import LegacyMigrationDialog from "./components/common/LegacyMigrationDialog.vue";
 import AppTitleBar from "./components/AppTitleBar.vue";
 import LauncherMain from "./components/LauncherMain.vue";
 import LauncherSidebar from "./components/LauncherSidebar.vue";
@@ -20,6 +21,7 @@ import {
   listenResourceAlert,
   listenTrayPanelAction,
 } from "./services/events";
+import { detectLegacyDataDir } from "./services/app";
 import type { TrayPanelAction } from "./services/tray";
 import { useLauncherStore } from "./stores/launcher";
 import { showToast } from "./stores/toast";
@@ -29,6 +31,7 @@ import { useTaskStore } from "./stores/tasks";
 import { HOME_TAB, useTabsStore } from "./stores/tabs";
 import type {
   DefaultCredentials,
+  LegacyDataDirPrompt,
   ResourceAlertEvent,
 } from "./types/launcher";
 import { formatFileSize } from "./utils/format";
@@ -53,6 +56,8 @@ const isCollapsed = ref(false);
 const mobileDrawerOpen = ref(false);
 const credentials = ref<DefaultCredentials | null>(null);
 const credentialsOpen = ref(false);
+const legacyPrompt = ref<LegacyDataDirPrompt | null>(null);
+const legacyDialogOpen = ref(false);
 let unlistenCredentials: UnlistenFn | null = null;
 let unlistenResourceAlert: UnlistenFn | null = null;
 let unlistenRestart: UnlistenFn | null = null;
@@ -176,6 +181,17 @@ onMounted(() => {
   void initProgress();
   void initTasks();
   void initLauncher();
+  void detectLegacyDataDir()
+    .then((prompt) => {
+      if (prompt) {
+        legacyPrompt.value = prompt;
+        legacyDialogOpen.value = true;
+      }
+    })
+    .catch(() => {
+      // Detection must not block startup; the wizard can be shown on the
+      // next launch.
+    });
   void listenDefaultCredentials((payload) => {
     credentials.value = payload;
     credentialsOpen.value = true;
@@ -264,6 +280,10 @@ onBeforeUnmount(() => {
       <DefaultCredentialsDialog
         v-model="credentialsOpen"
         :credentials="credentials"
+      />
+      <LegacyMigrationDialog
+        v-model="legacyDialogOpen"
+        :prompt="legacyPrompt"
       />
       <LauncherUpdatePrompt />
     </div>

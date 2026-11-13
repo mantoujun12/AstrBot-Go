@@ -21,9 +21,8 @@ const DATA_DIR_OVERRIDE_FILE: &str = ".data-dir.json";
 /// Resolved data directory. Initialized from the override file (if any) or the
 /// default location on first use, and re-resolved whenever the override
 /// changes.
-static DATA_DIR_CACHE: Lazy<RwLock<PathBuf>> = Lazy::new(|| {
-    RwLock::new(load_data_dir_override().unwrap_or_else(default_data_dir_with_legacy_migration))
-});
+static DATA_DIR_CACHE: Lazy<RwLock<PathBuf>> =
+    Lazy::new(|| RwLock::new(load_data_dir_override().unwrap_or_else(default_data_dir)));
 
 /// Get the launcher config directory (`<config_dir>/com.github.mantoujun12.astrbot-go`).
 pub(crate) fn launcher_config_dir() -> Option<PathBuf> {
@@ -41,42 +40,15 @@ pub(crate) fn default_data_dir() -> PathBuf {
     home.join(".astrbot_go")
 }
 
-/// Data directory used by versions of the app before the rename.
-const LEGACY_DATA_DIR_NAME: &str = ".astrbot_launcher";
+/// Data directory used by AstrBot Launcher, the predecessor app.
+pub(crate) fn legacy_default_data_dir() -> Option<PathBuf> {
+    dirs::home_dir().map(|home| home.join(".astrbot_launcher"))
+}
 
-/// Resolve the default data directory, renaming the legacy
-/// `~/.astrbot_launcher` directory to `~/.astrbot_go` first when it exists and
-/// the new directory does not. If the rename fails (for example because the
-/// directory is locked by another process), fall back to the legacy directory
-/// and retry on the next launch.
-fn default_data_dir_with_legacy_migration() -> PathBuf {
-    let default = default_data_dir();
-    if default.exists() {
-        return default;
-    }
-
-    let legacy = match dirs::home_dir() {
-        Some(home) => home.join(LEGACY_DATA_DIR_NAME),
-        None => return default,
-    };
-    if !legacy.exists() {
-        return default;
-    }
-
-    match fs::rename(&legacy, &default) {
-        Ok(()) => {
-            log::info!("Migrated legacy data directory to the new default location");
-            default
-        }
-        Err(error) => {
-            log::warn!(
-                "Failed to migrate legacy data directory, continuing with the legacy location for this launch: {}",
-                log_redact::path_name(&legacy)
-            );
-            let _ = error;
-            legacy
-        }
-    }
+/// Marker file recording that the user declined migrating the legacy data
+/// directory, so the migration wizard does not ask again.
+pub(crate) fn legacy_migration_dismissed_marker_path() -> Option<PathBuf> {
+    launcher_config_dir().map(|dir| dir.join(".legacy-data-dir-dismissed"))
 }
 
 /// Validate a user-provided data directory path.

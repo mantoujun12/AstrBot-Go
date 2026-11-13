@@ -40,6 +40,15 @@ const zhCN = {
     "ignore": "忽略本次版本",
     "noNotes": "此版本暂无更新说明"
   },
+  legacyMigration: {
+    title: "检测到旧版数据目录",
+    description: "检测到 AstrBot Launcher 的数据目录。可将旧数据复制到 AstrBot Go 的数据目录；原目录将完整保留，旧版应用不受影响。同名文件将以旧数据为准覆盖。",
+    legacyDir: "旧版数据目录",
+    dataDir: "当前数据目录",
+    migrate: "迁移数据",
+    keep: "暂不迁移",
+    success: "迁移完成，共复制 {count} 项，原目录已保留"
+  },
   "trayPanel": {
     "title": "AstrBot Go",
     "openMainWindow": "打开主窗口",

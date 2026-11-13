@@ -237,7 +237,7 @@ fn read_json_text(path: &Path) -> Result<Option<String>> {
 ///
 /// Idempotent: each JSON file is only written when it does not exist yet, and
 /// the whole step is skipped when the legacy database is absent.
-fn migrate_legacy_redb_records() -> Result<()> {
+pub(crate) fn migrate_legacy_redb_records() -> Result<()> {
     let config_path = config_json_path();
     let manifest_path = manifest_json_path();
     if config_path.exists() && manifest_path.exists() {

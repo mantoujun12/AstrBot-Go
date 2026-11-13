@@ -42,6 +42,15 @@ const enUS = {
     ignore: "Ignore this version",
     noNotes: "No release notes for this version",
   },
+  legacyMigration: {
+    title: "Legacy data directory detected",
+    description: "AstrBot Launcher's data directory was detected. Its data can be copied into AstrBot Go's data directory; the original directory is kept intact and the legacy app is unaffected. Files with the same name are overwritten by the legacy data.",
+    legacyDir: "Legacy data directory",
+    dataDir: "Current data directory",
+    migrate: "Migrate data",
+    keep: "Not now",
+    success: "Migration finished: {count} entries copied; the original directory is kept",
+  },
   trayPanel: {
     title: "AstrBot Go",
     openMainWindow: "Open main window",

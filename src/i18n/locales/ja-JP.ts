@@ -42,6 +42,15 @@ const jaJP = {
     ignore: "このバージョンを無視",
     noNotes: "このバージョンのリリースノートはありません",
   },
+  legacyMigration: {
+    title: "旧データディレクトリを検出しました",
+    description: "AstrBot Launcher のデータディレクトリが検出されました。旧データを AstrBot Go のデータディレクトリにコピーできます。元のディレクトリはそのまま保持され、旧アプリには影響しません。同名のファイルは旧データで上書きされます。",
+    legacyDir: "旧データディレクトリ",
+    dataDir: "現在のデータディレクトリ",
+    migrate: "データを移行",
+    keep: "後で",
+    success: "移行が完了しました：{count} 件をコピーし、元のディレクトリは保持されています",
+  },
   trayPanel: {
     title: "AstrBot Go",
     openMainWindow: "メインウィンドウを開く",

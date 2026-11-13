@@ -139,6 +139,44 @@ pub(crate) fn replace_file_atomically(temp: &Path, dest: &Path) -> Result<()> {
     }
 }
 
+/// Recursively copy the contents of `src` into `dst`, creating `dst` when
+/// missing. Existing destination files are overwritten by the source
+/// ("source wins"), which matches a migration where the source directory
+/// holds the authoritative data. Symbolic links are skipped deliberately:
+/// launcher data directories must not contain them.
+pub(crate) fn copy_dir_contents(src: &Path, dst: &Path) -> Result<u64> {
+    fs::create_dir_all(dst)
+        .map_err(|error| AppError::io(format!("Failed to create {}: {}", dst.display(), error)))?;
+
+    let mut copied = 0u64;
+    let entries = fs::read_dir(src)
+        .map_err(|error| AppError::io(format!("Failed to read {}: {}", src.display(), error)))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            AppError::io(format!("Failed to list {}: {}", src.display(), error))
+        })?;
+        let file_type = entry.file_type().map_err(|error| {
+            AppError::io(format!(
+                "Failed to inspect {}: {}",
+                entry.path().display(),
+                error
+            ))
+        })?;
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+
+        if file_type.is_dir() {
+            copied += copy_dir_contents(&from, &to)?;
+        } else if file_type.is_file() {
+            fs::copy(&from, &to).map_err(|error| {
+                AppError::io(format!("Failed to copy {}: {}", from.display(), error))
+            })?;
+            copied += 1;
+        }
+    }
+    Ok(copied)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,6 +209,31 @@ mod tests {
     fn write_file(path: &Path, content: &[u8]) -> Result<()> {
         let mut file = File::create(path)?;
         file.write_all(content)?;
+        Ok(())
+    }
+
+    #[test]
+    fn copy_dir_contents_copies_tree_and_source_wins() -> Result<()> {
+        let src = TestDir::new("copy-src")?;
+        let dst = TestDir::new("copy-dst")?;
+
+        write_file(&src.path().join("config.json"), b"legacy")?;
+        fs::create_dir_all(src.path().join("instances/main"))?;
+        write_file(&src.path().join("instances/main/data.txt"), b"legacy-data")?;
+
+        write_file(&dst.path().join("config.json"), b"default")?;
+
+        let copied = copy_dir_contents(src.path(), dst.path())?;
+
+        assert_eq!(copied, 2);
+        assert_eq!(fs::read(dst.path().join("config.json"))?, b"legacy");
+        assert_eq!(
+            fs::read(dst.path().join("instances/main/data.txt"))?,
+            b"legacy-data"
+        );
+        // The source directory must be kept intact.
+        assert!(src.path().join("config.json").exists());
+        assert!(src.path().join("instances/main/data.txt").exists());
         Ok(())
     }
 
