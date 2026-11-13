@@ -173,7 +173,7 @@ function checkDetail(check: InstanceHealthCheck): string {
 .health-check-dialog__title {
   padding: 20px 20px 0;
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .health-check-dialog__body {
@@ -212,7 +212,7 @@ function checkDetail(check: InstanceHealthCheck): string {
 
 .health-check-dialog__check-title {
   font-size: 0.9rem;
-  font-weight: 550;
+  font-weight: 500;
 }
 
 .health-check-dialog__check-detail {

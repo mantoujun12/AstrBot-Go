@@ -131,7 +131,7 @@ async function keep(): Promise<void> {
 .legacy-migration__title {
   padding: 20px 20px 0;
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .legacy-migration__body {

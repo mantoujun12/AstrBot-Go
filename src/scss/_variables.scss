@@ -37,7 +37,7 @@ $code-text-color: #111827 !default;
   --astrbot-code-color: #{$code-text-color};
 }
 
-$body-font-family: 'Outfit', 'Noto Sans', $cjk-sans-fallback, sans-serif !default;
+$body-font-family: 'Outfit Variable', 'Outfit', 'Noto Sans', $cjk-sans-fallback, sans-serif !default;
 $heading-font-family: $body-font-family !default;
 $btn-font-weight: 400 !default;
 $btn-letter-spacing: 0 !default;
@@ -64,13 +64,13 @@ $typography: map-deep-merge(
   (
     'h1': (
       'size': 2.125rem,
-      'weight': 700,
+      'weight': 600,
       'line-height': 3.5rem,
       'font-family': inherit
     ),
     'h2': (
       'size': 1.5rem,
-      'weight': 700,
+      'weight': 600,
       'line-height': 2.5rem,
       'font-family': inherit
     ),

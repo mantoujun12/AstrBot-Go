@@ -656,7 +656,7 @@ onBeforeUnmount(stopPolling);
   gap: 10px;
   min-width: 0;
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .resource-dialog__name {
@@ -708,13 +708,13 @@ onBeforeUnmount(stopPolling);
 .resource-metric__label {
   color: rgba(var(--v-theme-on-surface), 0.6);
   font-size: 0.78rem;
-  font-weight: 550;
+  font-weight: 500;
 }
 
 .resource-metric__value {
   margin-top: 4px;
   font-size: 1.35rem;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -732,7 +732,7 @@ onBeforeUnmount(stopPolling);
 .resource-panel__title {
   margin: 0 0 12px;
   font-size: 0.88rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .resource-panel__skeleton {

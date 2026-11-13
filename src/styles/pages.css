@@ -41,7 +41,7 @@
 .page-section-title {
   color: rgb(var(--v-theme-on-surface));
   font-size: 19px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.3;
 }

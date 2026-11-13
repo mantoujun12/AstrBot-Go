@@ -1703,7 +1703,7 @@ onMounted(() => {
   cursor: pointer;
   font: inherit;
   font-size: 0.84rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   text-align: left;
 }
@@ -1716,7 +1716,7 @@ onMounted(() => {
 .settings-nav__item--active {
   background: rgba(var(--v-theme-on-surface), 0.07);
   color: rgb(var(--v-theme-on-surface));
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .settings-nav__item--active::before {
@@ -1753,7 +1753,7 @@ onMounted(() => {
   margin: 0 0 12px;
   color: rgb(var(--v-theme-on-surface));
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.3;
 }
