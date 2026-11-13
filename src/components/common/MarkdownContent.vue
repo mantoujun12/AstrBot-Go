@@ -139,7 +139,7 @@ function handleAuxClick(event: MouseEvent): void {
   padding: 12px 14px;
   overflow-x: auto;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 10px;
+  border-radius: var(--astrbot-radius-control);
   background: rgba(var(--v-theme-on-surface), 0.05);
 }
 
@@ -189,7 +189,7 @@ function handleAuxClick(event: MouseEvent): void {
 .markdown-content :deep(img) {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
 }
 
 .markdown-content :deep(hr) {

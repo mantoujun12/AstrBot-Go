@@ -778,7 +778,7 @@ function retry(): void {
 }
 
 .overview-alert {
-  border-radius: 12px;
+  border-radius: var(--astrbot-radius-control);
 }
 
 .alert-content {
@@ -797,7 +797,7 @@ function retry(): void {
   position: relative;
   overflow: hidden;
   padding: 20px 20px 18px;
-  border-radius: 16px;
+  border-radius: var(--astrbot-radius-card);
   background: var(--overview-card);
 }
 
@@ -846,14 +846,14 @@ function retry(): void {
   gap: 8px;
   padding: 5px;
   border: 1px solid var(--overview-border);
-  border-radius: 999px;
+  border-radius: var(--astrbot-radius-pill);
   background: rgb(var(--v-theme-surface));
 }
 
 .range-chip {
   padding: 7px 14px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--astrbot-radius-pill);
   background: transparent;
   color: var(--overview-muted);
   font-family: inherit;
@@ -886,7 +886,7 @@ function retry(): void {
 .panel-card {
   min-width: 0;
   padding: 22px;
-  border-radius: 16px;
+  border-radius: var(--astrbot-radius-card);
   background: var(--overview-card);
 }
 
@@ -922,7 +922,7 @@ function retry(): void {
   width: 100%;
   padding: 12px 10px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--astrbot-radius-control);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -1091,7 +1091,7 @@ function retry(): void {
 }
 
 .skeleton {
-  border-radius: 16px;
+  border-radius: var(--astrbot-radius-card);
   background: var(--overview-card);
   animation: overview-pulse 1.5s ease-in-out infinite;
 }

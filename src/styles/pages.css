@@ -13,7 +13,7 @@
 
 .page-card {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 16px;
+  border-radius: var(--astrbot-radius-card);
   background: rgb(var(--v-theme-surface));
 }
 
@@ -65,7 +65,7 @@
 .page-table-card {
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 16px;
+  border-radius: var(--astrbot-radius-card);
   background: rgb(var(--v-theme-surface));
 }
 

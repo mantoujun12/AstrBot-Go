@@ -23,7 +23,7 @@ html {
 
   .v-snackbar__wrapper {
     min-height: 52px;
-    border-radius: 8px !important;
+    border-radius: var(--astrbot-radius-menu) !important;
     box-shadow: 0 10px 24px rgba(16, 24, 40, 0.16) !important;
   }
 
@@ -85,7 +85,7 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   max-width: min(360px, calc(100vw - 24px));
   padding: 8px 12px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
   background: rgb(var(--v-theme-surface));
   color: rgb(var(--v-theme-on-surface));
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
@@ -105,12 +105,12 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   }
 }
 
-// Dialogs: Vuetify pins the surface radius to 4px. Follow the app's 16px cards.
+// Dialogs: Vuetify pins the surface radius to 4px. Follow the app's dialog radius token.
 .v-dialog > .v-overlay__content > .v-card,
 .v-dialog > .v-overlay__content > .v-sheet,
 .v-dialog > .v-overlay__content > form > .v-card,
 .v-dialog > .v-overlay__content > form > .v-sheet {
-  border-radius: 16px;
+  border-radius: var(--astrbot-radius-dialog);
 }
 
 // Dark mode global overrides

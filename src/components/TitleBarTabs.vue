@@ -261,7 +261,7 @@ function onDragEnd(): void {
   margin-inline-end: 2px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
   background: transparent;
   cursor: default;
   transition:
@@ -310,7 +310,7 @@ function onDragEnd(): void {
   height: 30px;
   margin-inline-end: 2px;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
   user-select: none;
   color: rgba(var(--v-theme-on-surface), 0.68);
   transition:
@@ -358,7 +358,7 @@ function onDragEnd(): void {
   height: 100%;
   padding: 0 2px 0 10px;
   border: 0;
-  border-radius: 8px 0 0 8px;
+  border-radius: var(--astrbot-radius-control) 0 0 var(--astrbot-radius-control);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -405,7 +405,7 @@ function onDragEnd(): void {
   margin-inline-end: 4px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--astrbot-radius-control);
   background: transparent;
   color: inherit;
   opacity: 0.6;

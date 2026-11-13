@@ -709,7 +709,7 @@ onBeforeUnmount(() => {
   margin: 0;
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 12px;
+  border-radius: var(--astrbot-radius-menu);
   background: rgb(var(--v-theme-surface));
   color: rgb(var(--v-theme-on-surface));
   /* Keep the shadow inside the 6px transparent frame so it is not clipped. */
@@ -758,7 +758,7 @@ onBeforeUnmount(() => {
 }
 
 .tray-panel__list::-webkit-scrollbar-thumb {
-  border-radius: 999px;
+  border-radius: var(--astrbot-radius-pill);
   background: rgba(var(--v-theme-on-surface), 0.2);
 }
 
@@ -791,7 +791,7 @@ onBeforeUnmount(() => {
   gap: 4px;
   width: 100%;
   min-width: 0;
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
 }
 
 .tray-panel__item:hover {
@@ -806,7 +806,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   padding: 7px 4px 7px 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
   background: transparent;
   color: inherit;
   font: inherit;

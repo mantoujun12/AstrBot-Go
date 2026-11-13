@@ -688,7 +688,7 @@ onBeforeUnmount(stopPolling);
 .resource-metric,
 .resource-panel {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 14px;
+  border-radius: var(--astrbot-radius-card);
   background: rgba(var(--v-theme-surface-variant), 0.2);
 }
 
@@ -737,7 +737,7 @@ onBeforeUnmount(stopPolling);
 
 .resource-panel__skeleton {
   height: 220px;
-  border-radius: 10px;
+  border-radius: var(--astrbot-radius-control);
   background: rgba(var(--v-theme-on-surface), 0.06);
   animation: resource-pulse 1.4s ease-in-out infinite;
 }

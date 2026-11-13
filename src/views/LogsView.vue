@@ -413,7 +413,7 @@ function handleClear(): void {
   gap: 8px 10px;
   padding: 8px 10px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 12px;
+  border-radius: var(--astrbot-radius-control);
   background: rgb(var(--v-theme-surface));
 }
 
@@ -457,7 +457,7 @@ function handleClear(): void {
   height: 32px;
   padding: 0 2px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-control);
 }
 
 .logs-font-size__value {

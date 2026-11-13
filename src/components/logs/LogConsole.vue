@@ -285,7 +285,7 @@ onBeforeUnmount(() => {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: 12px;
+  border-radius: var(--astrbot-radius-control);
   background: #17191c;
   color: #d7dade;
   font-family: Consolas, "Cascadia Mono", "Courier New", monospace;

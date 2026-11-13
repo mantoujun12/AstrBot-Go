@@ -1697,7 +1697,7 @@ onMounted(() => {
   min-height: 34px;
   padding: 6px 9px 6px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--astrbot-radius-navigation);
   background: transparent;
   color: rgba(var(--v-theme-on-surface), 0.64);
   cursor: pointer;
@@ -1725,7 +1725,7 @@ onMounted(() => {
   bottom: 7px;
   left: 0;
   width: 2px;
-  border-radius: 999px;
+  border-radius: var(--astrbot-radius-pill);
   background: rgba(var(--v-theme-on-surface), 0.52);
   content: "";
 }
@@ -1761,7 +1761,7 @@ onMounted(() => {
 .settings-list-card {
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 16px;
+  border-radius: var(--astrbot-radius-card);
   background: rgb(var(--v-theme-surface));
 }
 
@@ -1910,7 +1910,7 @@ onMounted(() => {
     min-height: 32px;
     padding: 5px 11px;
     border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-    border-radius: 999px;
+    border-radius: var(--astrbot-radius-pill);
     background: rgb(var(--v-theme-surface));
     white-space: nowrap;
   }
