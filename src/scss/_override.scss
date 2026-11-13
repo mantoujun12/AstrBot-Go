@@ -132,9 +132,15 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
     }
   }
 
-  // 操作按钮全圆角；启用态文本按钮保持主题主色，禁用态交给 Vuetify 淡化。
+  // 操作按钮全圆角；主操作对齐上游 tonal 观感：主色浅染底替代深色实心，
+  // 启用态文本按钮保持主题主色，禁用态交给 Vuetify 淡化。
   .v-card-actions .v-btn {
     border-radius: var(--astrbot-radius-pill) !important;
+  }
+
+  .v-card-actions .v-btn--variant-flat.bg-primary {
+    background-color: rgba(var(--v-theme-primary), 0.15) !important;
+    color: rgb(var(--v-theme-primary)) !important;
   }
 }
 
