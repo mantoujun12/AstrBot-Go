@@ -366,11 +366,23 @@ fn manager() -> MutexGuard<TaskManager> {
 type MutexGuard<T> = std::sync::MutexGuard<'static, T>;
 
 fn tasks_file() -> std::path::PathBuf {
+    get_data_dir().join("tasks.json")
+}
+
+/// Legacy location used before task records moved to the data root. Only read
+/// for migration; records are written to [`tasks_file`] afterwards.
+fn legacy_tasks_file() -> std::path::PathBuf {
     get_data_dir().join("tasks").join("tasks.json")
 }
 
 fn read_persisted_records() -> Vec<TaskRecord> {
-    let path = tasks_file();
+    let mut path = tasks_file();
+    if !path.exists() {
+        let legacy_path = legacy_tasks_file();
+        if legacy_path.exists() {
+            path = legacy_path;
+        }
+    }
     let Ok(content) = std::fs::read_to_string(&path) else {
         return Vec::new();
     };
@@ -408,6 +420,20 @@ fn write_persisted_records(records: &[TaskRecord]) {
     if let Err(error) = crate::utils::fs_ops::replace_file_atomically(&temp_path, &path) {
         log::warn!("Failed to persist task records: {}", error);
         let _ = std::fs::remove_file(temp_path);
+        return;
+    }
+    remove_legacy_tasks_file();
+}
+
+/// Drop the pre-migration task file once records are safely stored in the data
+/// root, so a stale copy cannot shadow the new location.
+fn remove_legacy_tasks_file() {
+    let legacy_path = legacy_tasks_file();
+    if legacy_path.exists() {
+        let _ = std::fs::remove_file(&legacy_path);
+        if let Some(parent) = legacy_path.parent() {
+            let _ = std::fs::remove_dir(parent);
+        }
     }
 }
 
