@@ -13,6 +13,7 @@ import LauncherMain from "./components/LauncherMain.vue";
 import LauncherSidebar from "./components/LauncherSidebar.vue";
 import { setReduceMotionPreference } from "./composables/useReduceMotion";
 import { useTabShortcuts } from "./composables/useTabShortcuts";
+import { useFadingScrollbars } from "./composables/useFadingScrollbars";
 import { applyLanguagePreference, i18n } from "./i18n";
 import { isSupportedLocale } from "./i18n/locale";
 import {
@@ -52,6 +53,7 @@ const { init: initProgress } = useProgressStore();
 const { init: initTasks } = useTaskStore();
 
 useTabShortcuts();
+useFadingScrollbars();
 
 const isCollapsed = ref(false);
 const mobileDrawerOpen = ref(false);
