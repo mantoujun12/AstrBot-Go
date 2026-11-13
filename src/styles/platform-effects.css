@@ -1,0 +1,43 @@
+/*
+ * Native window effects. `data-platform` is set on <html> by main.ts before
+ * the app mounts. Web builds get no overrides.
+ *
+ * Vuetify puts the active theme class (`v-theme--light` / `v-theme--dark`) on
+ * the `.v-application` root, so theme-specific alpha is scoped to that element.
+ */
+
+/* Windows 11 Mica: the window backdrop must be transparent so Mica shows
+   through the chrome. Windows 10 gets no Mica and keeps its opaque window
+   background colour set from Rust. */
+html[data-platform='windows'],
+html[data-platform='windows'] body,
+html[data-platform='windows'] .v-application,
+html[data-platform='windows'] .v-application__wrap {
+  background: transparent !important;
+}
+
+html[data-platform='windows'] {
+  --launcher-chrome-alpha: 0.85;
+}
+
+html[data-platform='windows'] .v-application.v-theme--dark {
+  --launcher-chrome-alpha: 0.9;
+}
+
+/* macOS vibrancy (sidebar material): the native material is the backdrop,
+   so every webview layer must be transparent. Tint values follow the
+   upstream AstrBot dashboard FullLayout vibrancy settings. */
+html[data-platform='macos'],
+html[data-platform='macos'] body,
+html[data-platform='macos'] .v-application,
+html[data-platform='macos'] .v-application__wrap {
+  background: transparent !important;
+}
+
+html[data-platform='macos'] {
+  --launcher-chrome-alpha: 0.6;
+}
+
+html[data-platform='macos'] .v-application.v-theme--dark {
+  --launcher-chrome-alpha: 0.92;
+}

@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: var(--launcher-titlebar-height);
   color: rgba(var(--v-theme-on-surface), 0.78);
-  background: rgb(var(--v-theme-surface));
+  background: rgb(var(--launcher-chrome-bg) / var(--launcher-chrome-alpha, 1));
   border-bottom: 0;
   user-select: none;
 }

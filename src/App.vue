@@ -21,6 +21,7 @@ import {
   listenResourceAlert,
   listenTrayPanelAction,
 } from "./services/events";
+import { syncWindowTheme } from "./services/nativeWindow";
 import { detectLegacyDataDir } from "./services/app";
 import type { TrayPanelAction } from "./services/tray";
 import { useLauncherStore } from "./stores/launcher";
@@ -140,6 +141,7 @@ watch(
     }
     void theme.change(preference);
     cacheTheme(preference);
+    void syncWindowTheme(theme.global.current.value.dark);
   },
   { immediate: true },
 );
@@ -329,6 +331,11 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
-  background: rgb(var(--v-theme-surface));
+  background: rgb(var(--launcher-chrome-bg) / var(--launcher-chrome-alpha, 1));
+}
+
+/* 窗口底色 token：默认跟随主题 surface，平台效果层可按平台覆盖 alpha。 */
+:global(:root) {
+  --launcher-chrome-bg: var(--v-theme-surface);
 }
 </style>

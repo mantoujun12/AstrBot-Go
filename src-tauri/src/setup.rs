@@ -17,6 +17,7 @@ const WINDOW_SHOW_MAX_ATTEMPTS: usize = 3;
 
 const LIGHT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(255, 255, 255, 255);
 const DARK_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(36, 36, 36, 255);
+const TRANSPARENT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(0, 0, 0, 0);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RevealOutcome {
@@ -134,6 +135,8 @@ pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error:
 
 pub fn configure_main_window(window: &tauri::WebviewWindow) {
     apply_initial_background(window);
+    #[cfg(target_os = "windows")]
+    apply_windows_corner_preference(window);
 
     #[cfg(target_os = "linux")]
     let _ = window.with_webview(|webview| {
@@ -163,7 +166,9 @@ fn apply_initial_background(window: &tauri::WebviewWindow) {
             .map(|theme| theme == tauri::Theme::Dark)
             .unwrap_or(false),
     };
-    let color = if dark {
+    let color = if window_backdrop_is_transparent() {
+        TRANSPARENT_WINDOW_BACKGROUND
+    } else if dark {
         DARK_WINDOW_BACKGROUND
     } else {
         LIGHT_WINDOW_BACKGROUND
@@ -174,6 +179,74 @@ fn apply_initial_background(window: &tauri::WebviewWindow) {
             "Failed to set the initial window background color: {}",
             error
         );
+    }
+}
+
+/// Whether the main window backdrop must stay fully transparent so the native
+/// material shows through the webview: Mica on Windows 11, vibrancy on macOS.
+/// Anything opaque would cover the material, so Windows 10 (no Mica) keeps the
+/// opaque theme colour instead.
+fn window_backdrop_is_transparent() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        windows_supports_mica()
+    }
+    #[cfg(target_os = "macos")]
+    {
+        true
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        false
+    }
+}
+
+/// Mica requires Windows 11 (build 22000+). `RtlGetVersion` reports the real
+/// build number, while `GetVersionEx` is shimmed by the application manifest.
+#[cfg(target_os = "windows")]
+fn windows_supports_mica() -> bool {
+    use windows::Wdk::System::SystemServices::RtlGetVersion;
+    use windows::Win32::System::SystemInformation::OSVERSIONINFOW;
+
+    const WINDOWS_11_FIRST_BUILD: u32 = 22000;
+
+    // SAFETY: OSVERSIONINFOW is a plain C struct for which all-zero is a valid
+    // value; its size field is set as RtlGetVersion requires before the call.
+    let mut info: OSVERSIONINFOW = unsafe { std::mem::zeroed() };
+    info.dwOSVersionInfoSize = std::mem::size_of::<OSVERSIONINFOW>() as u32;
+    let status = unsafe { RtlGetVersion(&mut info) };
+    status.is_ok() && info.dwBuildNumber >= WINDOWS_11_FIRST_BUILD
+}
+
+/// Windows 11 draws a frameless window with square corners. Asking DWM for
+/// rounded corners restores them; builds that ignore the attribute just return
+/// an error, which is only logged.
+#[cfg(target_os = "windows")]
+fn apply_windows_corner_preference(window: &tauri::WebviewWindow) {
+    use std::ffi::c_void;
+    use windows::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
+        DWM_WINDOW_CORNER_PREFERENCE,
+    };
+
+    let result = window
+        .hwnd()
+        .map_err(|error| error.to_string())
+        .and_then(|hwnd| {
+            let preference: DWM_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUND;
+            unsafe {
+                DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_WINDOW_CORNER_PREFERENCE,
+                    std::ptr::from_ref(&preference).cast::<c_void>(),
+                    std::mem::size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
+                )
+            }
+            .map_err(|error| error.to_string())
+        });
+
+    if let Err(error) = result {
+        log::warn!("Failed to round the main window corners: {}", error);
     }
 }
 
