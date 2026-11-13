@@ -120,7 +120,7 @@ const toggleLabel = computed(() =>
   left: 0 !important;
   height: calc(100% - var(--launcher-titlebar-height)) !important;
   border-inline-end: 0;
-  background: rgb(var(--launcher-chrome-bg) / var(--launcher-chrome-alpha, 1)) !important;
+  background: rgba(var(--launcher-chrome-bg), var(--launcher-chrome-alpha, 1)) !important;
   box-shadow: none !important;
   transition:
     width 180ms cubic-bezier(0.2, 0, 0, 1),

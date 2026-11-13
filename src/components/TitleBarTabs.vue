@@ -405,7 +405,7 @@ function onDragEnd(): void {
   margin-inline-end: 4px;
   padding: 0;
   border: 0;
-  border-radius: var(--astrbot-radius-control);
+  border-radius: 6px;
   background: transparent;
   color: inherit;
   opacity: 0.6;

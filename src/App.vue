@@ -143,7 +143,15 @@ watch(
     }
     void theme.change(preference);
     cacheTheme(preference);
-    void syncWindowTheme(theme.global.current.value.dark);
+  },
+  { immediate: true },
+);
+
+// 直接监听解析后的生效主题：偏好为 system 时 OS 切换深浅也要同步原生窗口染色。
+watch(
+  () => theme.global.current.value.dark,
+  (dark) => {
+    void syncWindowTheme(dark);
   },
   { immediate: true },
 );
@@ -333,7 +341,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
-  background: rgb(var(--launcher-chrome-bg) / var(--launcher-chrome-alpha, 1));
+  background: rgba(var(--launcher-chrome-bg), var(--launcher-chrome-alpha, 1));
 }
 
 /* 窗口底色 token：默认跟随主题 surface，平台效果层可按平台覆盖 alpha。 */

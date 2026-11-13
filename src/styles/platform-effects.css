@@ -22,7 +22,7 @@ html[data-platform='windows'] {
 
 /* 浅色对齐上游：均匀浅灰底（#f2f2f7）盖住 Mica 染色，白卡片才有干净的层次差。 */
 html[data-platform='windows'] .v-application.v-theme--light {
-  --launcher-chrome-bg: 242 242 247;
+  --launcher-chrome-bg: 242, 242, 247;
   --launcher-chrome-alpha: 0.92;
 }
 
