@@ -43,7 +43,7 @@ const jaJP = {
     noNotes: "このバージョンのリリースノートはありません",
   },
   trayPanel: {
-    title: "AstrBot Launcher",
+    title: "AstrBot Go",
     openMainWindow: "メインウィンドウを開く",
     openSettings: "設定を開く",
     quit: "終了",
@@ -212,7 +212,7 @@ const jaJP = {
       currentRepoDescription: "Tauri 2 と Vue 3 で実装された現在のデスクトップリポジトリ。",
       astrbotRepoDescription: "AstrBot コアプロジェクトの上流リポジトリ。",
       openLauncherRepo: "astrbot-launcher メインリポジトリを開く",
-      openCurrentRepo: "astrbot-launcher-vue 現在のリポジトリを開く",
+      openCurrentRepo: "astrbot-go 現在のリポジトリを開く",
       openAstrbotRepo: "AstrBot リポジトリを開く",
       openRepository: "リポジトリを開く",
       openLinkFailed: "リンクを開けません：{detail}",

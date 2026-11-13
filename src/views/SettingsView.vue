@@ -930,7 +930,7 @@ async function handleClearUvCache(): Promise<void> {
 const appVersion = ref("—");
 const launcherRepoUrl = "https://github.com/AstrBotDevs/astrbot-launcher";
 const currentRepoUrl =
-  "https://github.com/mantoujun12/astrbot-launcher-vue";
+  "https://github.com/mantoujun12/AstrBot-Go";
 const astrbotRepoUrl = "https://github.com/AstrBotDevs/AstrBot";
 
 async function loadAppVersion(): Promise<void> {
@@ -1569,7 +1569,7 @@ onMounted(() => {
           </div>
           <div class="settings-list-card">
             <SettingsItem :title="t('settings.about.appName')">
-              <span class="settings-value">AstrBot Launcher</span>
+              <span class="settings-value">AstrBot Go</span>
             </SettingsItem>
             <SettingsItem :title="t('settings.about.version')">
               <span class="settings-value">{{ appVersion }}</span>
@@ -1591,7 +1591,7 @@ onMounted(() => {
               </v-btn>
             </SettingsItem>
             <SettingsItem
-              title="astrbot-launcher-vue"
+              title="astrbot-go"
               :subtitle="t('settings.about.currentRepoDescription')"
               wide
             >

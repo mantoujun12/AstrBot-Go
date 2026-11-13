@@ -60,8 +60,8 @@
 #    - updates src-tauri/Cargo.lock by running cargo check in src-tauri/;
 #    - renames changelogs/unreleased.md to changelogs/v<version>.md;
 #    - annotates every entry with its source pull request as a full Markdown link, using
-#      `([#8](https://github.com/mantoujun12/astrbot-launcher-vue/pull/8))` for English entries and
-#      `（[#8](https://github.com/mantoujun12/astrbot-launcher-vue/pull/8)）` for Chinese entries;
+#      `([#8](https://github.com/mantoujun12/astrbot-go/pull/8))` for English entries and
+#      `（[#8](https://github.com/mantoujun12/astrbot-go/pull/8)）` for Chinese entries;
 #    - recreates an empty changelogs/unreleased.md for the next cycle;
 #    - rebases onto the latest main before merging and moves concurrent unreleased entries into
 #      the new draft.

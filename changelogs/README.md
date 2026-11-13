@@ -21,9 +21,9 @@
 准备发版时创建一个版本更新 PR：
 
 1. 将 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json` 的版本号改为发布版本。
-2. 在 `src-tauri/` 下运行 `cargo check`，Cargo 会自动更新 `src-tauri/Cargo.lock` 中 `astrbot-launcher-vue` 的版本；提交前确认锁文件只包含预期的版本变化。
+2. 在 `src-tauri/` 下运行 `cargo check`，Cargo 会自动更新 `src-tauri/Cargo.lock` 中 `astrbot-go` 的版本；提交前确认锁文件只包含预期的版本变化。
 3. 将 `unreleased.md` 改名为 `v<版本号>.md`，例如 `v0.2.0.md`。版本文件的内容会作为 GitHub Release 说明的第一部分，工作流随后附上 GitHub 自动生成的变更列表（包括贡献者和 Full Changelog 链接），两者以分隔线隔开。
-4. 为版本文件中的每条记录补上来源 PR 的完整 Markdown 链接：英文条目使用半角括号，例如 `([#8](https://github.com/mantoujun12/astrbot-launcher-vue/pull/8))`；中文条目使用全角括号，例如 `（[#8](https://github.com/mantoujun12/astrbot-launcher-vue/pull/8)）`。同一逻辑条目的英文和中文必须链接到同一个 PR。
+4. 为版本文件中的每条记录补上来源 PR 的完整 Markdown 链接：英文条目使用半角括号，例如 `([#8](https://github.com/mantoujun12/AstrBot-Go/pull/8))`；中文条目使用全角括号，例如 `（[#8](https://github.com/mantoujun12/AstrBot-Go/pull/8)）`。同一逻辑条目的英文和中文必须链接到同一个 PR。
 5. 新建空的 `unreleased.md`，供下一轮开发使用。
 6. 合并前先变基到最新 `main`，确认 `unreleased.md` 中并发新增的条目已移回新的 `unreleased.md`；`v<版本号>.md` 只保留本次发布的内容。
 7. 合入 `main`。工作流会校验版本号、版本文件和是否已有 GitHub Release，然后构建 Windows 安装包并创建 GitHub Release。若 tag 已存在但没有 Release，工作流会跳过并提示人工处理。

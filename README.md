@@ -2,11 +2,11 @@
 
 ![AstrBot-Logo-Simplified](https://github.com/user-attachments/assets/36fb04e4-cc75-4454-bd8b-049d11aa86f9)
 
-# AstrBot Launcher (Vue Version)
+# AstrBot Go
 
 <!-- badge -->
 
-<a href="https://github.com/mantoujun12/astrbot-launcher-vue/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/mantoujun12/astrbot-launcher-vue?color=76bad9"></a>
+<a href="https://github.com/mantoujun12/AstrBot-Go/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/mantoujun12/AstrBot-Go?color=76bad9"></a>
 <a href="https://tauri.app"><img alt="Tauri 2.12.5" src="https://img.shields.io/badge/Tauri-2.12.5-24C8D8?logo=tauri&logoColor=white"></a>
 <a href="https://vuetifyjs.com"><img alt="Vuetify 4.3.2" src="https://img.shields.io/badge/Vuetify-4.3.2-1867C0?logo=vuetify"></a>
 <a href="https://github.com/AstrBotDevs/astrbot-launcher"><img alt="Main - AstrBotDevs/astrbot-launcher" src="https://img.shields.io/badge/Main-AstrBotDevs%2Fastrbot--launcher-181717?logo=github"></a>

@@ -83,7 +83,7 @@ pub fn ensure_panel(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         PANEL_LABEL,
         WebviewUrl::App("src/tray-panel.html".into()),
     )
-    .title("AstrBot Launcher")
+    .title("AstrBot Go")
     .inner_size(PANEL_WIDTH, height)
     .resizable(false)
     .maximizable(false)

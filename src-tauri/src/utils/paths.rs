@@ -13,7 +13,7 @@ use crate::utils::sync::{read_lock_recover, write_lock_recover};
 /// Directory (under the OS config directory) used for launcher-internal files
 /// that must live outside the user-selectable data directory, such as the
 /// data directory override itself.
-const LAUNCHER_CONFIG_SUBDIR: &str = "com.github.mantoujun12.astrbot-launcher-vue";
+const LAUNCHER_CONFIG_SUBDIR: &str = "com.github.mantoujun12.astrbot-go";
 
 /// File storing the user-configured data directory override.
 const DATA_DIR_OVERRIDE_FILE: &str = ".data-dir.json";
@@ -24,7 +24,7 @@ const DATA_DIR_OVERRIDE_FILE: &str = ".data-dir.json";
 static DATA_DIR_CACHE: Lazy<RwLock<PathBuf>> =
     Lazy::new(|| RwLock::new(load_data_dir_override().unwrap_or_else(default_data_dir)));
 
-/// Get the launcher config directory (`<config_dir>/com.github.mantoujun12.astrbot-launcher-vue`).
+/// Get the launcher config directory (`<config_dir>/com.github.mantoujun12.astrbot-go`).
 pub(crate) fn launcher_config_dir() -> Option<PathBuf> {
     dirs::config_dir().map(|dir| dir.join(LAUNCHER_CONFIG_SUBDIR))
 }

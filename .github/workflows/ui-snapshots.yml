@@ -109,7 +109,7 @@ jobs:
       - name: Launch app and capture window
         run: |
           set -u
-          APP="src-tauri/target/debug/bundle/macos/AstrBot Launcher.app"
+          APP="src-tauri/target/debug/bundle/macos/AstrBot Go.app"
           test -d "$APP"
           codesign --force --deep --sign - "$APP"
           echo "--- spctl ---"
@@ -121,7 +121,7 @@ jobs:
           echo "--- processes ---"
           if ! pgrep -f astrbot > /dev/null; then
             echo "no astrbot process, trying direct launch"
-            "$APP/Contents/MacOS/astrbot-launcher-vue" \
+            "$APP/Contents/MacOS/astrbot-go" \
               > app.log 2>&1 &
             sleep 15
             echo "--- app.log ---"
@@ -249,7 +249,7 @@ jobs:
       - name: Launch app and capture screen
         shell: pwsh
         run: |
-          $exe = "src-tauri/target/debug/astrbot-launcher-vue.exe"
+          $exe = "src-tauri/target/debug/astrbot-go.exe"
           if (-not (Test-Path $exe)) { throw "binary not found: $exe" }
           $p = Start-Process -FilePath (Resolve-Path $exe).Path -PassThru
           Start-Sleep -Seconds 12
