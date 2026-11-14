@@ -27,7 +27,7 @@
         "transparent": true,
         "shadow": true,
         "windowEffects": {
-          "effects": ["mica", "sidebar"]
+          "effects": ["sidebar"]
         }
       }
     ],
