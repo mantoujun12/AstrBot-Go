@@ -9,21 +9,19 @@
 <a href="https://github.com/mantoujun12/AstrBot-Go/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/mantoujun12/AstrBot-Go?color=76bad9"></a>
 <a href="https://tauri.app"><img alt="Tauri 2.12.5" src="https://img.shields.io/badge/Tauri-2.12.5-24C8D8?logo=tauri&logoColor=white"></a>
 <a href="https://vuetifyjs.com"><img alt="Vuetify 4.3.2" src="https://img.shields.io/badge/Vuetify-4.3.2-1867C0?logo=vuetify"></a>
-<a href="https://github.com/AstrBotDevs/astrbot-launcher"><img alt="Main - AstrBotDevs/astrbot-launcher" src="https://img.shields.io/badge/Main-AstrBotDevs%2Fastrbot--launcher-181717?logo=github"></a>
-<a href="https://github.com/AstrBotDevs/AstrBot"><img alt="Upstream - AstrBotDevs/AstrBot" src="https://img.shields.io/badge/Upstream-AstrBotDevs%2FAstrBot-181717?logo=github"></a>
 
 <!-- badge -->
 
-基于 Tauri 与 Vuetify 构建的 AstrBot 桌面启动器
+基于 Tauri 与 Vuetify 构建的 AstrBot 桌面客户端
 
-用于集中管理本地实例，提供版本下载、数据备份和 Python 等运行环境配置
+发现、创建、管理实例，并提供实用功能
 
 [English](./README.md) | 简体中文
 
 </div>
 
 > [!IMPORTANT]
-> 这是非官方版本，可能含有不稳定的风险。如需正常且稳定的使用，请转到 [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher) 。
+> 这是非官方项目，可能含有不稳定的风险。如需正常且稳定的使用，请转到 [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher) 。
 
 ## 功能
 
@@ -47,8 +45,13 @@
 ## 技术栈
 
 - 桌面框架：[Tauri 2](https://v2.tauri.app/)
-- 前端：[Vue 3](https://vuejs.org/)、[Vuetify 4](https://vuetifyjs.com/)、[TypeScript](https://www.typescriptlang.org/)
-- 构建与包管理：[Vite](https://vite.dev/)、[pnpm](https://pnpm.io/)
+- 前端：
+    - [Vue 3](https://vuejs.org/)
+    - [Vuetify 4](https://vuetifyjs.com/)
+    - [TypeScript](https://www.typescriptlang.org/)
+- 构建与包管理：
+    - [Vite](https://vite.dev/)
+    - [pnpm](https://pnpm.io/)
 - 原生后端：[Rust](https://www.rust-lang.org/)
 
 ## 开发环境
@@ -73,16 +76,20 @@ pnpm tauri build
 
 ## 相关链接
 
-- 项目与技术文档：[AstrBot](https://github.com/AstrBotDevs/AstrBot)、[Tauri 文档](https://v2.tauri.app/)、[Vue 文档](https://vuejs.org/guide/introduction.html)、[Vuetify 文档](https://vuetifyjs.com/)
-- 开发与构建：[Tauri 环境要求](https://v2.tauri.app/start/prerequisites/)、[Vite 文档](https://vite.dev/guide/)、[Rust 安装指南](https://www.rust-lang.org/tools/install)、[pnpm 文档](https://pnpm.io/)
-- 上游项目：[AstrBot](https://github.com/AstrBotDevs/AstrBot)、[astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher)
+- 项目与技术文档：
+    - [AstrBot](https://github.com/AstrBotDevs/AstrBot)
+    - [Tauri 文档](https://v2.tauri.app/)
+    - [Vue 文档](https://vuejs.org/guide/introduction.html)
+    - [Vuetify 文档](https://vuetifyjs.com/)
+- 开发与构建：
+    - [Tauri 环境要求](https://v2.tauri.app/start/prerequisites/)
+    - [Vite 文档](https://vite.dev/guide/)
+    - [Rust 安装指南](https://www.rust-lang.org/tools/install)
+    - [pnpm 文档](https://pnpm.io/)
+- 上游项目：
+    - [AstrBot](https://github.com/AstrBotDevs/AstrBot)
+    - [astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher)
 
-## 许可证与来源
+## 许可证
 
 本项目采用 [MIT License](./LICENSE)。
-
-前端由本项目独立实现。
-
-后端 `src-tauri/` 基于 [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher) 的 MIT 许可代码修改，原始版权归 Raven95676 所有。
-
-相关声明和许可证全文见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。

@@ -9,21 +9,19 @@
 <a href="https://github.com/mantoujun12/AstrBot-Go/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/mantoujun12/AstrBot-Go?color=76bad9"></a>
 <a href="https://tauri.app"><img alt="Tauri 2.12.5" src="https://img.shields.io/badge/Tauri-2.12.5-24C8D8?logo=tauri&logoColor=white"></a>
 <a href="https://vuetifyjs.com"><img alt="Vuetify 4.3.2" src="https://img.shields.io/badge/Vuetify-4.3.2-1867C0?logo=vuetify"></a>
-<a href="https://github.com/AstrBotDevs/astrbot-launcher"><img alt="Main - AstrBotDevs/astrbot-launcher" src="https://img.shields.io/badge/Main-AstrBotDevs%2Fastrbot--launcher-181717?logo=github"></a>
-<a href="https://github.com/AstrBotDevs/AstrBot"><img alt="Upstream - AstrBotDevs/AstrBot" src="https://img.shields.io/badge/Upstream-AstrBotDevs%2FAstrBot-181717?logo=github"></a>
 
 <!-- badge -->
 
-Desktop launcher for AstrBot built with Tauri and Vuetify
+Desktop Client for AstrBot built with Tauri and Vuetify
 
-Centralizes local instance management, version downloads, data backups, and Python runtime setup
+Discover, create, and manage instances, with practical features
 
 English | [简体中文](./README_zh.md)
 
 </div>
 
 > [!IMPORTANT]
-> This is an unofficial version and may be unstable. For a stable experience, please use [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher).
+> This is an unofficial project and may be unstable. For a stable experience, please use [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher).
 
 ## Features
 
@@ -47,8 +45,13 @@ Platform-specific capabilities are adapted through Rust conditional compilation 
 ## Tech Stack
 
 - Desktop framework: [Tauri 2](https://v2.tauri.app/)
-- Frontend: [Vue 3](https://vuejs.org/), [Vuetify 4](https://vuetifyjs.com/), [TypeScript](https://www.typescriptlang.org/)
-- Build and package manager: [Vite](https://vite.dev/), [pnpm](https://pnpm.io/)
+- Frontend:
+    - [Vue 3](https://vuejs.org/)
+    - [Vuetify 4](https://vuetifyjs.com/)
+    - [TypeScript](https://www.typescriptlang.org/)
+- Build and package manager:
+    - [Vite](https://vite.dev/)
+    - [pnpm](https://pnpm.io/)
 - Native backend: [Rust](https://www.rust-lang.org/)
 
 ## Prerequisites
@@ -73,16 +76,20 @@ pnpm tauri build
 
 ## Links
 
-- Project and technical docs: [AstrBot](https://github.com/AstrBotDevs/AstrBot), [Tauri Docs](https://v2.tauri.app/), [Vue Docs](https://vuejs.org/guide/introduction.html), [Vuetify Docs](https://vuetifyjs.com/)
-- Development and build: [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/), [Vite Guide](https://vite.dev/guide/), [Rust Installation Guide](https://www.rust-lang.org/tools/install), [pnpm Docs](https://pnpm.io/)
-- Upstream projects: [AstrBot](https://github.com/AstrBotDevs/AstrBot), [astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher)
+- Project and technical docs:
+    - [AstrBot](https://github.com/AstrBotDevs/AstrBot)
+    - [Tauri Docs](https://v2.tauri.app/)
+    - [Vue Docs](https://vuejs.org/guide/introduction.html)
+    - [Vuetify Docs](https://vuetifyjs.com/)
+- Development and build:
+    - [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)
+    - [Vite Guide](https://vite.dev/guide/)
+    - [Rust Installation Guide](https://www.rust-lang.org/tools/install)
+    - [pnpm Docs](https://pnpm.io/)
+- Upstream projects:
+    - [AstrBot](https://github.com/AstrBotDevs/AstrBot)
+    - [astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher)
 
-## License and Attribution
+## License
 
 This project is licensed under the [MIT License](./LICENSE).
-
-The frontend is independently implemented by this project.
-
-The backend in `src-tauri/` is modified from MIT-licensed code in [AstrBotDevs/astrbot-launcher](https://github.com/AstrBotDevs/astrbot-launcher), with original copyright held by Raven95676.
-
-See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) for the full notices and license texts.
