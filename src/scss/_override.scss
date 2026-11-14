@@ -93,9 +93,15 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
 }
 
 .v-overlay.v-menu {
+  > .v-overlay__content {
+    border-radius: var(--astrbot-radius-menu) !important;
+  }
+
   .v-overlay__content > .v-card,
+  .v-overlay__content > .v-sheet,
   .v-overlay__content > .v-list {
     border: 0 !important;
+    border-radius: inherit !important;
     box-shadow: var(--astrbot-menu-shadow) !important;
   }
 
@@ -103,6 +109,16 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   .v-overlay__content .v-list {
     border: 0 !important;
   }
+}
+
+// Snackbars and alerts: Vuetify pins both to the 4px root radius while the
+// app's compact floating surfaces use the control token.
+.v-snackbar .v-snackbar__wrapper {
+  border-radius: var(--astrbot-radius-control);
+}
+
+.v-alert {
+  border-radius: var(--astrbot-radius-control);
 }
 
 // Dialogs: Vuetify pins the surface radius to 4px. Follow the app's dialog

@@ -79,8 +79,21 @@ const sidebarIsCollapsed = computed(
   () => mdAndUp.value && isCollapsed.value,
 );
 
+// 仅侧边栏展开/收起的瞬间挂上 .layout-animating，让内容区（v-main 内边距）
+// 跟随 180ms 过渡与侧栏宽度动画同步；标签页切换等其余布局变化保持无动画。
+const railAnimating = ref(false);
+let railAnimationTimer: ReturnType<typeof setTimeout> | undefined;
+
 function toggleSidebar() {
   isCollapsed.value = !isCollapsed.value;
+  if (railAnimationTimer !== undefined) {
+    clearTimeout(railAnimationTimer);
+  }
+  railAnimating.value = true;
+  railAnimationTimer = setTimeout(() => {
+    railAnimating.value = false;
+    railAnimationTimer = undefined;
+  }, 220);
 }
 
 function closeMobileDrawer() {
@@ -266,16 +279,22 @@ onBeforeUnmount(() => {
   unlistenRestart = null;
   unlistenTrayAction?.();
   unlistenTrayAction = null;
+  if (railAnimationTimer !== undefined) {
+    clearTimeout(railAnimationTimer);
+  }
 });
 </script>
 
 <template>
   <v-app class="launcher-app">
-    <!-- The title bar must stay outside `.launcher-shell`: its `isolation`
-         creates a stacking context that would trap the window controls below
-         Vuetify overlays, which are teleported to `body` with z-index 2400. -->
+    <!-- The title bar teleports itself to `body`: `.launcher-shell`'s
+         `isolation` and Vuetify `.v-application__wrap`'s stacking context
+         would otherwise trap it below the dialog scrim (z-index 2400). -->
     <AppTitleBar />
-    <div class="launcher-shell">
+    <div
+      class="launcher-shell"
+      :class="{ 'layout-animating': railAnimating }"
+    >
       <!-- Instance tabs use the full window; the sidebar is only part of the
            home shell so it must not reserve layout space in those tabs. -->
       <LauncherSidebar

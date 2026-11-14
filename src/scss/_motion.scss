@@ -14,6 +14,13 @@
   opacity: 0;
 }
 
+/* 侧边栏展开/收起时内容区（v-main 内边距）跟随 180ms 过渡，与侧栏宽度动画
+   同步；App.vue 只在 rail 切换瞬间挂上 .layout-animating，因此标签页切换等
+   其余布局变化不受影响，保持无动画（_override.scss 中默认 transition: none）。 */
+.layout-animating .v-main {
+  transition: padding 180ms var(--motion-ease);
+}
+
 .motion-list-enter-active,
 .motion-list-leave-active {
   transition:

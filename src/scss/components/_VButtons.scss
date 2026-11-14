@@ -25,8 +25,38 @@
 
 // 同理，按钮组（v-btn-toggle/v-btn-group）内按钮必须保持 Vuetify 的直角拼接，
 // 由组容器统一给出轮廓；全局圆角会破坏 divided/outlined 的边框拼合并裁掉末位按钮。
-.v-btn-group .v-btn {
+// 全局规则 .v-btn:not(...):not(...) 的特异性是 (0,3,0)，这里用同款排除把选择器
+// 提到 (0,4,0) 才能真正压住它（此前的 (0,2,0) 写法实际从未生效）。
+.v-btn-group > .v-btn:not(.v-btn--icon):not(.rounded-pill) {
   border-radius: 0;
+}
+
+// 组容器轮廓走 control token（Vuetify 默认 4px），组内首尾按钮通过
+// 下面的 inherit 规则跟随容器圆角。
+.v-btn-group {
+  border-radius: var(--astrbot-radius-control);
+}
+
+// 首尾按钮继承组容器的圆角（Vuetify 的 inherit 规则在 @layer 内，同样需要提权）。
+// 必须用角落长手属性并写在直角规则之后：inherit 简写会把内侧直角也变成容器圆角。
+.v-btn-group--horizontal > .v-btn:first-child:not(.v-btn--icon) {
+  border-start-start-radius: inherit;
+  border-end-start-radius: inherit;
+}
+
+.v-btn-group--horizontal > .v-btn:last-child:not(.v-btn--icon) {
+  border-start-end-radius: inherit;
+  border-end-end-radius: inherit;
+}
+
+.v-btn-group--vertical > .v-btn:first-child:not(.v-btn--icon) {
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+
+.v-btn-group--vertical > .v-btn:last-child:not(.v-btn--icon) {
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
 }
 .v-btn--icon.v-btn--density-default {
   width: calc(var(--v-btn-height) + 6px);
