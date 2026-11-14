@@ -148,8 +148,9 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
     }
   }
 
-  // 操作按钮全圆角；主操作对齐上游 tonal 观感：主色浅染底替代深色实心，
-  // 启用态文本按钮保持主题主色，禁用态交给 Vuetify 淡化。
+  // Pill-shaped action buttons; the primary action uses upstream's tonal look
+  // (light primary tint instead of a solid fill). Enabled text buttons keep the
+  // theme's primary color; disabled styling is left to Vuetify.
   .v-card-actions .v-btn {
     border-radius: var(--astrbot-radius-pill) !important;
   }

@@ -17,7 +17,7 @@ const {
 const { instances } = useLauncherStore();
 const { t } = useI18n();
 
-// macOS 顶部红绿灯区占用标题栏左侧空间，无法与侧栏轨道精确对齐，仅对 Windows/Linux 采用 8px 内边距。
+// macOS traffic lights occupy the title bar's left edge, so exact alignment with the sidebar rail is impossible; only Windows/Linux get the 8px padding.
 const isMac = navigator.userAgent.includes("Mac");
 
 const tabs = computed(() =>
@@ -246,7 +246,7 @@ function onDragEnd(): void {
   padding-inline-start: 8px;
 }
 
-/* macOS 红绿灯预留区使轨道对齐无法实现，保持原 4px 内边距。 */
+/* The macOS traffic-light reserve makes rail alignment impossible; keep the original 4px padding. */
 .titlebar-tabs--mac {
   padding-inline-start: 4px;
 }
@@ -329,7 +329,7 @@ function onDragEnd(): void {
   opacity: 0;
 }
 
-/* 拖拽跨越中点即时更新顺序时，标签通过 FLIP 平滑滑入新位置。 */
+/* When a drag crossing a midpoint reorders instantly, tabs slide into their new position via FLIP. */
 .titlebar-tab-move {
   transition:
     transform var(--motion-duration-base) var(--motion-ease),

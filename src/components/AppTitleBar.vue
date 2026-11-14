@@ -240,9 +240,11 @@ onBeforeUnmount(() => {
   outline-offset: -3px;
 }
 
-/* 带遮罩的弹层激活时，标题栏用不透明 chrome 底替代透明 Mica 底：遮罩（z 2400+，
-   body 层）画在标题栏之下但透过透明底会盖住条带，不透明底让标题栏在弹窗期间
-   保持正常亮度（原生模态样式：内容压暗，标题栏 chrome 不变）。 */
+/* While a scrimmed overlay is active the title bar swaps its transparent Mica
+   base for an opaque chrome base: the scrim (z-index 2400+, teleported to body)
+   sits under the title bar but would cover the strip through a transparent
+   base; opaque keeps the bar at normal brightness (native modal style: content
+   dims, title bar chrome stays). */
 :global(body:has(.v-overlay--active .v-overlay__scrim)) .app-titlebar {
   background: rgb(var(--launcher-chrome-bg));
 }

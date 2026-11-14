@@ -14,9 +14,10 @@
   opacity: 0;
 }
 
-/* 侧边栏展开/收起时内容区（v-main 内边距）跟随 180ms 过渡，与侧栏宽度动画
-   同步；App.vue 只在 rail 切换瞬间挂上 .layout-animating，因此标签页切换等
-   其余布局变化不受影响，保持无动画（_override.scss 中默认 transition: none）。 */
+/* The content area (v-main padding) follows the sidebar's 180ms expand/collapse
+   transition. App.vue only applies .layout-animating during a rail toggle, so
+   tab switches and other layout changes stay unanimated (default
+   transition: none in _override.scss). */
 .layout-animating .v-main {
   transition: padding 180ms var(--motion-ease);
 }

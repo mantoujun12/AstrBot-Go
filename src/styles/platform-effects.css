@@ -20,8 +20,8 @@ html[data-platform='windows'] {
   --launcher-chrome-alpha: 0.85;
 }
 
-/* 浅色对齐上游的均匀浅灰底（#f2f2f7），同时给 Mica 染色留出可见的透出量；
-   白色卡片负责层次差，染色层不需要盖死 Mica。 */
+/* Light theme keeps upstream's flat gray (#f2f2f7) while leaving enough
+   transparency for the Mica tint; white cards carry the layering. */
 html[data-platform='windows'] .v-application.v-theme--light {
   --launcher-chrome-bg: 242, 242, 247;
   --launcher-chrome-alpha: 0.78;

@@ -1,4 +1,4 @@
-/* 自定义滚动条样式 - 跟随主题 */
+/* Custom scrollbar styling — follows the theme */
 
 :root {
   --astrbot-scrollbar-track: transparent;
@@ -6,12 +6,12 @@
   --astrbot-scrollbar-thumb-active: rgba(var(--v-theme-primary), 0.94);
 }
 
-/* 渐隐只作用于每个滚动容器自身，嵌套滚动区域互不影响。 */
+/* Fading applies to each scroll container independently; nested areas don't affect each other. */
 * {
   --astrbot-scrollbar-opacity: 0;
 }
 
-/* 全局滚动条样式 */
+/* Global scrollbar styles */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -43,7 +43,7 @@
   background: transparent;
 }
 
-/* 细滚动条变体 */
+/* Thin scrollbar variant */
 .thin-scrollbar {
   ::-webkit-scrollbar {
     width: 4px;
@@ -51,7 +51,7 @@
   }
 }
 
-/* 聊天区域滚动条 */
+/* Chat area scrollbar */
 .chat-scrollbar {
   ::-webkit-scrollbar {
     width: 6px;
@@ -72,7 +72,7 @@
   }
 }
 
-/* 隐藏滚动条变体 */
+/* Hidden scrollbar variant */
 .hidden-scrollbar {
   ::-webkit-scrollbar {
     width: 0px;
@@ -83,8 +83,8 @@
   -ms-overflow-style: none;
 }
 
-/* 仅 Firefox：在 WebKit/Blink 中设置这些属性会让浏览器忽略
-   ::-webkit-scrollbar 并回退到原生悬浮滚动条。 */
+/* Firefox only: setting these properties in WebKit/Blink makes the browser
+   ignore ::-webkit-scrollbar and fall back to the native overlay scrollbar. */
 @supports not selector(::-webkit-scrollbar) {
   * {
     scrollbar-width: thin;
@@ -96,12 +96,12 @@
   }
 }
 
-/* 平滑滚动 */
+/* Smooth scrolling */
 html {
   scroll-behavior: smooth;
 }
 
-/* 移动端触摸滚动优化 */
+/* Touch scrolling optimization for mobile */
 * {
   -webkit-overflow-scrolling: touch;
 }

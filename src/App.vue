@@ -79,8 +79,9 @@ const sidebarIsCollapsed = computed(
   () => mdAndUp.value && isCollapsed.value,
 );
 
-// 仅侧边栏展开/收起的瞬间挂上 .layout-animating，让内容区（v-main 内边距）
-// 跟随 180ms 过渡与侧栏宽度动画同步；标签页切换等其余布局变化保持无动画。
+// .layout-animating is only attached while the sidebar expands/collapses, so
+// the content area (v-main padding) transitions with the sidebar width; tab
+// switches and other layout changes stay unanimated.
 const railAnimating = ref(false);
 let railAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -160,7 +161,7 @@ watch(
   { immediate: true },
 );
 
-// 直接监听解析后的生效主题：偏好为 system 时 OS 切换深浅也要同步原生窗口染色。
+// Watch the resolved effective theme: with preference "system", OS light/dark switches must also resync native window tinting.
 watch(
   () => theme.global.current.value.dark,
   (dark) => {
@@ -363,7 +364,7 @@ onBeforeUnmount(() => {
   background: rgba(var(--launcher-chrome-bg), var(--launcher-chrome-alpha, 1));
 }
 
-/* 窗口底色 token：默认跟随主题 surface，平台效果层可按平台覆盖 alpha。 */
+/* Window backdrop token: defaults to the theme surface; platform effects may override alpha per platform. */
 :global(:root) {
   --launcher-chrome-bg: var(--v-theme-surface);
 }
