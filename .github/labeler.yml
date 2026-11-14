@@ -1,3 +1,12 @@
+enhancement:
+  - head-branch: ['^feat', 'feat']
+
+bug:
+  - head-branch: ['^fix', 'fix']
+
+documentation:
+  - head-branch: ['^docs', 'docs', '^doc', 'doc']
+
 frontend:
   - changed-files:
       - any-glob-to-any-file:
@@ -25,3 +34,8 @@ dependencies:
           - 'pnpm-lock.yaml'
           - 'src-tauri/Cargo.toml'
           - 'src-tauri/Cargo.lock'
+
+github_actions:
+    - changed-files:
+        - any-glob-to-any-file:
+            - '.github/workflows/**'
