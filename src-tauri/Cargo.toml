@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "astrbot-go"
-version = "0.4.0"
+version = "0.5.0"
 description = "AstrBot desktop launcher built with Tauri"
 edition = "2021"
 
@@ -14,7 +14,7 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "astrbot_launcher_vue_lib"
+name = "astrbot_go_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
