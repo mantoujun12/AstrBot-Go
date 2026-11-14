@@ -120,7 +120,10 @@ const toggleLabel = computed(() =>
   left: 0 !important;
   height: calc(100% - var(--launcher-titlebar-height)) !important;
   border-inline-end: 0;
-  background: rgba(var(--launcher-chrome-bg), var(--launcher-chrome-alpha, 1)) !important;
+  /* Keep Vuetify's opaque surface background out; the `.launcher-shell`
+     base already paints the shared chrome tint, and a second layer would
+     double-stack the alpha and hide the Mica tint. */
+  background: transparent !important;
   box-shadow: none !important;
   transition:
     width 180ms cubic-bezier(0.2, 0, 0, 1),

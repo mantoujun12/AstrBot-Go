@@ -766,7 +766,8 @@ function retry(): void {
 
 <style scoped>
 .overview-page {
-  --overview-card: #f5f6f7;
+  /* 白色卡片在浅灰染色层上形成层次差，边框兜住低对比环境。 */
+  --overview-card: #ffffff;
   --overview-muted: rgba(var(--v-theme-on-surface), 0.58);
   --overview-border: rgba(var(--v-theme-on-surface), 0.1);
   color: rgb(var(--v-theme-on-surface));
@@ -797,6 +798,7 @@ function retry(): void {
   position: relative;
   overflow: hidden;
   padding: 20px 20px 18px;
+  border: 1px solid var(--overview-border);
   border-radius: var(--astrbot-radius-card);
   background: var(--overview-card);
 }
@@ -886,6 +888,7 @@ function retry(): void {
 .panel-card {
   min-width: 0;
   padding: 22px;
+  border: 1px solid var(--overview-border);
   border-radius: var(--astrbot-radius-card);
   background: var(--overview-card);
 }

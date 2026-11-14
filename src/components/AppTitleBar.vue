@@ -97,12 +97,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header
-    class="app-titlebar"
-    :class="{ 'app-titlebar--mac': isMac }"
-    data-tauri-decorum-tb
-    :aria-label="t('shell.titleBar.label')"
-  >
+  <!-- Teleported to `body`: both `.launcher-shell` (isolation) and Vuetify's
+       `.v-application__wrap` (backface-visibility) create stacking contexts
+       that would trap the titlebar below the overlay scrim (z 2400+). As a
+       body-level sibling it genuinely sits above the overlay stack, so the
+       window controls stay usable while dialogs are open. -->
+  <Teleport to="body">
+    <header
+      class="app-titlebar"
+      :class="{ 'app-titlebar--mac': isMac }"
+      data-tauri-decorum-tb
+      :aria-label="t('shell.titleBar.label')"
+    >
     <TitleBarTabs />
     <div
       class="app-titlebar__drag"
@@ -146,7 +152,8 @@ onBeforeUnmount(() => {
         <span class="app-titlebar__glyph" aria-hidden="true">&#xE8BB;</span>
       </button>
     </div>
-  </header>
+    </header>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -155,15 +162,17 @@ onBeforeUnmount(() => {
    swallowed by a scrim. Requires AppTitleBar to be mounted outside the
    isolated `.launcher-shell` stacking context. */
 .app-titlebar {
-  position: absolute;
+  position: fixed;
   inset: 0 0 auto;
   z-index: var(--launcher-titlebar-z-index, 3000);
   display: flex;
   align-items: stretch;
   width: 100%;
-  height: var(--launcher-titlebar-height);
+  height: var(--launcher-titlebar-height, 40px);
   color: rgba(var(--v-theme-on-surface), 0.78);
-  background: rgba(var(--launcher-chrome-bg), var(--launcher-chrome-alpha, 1));
+  /* The `.launcher-shell` base already paints the shared chrome tint; an
+     extra layer here would double-stack the alpha and hide the Mica tint. */
+  background: transparent;
   border-bottom: 0;
   user-select: none;
 }
@@ -229,5 +238,12 @@ onBeforeUnmount(() => {
 .app-titlebar__control:focus-visible {
   outline: 2px solid rgb(var(--v-theme-primary));
   outline-offset: -3px;
+}
+
+/* 带遮罩的弹层激活时，标题栏用不透明 chrome 底替代透明 Mica 底：遮罩（z 2400+，
+   body 层）画在标题栏之下但透过透明底会盖住条带，不透明底让标题栏在弹窗期间
+   保持正常亮度（原生模态样式：内容压暗，标题栏 chrome 不变）。 */
+:global(body:has(.v-overlay--active .v-overlay__scrim)) .app-titlebar {
+  background: rgb(var(--launcher-chrome-bg));
 }
 </style>
