@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    astrbot_launcher_vue_lib::run()
+    astrbot_go_lib::run()
 }
