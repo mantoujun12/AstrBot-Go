@@ -3,6 +3,17 @@
 # The frontend and backend parameters are set by the path-filtering setup job.
 # A job is skipped when its parameter is false, so unrelated changes do not use build credits.
 #
+# Changes in this revision:
+# - the backend job now runs fmt, clippy, and `cargo test --workspace --locked` serially,
+#   reusing one dependency compilation instead of paying for two parallel ones.
+# - clippy and test run before the cache save, so new crates compiled for tests stay cached.
+# - the frontend job caches the pnpm store; the cache key is bumped when the store layout changes.
+# - caches only the cargo registry and git, not target/: caches are billed as size x retention
+#   and a debug Tauri target directory would exceed the free storage allowance.
+# - `cargo test` was verified locally on Windows: 137 tests pass in ~3s and compilation
+#   succeeds without a dist/ directory (generate_context! does not require frontendDist).
+#   The Linux test run (cfg(not(windows)) paths) is validated by the first CI run.
+#
 # References:
 # - cimg/rust image and tagging scheme: https://circleci.com/developer/images/image/cimg/rust
 # - cimg/node image: https://circleci.com/developer/images/image/cimg/node
@@ -50,6 +61,15 @@ commands:
               librsvg2-dev \
               libxdo-dev
 
+  prepare-rust-tooling:
+    steps:
+      - run:
+          name: Prepare rustfmt and clippy
+          command: |
+            rustup component add rustfmt clippy
+            cargo fmt --version
+            cargo clippy --version
+
 jobs:
   frontend:
     docker:
@@ -60,9 +80,17 @@ jobs:
     steps:
       - checkout
       - install-pnpm
+      - restore_cache:
+          keys:
+            - pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+            - pnpm-v1-
       - run:
           name: Install dependencies
           command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
       - run:
           name: Type check and build frontend
           command: pnpm build
@@ -76,12 +104,7 @@ jobs:
     steps:
       - checkout
       - install-tauri-system-deps
-      - run:
-          name: Prepare rustfmt and clippy
-          command: |
-            rustup component add rustfmt clippy
-            cargo fmt --version
-            cargo clippy --version
+      - prepare-rust-tooling
       - restore_cache:
           keys:
             - cargo-v4-{{ checksum "src-tauri/Cargo.lock" }}
@@ -93,6 +116,10 @@ jobs:
       - run:
           name: Run clippy
           command: cargo clippy --workspace --all-targets --locked
+          working_directory: src-tauri
+      - run:
+          name: Run unit tests
+          command: cargo test --workspace --locked
           working_directory: src-tauri
       - save_cache:
           key: cargo-v4-{{ checksum "src-tauri/Cargo.lock" }}
