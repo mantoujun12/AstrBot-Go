@@ -19,7 +19,7 @@ import { formatFileSize } from "../../utils/format";
 type Stage = "idle" | "downloading" | "installing";
 
 const { t } = useI18n();
-const { config, init } = useLauncherStore();
+const { config, instances, init } = useLauncherStore();
 
 const open = ref(false);
 const info = ref<LauncherUpdateInfo | null>(null);
@@ -30,6 +30,16 @@ const errorMessage = ref("");
 
 let unlisten: UnlistenFn | null = null;
 let disposed = false;
+
+const runningInstances = computed(
+  () =>
+    instances.value.filter(
+      (instance) =>
+        instance.state === "running" ||
+        instance.state === "starting" ||
+        instance.state === "stopping",
+    ).length,
+);
 
 const busy = computed(
   () => stage.value === "downloading" || stage.value === "installing",
@@ -70,6 +80,13 @@ async function check(): Promise<void> {
 
   info.value = result;
   open.value = true;
+
+  // Auto update is opt-in. Skip it while instances are running so an
+  // automatic restart cannot interrupt them; the prompt then lets the user
+  // pick a convenient moment.
+  if (config.value?.auto_update_launcher && runningInstances.value === 0) {
+    await update();
+  }
 }
 
 async function update(): Promise<void> {
@@ -146,11 +163,18 @@ onMounted(async () => {
     });
 
   try {
-    // Ensure the config snapshot (with the ignored version) is loaded first.
+    // Ensure the config snapshot (with the update preferences and the ignored
+    // version) is loaded first.
     await init();
   } catch {
     // Config load failures must not block the update check.
   }
+
+  // Automatic checks are opt-in; the defaults keep the previous startup check.
+  if (config.value?.auto_check_launcher_update === false) {
+    return;
+  }
+
   void check();
 });
 

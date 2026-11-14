@@ -211,7 +211,7 @@ const zhCN = {
       "openRepository": "打开仓库",
       "openLinkFailed": "无法打开链接：{detail}",
       "updater": {
-        "title": "自动更新",
+        "title": "启动器更新",
         "check": "检查更新",
         "checking": "正在检查更新…",
         "unsupported": "此平台暂不支持自动更新",
@@ -221,7 +221,13 @@ const zhCN = {
         "downloading": "正在下载更新…",
         "downloaded": "更新已下载完成",
         "installAndRestart": "重启安装",
-        "installing": "正在准备安装…"
+        "installing": "正在准备安装…",
+        "idle": "尚未检查更新",
+        "autoCheck": "自动检查更新",
+        "autoCheckHint": "启动时检查启动器是否有新版本",
+        "autoUpdate": "自动更新",
+        "autoUpdateHint": "发现新版本后自动下载并重启安装；有实例运行时改为提示更新",
+        "autoUpdateRequiresCheck": "需先开启自动检查更新"
       },
     }
   },

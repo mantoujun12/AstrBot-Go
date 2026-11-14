@@ -58,6 +58,8 @@ export interface AppConfig {
   tray_style: TrayStyle;
   autostart_minimize_to_tray: boolean;
   check_instance_update: boolean;
+  auto_check_launcher_update: boolean;
+  auto_update_launcher: boolean;
   persist_instance_state: boolean;
   ignore_external_path: boolean;
   use_short_instance_id: boolean;

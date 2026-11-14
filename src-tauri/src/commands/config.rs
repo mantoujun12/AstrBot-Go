@@ -234,6 +234,16 @@ define_save_config_command!(
     check_instance_update
 );
 define_save_config_command!(
+    save_auto_check_launcher_update,
+    auto_check_launcher_update: bool,
+    auto_check_launcher_update
+);
+define_save_config_command!(
+    save_auto_update_launcher,
+    auto_update_launcher: bool,
+    auto_update_launcher
+);
+define_save_config_command!(
     save_persist_instance_state,
     persist_instance_state: bool,
     persist_instance_state
