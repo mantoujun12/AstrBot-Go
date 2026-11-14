@@ -766,7 +766,7 @@ function retry(): void {
 
 <style scoped>
 .overview-page {
-  /* 白色卡片在浅灰染色层上形成层次差，边框兜住低对比环境。 */
+  /* White cards stand out against the light-gray tint; the border guards low-contrast surroundings. */
   --overview-card: #ffffff;
   --overview-muted: rgba(var(--v-theme-on-surface), 0.58);
   --overview-border: rgba(var(--v-theme-on-surface), 0.1);

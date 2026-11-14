@@ -112,8 +112,9 @@ watch(
   overflow: hidden;
 }
 
-/* 首页内容为浮动圆角裁剪容器：与侧边栏共享同一 chrome／Mica 底面，
-   自身无背景无边框，分隔由内部卡片（1px 边框 + surface 背景）承担。 */
+/* Home content is a floating rounded clip container sharing the chrome/Mica
+   surface with the sidebar; it has no background or border of its own —
+   separation comes from inner cards (1px border + surface background). */
 .launcher-home-pane {
   box-sizing: border-box;
   width: calc(100% - var(--launcher-content-gap));
@@ -139,7 +140,7 @@ watch(
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
-/* 移动端对齐上游 ≤959.98px：无缝隙、无圆角、无边框，内容全幅。 */
+/* Mobile matches upstream ≤959.98px: no gap, no radius, no border, full-width content. */
 @media (max-width: 959.98px) {
   .launcher-main {
     --launcher-content-gap: 0px;

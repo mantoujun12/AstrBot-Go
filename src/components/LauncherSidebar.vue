@@ -136,7 +136,7 @@ const toggleLabel = computed(() =>
   min-height: 100%;
 }
 
-/* 对齐上游 VerticalSidebar：列表内边距 2px 16px 12px，导航项圆角走导航 token。 */
+/* Matches upstream VerticalSidebar: list padding 2px 16px 12px, nav item radius via the navigation token. */
 .launcher-sidebar__nav {
   flex: 0 0 auto;
   padding: 2px 16px 12px;
@@ -221,7 +221,7 @@ const toggleLabel = computed(() =>
   background: rgba(var(--v-theme-primary), 0.07);
 }
 
-/* 折叠为 rail 时导航项收为 40px，列表内边距随之收窄。 */
+/* In rail mode nav items shrink to 40px and the list padding narrows. */
 .launcher-sidebar.v-navigation-drawer--rail
   .launcher-sidebar__nav {
   padding-inline: 8px;

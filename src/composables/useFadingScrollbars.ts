@@ -6,9 +6,9 @@ interface ScrollbarAnimation {
 }
 
 /**
- * 捕获页面内所有滚动事件并独立维护各滚动区域的滚动条可见性：
- * 滚动时立即置为不透明，闲置 800ms 后用 250ms 线性淡出；
- * prefers-reduced-motion 时直接归零。
+ * Tracks scroll events across the page and manages each scroll area's
+ * scrollbar visibility independently: opaque while scrolling, fades out over
+ * 250ms after 800ms idle; drops straight to zero under prefers-reduced-motion.
  */
 export function useFadingScrollbars(): void {
   const animations = new Map<HTMLElement, ScrollbarAnimation>();
@@ -28,7 +28,7 @@ export function useFadingScrollbars(): void {
     const animation: ScrollbarAnimation = { timer: 0, frame: 0 };
     animation.timer = window.setTimeout(() => {
       const started = performance.now();
-      // 滚动条伪元素不能稳定支持 CSS 过渡，改用逐帧写入变量。
+      // Scrollbar pseudo-elements can't reliably run CSS transitions, so the variable is written per frame.
       const fadeScrollbar = (now: number): void => {
         const opacity = reducedMotion.matches
           ? 0

@@ -15,7 +15,7 @@
 .v-card {
   width: 100%;
   overflow: visible;
-  // 卡片圆角走 card token；对话框/菜单里的 v-card 由各自 token 覆盖。
+  // Card radius uses the card token; v-card inside dialogs/menus gets its own token.
   border-radius: var(--astrbot-radius-card);
   &.withbg {
     background-color: rgb(var(--v-theme-background));
