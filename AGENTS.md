@@ -68,6 +68,12 @@ cargo clippy --all-targets -- -D warnings
 
 `pnpm dev` cannot validate Tauri commands, permissions, or native capabilities. When desktop integration is involved, use `pnpm tauri dev` or the appropriate Rust checks.
 
+### Dependency and Registry Notes
+
+- The default registry on this machine (`~/.npmrc`) is the npmmirror mirror, which can lag behind npm by days for fresh releases. When `pnpm install` fails with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` ("version not present in registry manifest") or a 404 tarball, check the version on `registry.npmjs.org` first; if it is published there, install with `--registry=https://registry.npmjs.org/`.
+- Never downgrade a dependency or hand-edit `pnpm-lock.yaml` to work around mirror lag. The version is usually fine; the mirror is behind.
+- A failed pre-run install can corrupt `node_modules` (for example, prune `.bin`) even though the lockfile is fine. Restore it with an official-registry install before trusting any subsequent build result.
+
 ## Frontend Conventions
 
 - Use the Vue 3 Composition API and prefer `<script setup lang="ts">`.
@@ -99,6 +105,15 @@ Shared control styling lives in `src/styles/controls.css` and `src/scss/componen
 - Use `SettingsItem` for settings rows and `PageHeader`'s actions slot for page-level actions. Let action groups wrap and stay reachable at narrow desktop widths. For any other Vuetify element, follow the closest existing usage in the repository instead of Vuetify defaults.
 - Use the radius tokens (`--astrbot-radius-control`, `--astrbot-radius-card`, and the other tokens in `src/scss/_radius-tokens.scss`) instead of hardcoded radii.
 
+### Vuetify Cascade and Stacking Conventions
+
+Project styles in `src/scss/` and component `<style>` blocks are unlayered, so they always beat Vuetify's `@layer` rules. When overriding a Vuetify default, verify the selector wins twice: over Vuetify's layered rule and over any competing unlayered rule in this repository. Count specificity including `:not()` arguments; a lower-specificity "fix" rule placed next to a higher-specificity global rule never takes effect (this is how a `border-radius: 0` group fix silently failed against the global `.v-btn` radius rule).
+
+- Vuetify pins many surface radii (card, menu content, dialog, snackbar, alert, button group) to its 4px root default. Map every surface to a radius token from `src/scss/_radius-tokens.scss` instead of accepting the default, and keep parent and child radii aligned: menu popups carry their radius on `.v-overlay__content` with `v-card`/`v-sheet`/`v-list` children inheriting it, and `v-select` also attaches the elevation class to the content element, so a mismatched child radius lets the elevation shadow's corners show behind the panel.
+- `v-btn-toggle` / `v-btn-group` buttons must stay square and inherit only the container's outer corners. A per-button radius breaks the `divided`/`outlined` border joins and the container's rounded overflow clips the last button.
+- Vuetify teleports overlays to `body` starting at z-index 2400, and `.v-application__wrap` (`backface-visibility: hidden`) as well as any `isolation: isolate` shell create stacking contexts. z-index only competes within its own stacking context, so verify the full ancestor chain before trusting a z-index value. Window chrome that must stay above the dialog scrim, such as the custom title bar with its window controls, must be teleported to `body` and use an opaque chrome background while a scrimmed overlay is active (`:has()` is available in WebView2).
+- Layout animation is scoped: `v-main` has no transition by default (tab switching must not animate); only the sidebar expand/collapse enables a `v-main` padding transition via the `.layout-animating` class in `App.vue`.
+
 ## Tauri and Rust Conventions
 
 - Implement filesystem, process, download, archive extraction, environment variable, and privileged system operations in Rust. Expose them to the frontend through controlled Tauri commands; do not grant the frontend arbitrary shell or path capabilities.
@@ -108,6 +123,8 @@ Shared control styling lives in `src/styles/controls.css` and `src/scss/componen
 - Pass external process arguments as arrays. Never concatenate user input into a shell command. Explicitly handle the working directory, environment variables, and exit codes.
 - Follow the principle of least privilege when adding plugins or capabilities. Grant only the permissions required by the current feature, and justify them in the same change.
 - Handle platform differences in paths, file permissions, and process behavior explicitly. Avoid hardcoding Windows path separators in shared logic.
+- On Windows 11, apply DWM system backdrops (`DWMWA_SYSTEMBACKDROP_TYPE`) before setting the window corner preference: applying a backdrop resets the corner preference, so rounding must come last. Gate Windows 11-only visuals by the real build number from `RtlGetVersion` (22000 = Mica, 22621 = Mica Alt); `GetVersionEx` is shimmed and lies.
+- Apply window effects and other DWM attributes explicitly and log every result. Tauri's config-driven `windowEffects` discards all errors silently, so a failed Mica/acrylic call is invisible without logs; a silent failure also falls back to plain transparency, which changes the whole window's look.
 
 ## Data and Security
 
@@ -130,7 +147,7 @@ Shared control styling lives in `src/styles/controls.css` and `src/scss/componen
 
 ## Verification Requirements
 
-- For frontend changes, run at least `pnpm build` to confirm that `vue-tsc` and the Vite build pass.
+- For frontend changes, run at least `pnpm build` to confirm that `vue-tsc` and the Vite build pass. If the run fails on the pnpm supply-chain pre-check instead of on TypeScript or Vite, rerun with `--registry=https://registry.npmjs.org/` and report the real tool result; the policy error is an environment issue, not a code failure.
 - For Rust or Tauri configuration changes, run at least `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo check`.
 - For UI interaction, Tauri commands, permissions, filesystem operations, or process behavior, document the relevant manual verification. Run `pnpm tauri dev` for desktop integration testing when possible.
 - Add unit tests for new critical pure logic, prioritizing path validation, version comparison, backup manifests, error conversion, and repeated execution.
