@@ -8,7 +8,7 @@
 
 <a href="https://github.com/mantoujun12/AstrBot-Go/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/mantoujun12/AstrBot-Go?color=76bad9"></a>
 <a href="https://tauri.app"><img alt="Tauri 2.12.5" src="https://img.shields.io/badge/Tauri-2.12.5-24C8D8?logo=tauri&logoColor=white"></a>
-<a href="https://vuetifyjs.com"><img alt="Vuetify 4.3.2" src="https://img.shields.io/badge/Vuetify-4.3.2-1867C0?logo=vuetify"></a>
+<a href="https://vuetifyjs.com"><img alt="Vuetify 4.3.3" src="https://img.shields.io/badge/Vuetify-4.3.3-1867C0?logo=vuetify"></a>
 
 <!-- badge -->
 
