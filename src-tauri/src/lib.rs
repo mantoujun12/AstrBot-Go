@@ -267,6 +267,8 @@ pub fn run() {
             commands::save_autostart_minimize_to_tray,
             commands::compare_versions,
             commands::save_check_instance_update,
+            commands::save_auto_check_launcher_update,
+            commands::save_auto_update_launcher,
             commands::save_persist_instance_state,
             commands::save_ignore_external_path,
             commands::save_use_short_instance_id,

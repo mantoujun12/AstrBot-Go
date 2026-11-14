@@ -132,6 +132,13 @@ pub struct AppConfig {
     pub autostart_minimize_to_tray: bool,
     #[serde(default = "default_true")]
     pub check_instance_update: bool,
+    /// Check the launcher's own releases when the app starts.
+    #[serde(default = "default_true")]
+    pub auto_check_launcher_update: bool,
+    /// Download and install a launcher update without asking. Only applies to
+    /// the startup check; a manual check always asks before installing.
+    #[serde(default)]
+    pub auto_update_launcher: bool,
     #[serde(default)]
     pub persist_instance_state: bool,
     #[serde(default)]
@@ -178,6 +185,8 @@ impl Default for AppConfig {
             tray_panel_height: None,
             autostart_minimize_to_tray: false,
             check_instance_update: true,
+            auto_check_launcher_update: true,
+            auto_update_launcher: false,
             persist_instance_state: false,
             ignore_external_path: false,
             use_short_instance_id: false,
@@ -621,6 +630,20 @@ mod tests {
     fn app_config_without_tray_style_defaults_to_panel() -> Result<()> {
         let config: AppConfig = serde_json::from_str("{}")?;
         assert_eq!(config.tray_style, TrayStyle::Panel);
+        Ok(())
+    }
+
+    #[test]
+    fn launcher_update_preferences_default_to_auto_check_only() -> Result<()> {
+        let config: AppConfig = serde_json::from_str("{}")?;
+        assert!(config.auto_check_launcher_update);
+        assert!(!config.auto_update_launcher);
+
+        let stored: AppConfig = serde_json::from_str(
+            r#"{"auto_check_launcher_update":false,"auto_update_launcher":true}"#,
+        )?;
+        assert!(!stored.auto_check_launcher_update);
+        assert!(stored.auto_update_launcher);
         Ok(())
     }
 

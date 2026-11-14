@@ -80,6 +80,8 @@ impl LegacyAppConfig {
             close_to_tray: self.close_to_tray,
             autostart_minimize_to_tray: self.autostart_minimize_to_tray,
             check_instance_update: self.check_instance_update,
+            auto_check_launcher_update: true,
+            auto_update_launcher: false,
             persist_instance_state: self.persist_instance_state,
             ignore_external_path: self.ignore_external_path,
             use_short_instance_id: false,

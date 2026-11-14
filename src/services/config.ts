@@ -57,6 +57,20 @@ export function saveCheckInstanceUpdate(
   return invoke("save_check_instance_update", { checkInstanceUpdate });
 }
 
+export function saveAutoCheckLauncherUpdate(
+  autoCheckLauncherUpdate: boolean,
+): Promise<void> {
+  return invoke("save_auto_check_launcher_update", {
+    autoCheckLauncherUpdate,
+  });
+}
+
+export function saveAutoUpdateLauncher(
+  autoUpdateLauncher: boolean,
+): Promise<void> {
+  return invoke("save_auto_update_launcher", { autoUpdateLauncher });
+}
+
 export function savePersistInstanceState(
   persistInstanceState: boolean,
 ): Promise<void> {

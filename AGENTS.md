@@ -80,6 +80,25 @@ cargo clippy --all-targets -- -D warnings
 - **Do not add unnecessary literary copy or sentences to the WebUI.**
 - **Minimize explanatory text, especially in UI titles.**
 
+### Vuetify Control Conventions
+
+Shared control styling lives in `src/styles/controls.css` and `src/scss/components/`. Do not patch the same problem locally in one component when it applies to every instance of a control.
+
+- `v-switch` must set `inset`, `color="primary"`, and `hide-details`. The active track is painted by the `bg-primary` class added by `color="primary"`; omitting `color` leaves the neutral `surface-variant` track and makes the enabled state look disabled. Bind `:loading` and `:disabled` to the saving state. Use `density="compact"` in settings rows, filters, and toolbars; in forms and dialogs keep the density consistent with adjacent fields.
+- Standard option groups (`v-radio`, `v-checkbox`) set `color="primary"` and `density="compact"` on each item. `v-radio-group` sets `hide-details`, plus `inline` when the options fit on one line.
+- Settings, filter, and toolbar inputs (`v-text-field`, `v-select`, `v-textarea`, `v-color-input`) use `variant="outlined"`, `density="compact"`, and `hide-details`. Form fields in dialogs keep `variant="outlined"` and may show validation messages instead of `hide-details`. Disable the control while its value is saving.
+- `v-btn` variants express hierarchy:
+  - one primary action per view: `color="primary" variant="flat"`;
+  - secondary actions: `color="primary" variant="tonal"`;
+  - toolbar, row, and link-like actions: `variant="text"` (add `color="primary"` when emphasized);
+  - neutral secondary actions: `variant="outlined"`;
+  - destructive actions: `color="error"`; restart, install, and rollback actions: `color="warning"`.
+  Use `size="small"` in tables, dialogs, and setting rows. Give icon-only buttons an `aria-label` and a tooltip.
+- `v-btn-toggle` uses `mandatory`, `divided`, `density="compact"`, `variant="outlined"`, and `color="primary"`, with `size="small"` buttons inside.
+- `v-chip` uses `size="x-small"` or `size="small"` with `variant="tonal"` and a semantic color; add `label` for status text. `v-alert` uses `variant="tonal"`, `density="comfortable"`, and the matching semantic `type`. `v-progress-linear` uses `color="primary"`, `height="5"`, and `rounded`.
+- Use `SettingsItem` for settings rows and `PageHeader`'s actions slot for page-level actions. Let action groups wrap and stay reachable at narrow desktop widths. For any other Vuetify element, follow the closest existing usage in the repository instead of Vuetify defaults.
+- Use the radius tokens (`--astrbot-radius-control`, `--astrbot-radius-card`, and the other tokens in `src/scss/_radius-tokens.scss`) instead of hardcoded radii.
+
 ## Tauri and Rust Conventions
 
 - Implement filesystem, process, download, archive extraction, environment variable, and privileged system operations in Rust. Expose them to the frontend through controlled Tauri commands; do not grant the frontend arbitrary shell or path capabilities.
