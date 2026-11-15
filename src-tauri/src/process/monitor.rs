@@ -27,6 +27,8 @@ use super::ALIVE_EXIT_THRESHOLD;
 #[derive(Clone)]
 struct LiveSnapshot {
     id: String,
+    // Read only by the Windows port-based PID recovery path in probe_liveness.
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     port: u16,
     pid: u32,
     executable_path: PathBuf,
