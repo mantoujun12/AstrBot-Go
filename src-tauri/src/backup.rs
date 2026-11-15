@@ -335,7 +335,7 @@ pub fn list_backups() -> Result<Vec<BackupInfo>> {
                     err
                 );
                 backups.push(BackupInfo {
-                    filename: fname.clone(),
+                    filename: fname,
                     path: path_str,
                     metadata: BackupMetadata {
                         created_at: String::new(),
