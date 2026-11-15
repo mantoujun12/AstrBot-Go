@@ -16,6 +16,8 @@ enum ProxyAssignment {
     Https,
 }
 
+// reserved for system proxy no_proxy parsing
+#[allow(dead_code)]
 fn normalize_no_proxy_entry(entry: &str) -> Vec<String> {
     let trimmed = entry.trim();
     if trimmed.is_empty() {
