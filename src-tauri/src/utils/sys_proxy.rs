@@ -43,6 +43,8 @@ fn normalize_no_proxy_entry(entry: &str) -> Vec<String> {
         .collect()
 }
 
+// Reserved for system proxy no_proxy parsing.
+#[allow(dead_code)]
 fn join_no_proxy_entries<I, S>(entries: I) -> String
 where
     I: IntoIterator<Item = S>,
