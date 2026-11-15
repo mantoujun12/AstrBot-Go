@@ -20,6 +20,8 @@ const DARK_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(36, 36
 const TRANSPARENT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(0, 0, 0, 0);
 
 const WINDOWS_11_FIRST_BUILD: u32 = 22000;
+// Reserved for Windows 11 22H2 build detection / DWM gating.
+#[allow(dead_code)]
 const WINDOWS_11_22H2_BUILD: u32 = 22621;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
