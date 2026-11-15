@@ -39,6 +39,8 @@ pub(crate) enum ProxySchemeKind {
 pub(crate) enum ProxySource {
     AppConfig,
     Environment,
+    // Reserved for system proxy source detection (see src/utils/sys_proxy.rs).
+    #[allow(dead_code)]
     System,
 }
 
