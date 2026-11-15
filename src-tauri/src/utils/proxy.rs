@@ -144,6 +144,8 @@ pub(crate) fn build_proxy_url(
     Ok(Some(parsed.to_string()))
 }
 
+// Reserved for system proxy normalization.
+#[allow(dead_code)]
 pub(crate) fn normalize_proxy_url_with_scheme(
     raw: &str,
     default_scheme: &str,
