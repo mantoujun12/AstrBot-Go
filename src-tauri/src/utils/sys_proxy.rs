@@ -9,6 +9,8 @@ use crate::utils::proxy::{
 
 const LOCAL_NO_PROXY_ENTRIES: [&str; 4] = ["localhost", "127.0.0.1", "::1", ".local"];
 
+// Reserved for system proxy assignment.
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 enum ProxyAssignment {
     All,
