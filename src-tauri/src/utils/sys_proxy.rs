@@ -107,6 +107,8 @@ fn parse_proxy_url(
     })
 }
 
+// reserved for Windows system proxy parsing
+#[allow(dead_code)]
 fn parse_windows_proxy_server(raw: &str) -> ProxySettings {
     let mut proxy = ProxySettings::new(ProxySource::System, None, None, None, None);
 
