@@ -63,6 +63,8 @@ where
     normalized_entries.join(",")
 }
 
+// reserved for system proxy parsing
+#[allow(dead_code)]
 fn parse_proxy_url(
     assignment: ProxyAssignment,
     raw: &str,
