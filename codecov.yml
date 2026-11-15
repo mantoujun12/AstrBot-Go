@@ -1,0 +1,22 @@
+# Codecov configuration for AstrBot-Go.
+# Only the frontend (Vitest) uploads coverage;
+# see .github/workflows/coverage.yml.
+# Reference: https://docs.codecov.com/docs/codecovyml-reference
+
+codecov:
+  branch: main
+
+coverage:
+  status:
+    # Report-only while coverage adoption is early; remove
+    # `informational` to enforce thresholds later.
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment:
+  layout: "condensed_header, diff, files"
+  require_changes: true # only post when coverage changed

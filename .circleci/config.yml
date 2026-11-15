@@ -34,6 +34,7 @@ workflows:
             pnpm-lock\.yaml frontend true
             pnpm-workspace\.yaml frontend true
             vite\.config\.ts frontend true
+            vitest\.config\.ts frontend true
             tsconfig.*\.json frontend true
             src-tauri/.* backend true
             \.circleci/.* frontend true

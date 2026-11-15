@@ -350,3 +350,74 @@ fn first_env_value(slot: ProxyEnvSlot) -> Option<String> {
         .and_then(|(_, keys)| keys.iter().find_map(|key| env::var(key).ok()))
         .and_then(|value| normalize_opt_string(Some(value)))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn settings_fields(url: &str) -> Result<Option<ProxySettings>> {
+        build_single_url_proxy_settings(
+            ProxySource::AppConfig,
+            &ProxyFields::new(url.to_string(), String::new(), String::new(), String::new()),
+            Some(DEFAULT_NO_PROXY_VALUE.to_string()),
+        )
+    }
+
+    #[test]
+    fn scheme_kind_and_normalization_cover_families() -> Result<()> {
+        assert_eq!(
+            proxy_scheme_kind_from_scheme("HTTPS"),
+            Some(ProxySchemeKind::HttpFamily)
+        );
+        assert_eq!(
+            proxy_scheme_kind_from_scheme("socks5h"),
+            Some(ProxySchemeKind::SocksFamily)
+        );
+        assert_eq!(proxy_scheme_kind_from_scheme("ftp"), None);
+
+        let (url, scheme) = normalize_proxy_url_with_scheme("127.0.0.1:7890", "http")
+            .ok_or_else(|| AppError::config("expected a normalized proxy url"))?;
+        assert_eq!(url, "http://127.0.0.1:7890");
+        assert_eq!(scheme, "http");
+        assert_eq!(normalize_proxy_url_with_scheme("   ", "http"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn proxy_url_trims_combines_and_rejects() -> Result<()> {
+        let fields = ProxyFields::new(
+            " http://proxy ".to_string(),
+            " 7890 ".to_string(),
+            " user ".to_string(),
+            " pass ".to_string(),
+        );
+        assert_eq!(fields.url, "http://proxy");
+        assert_eq!(fields.port, "7890");
+
+        let url = build_proxy_url("http://proxy", "7890", "user", "pass")?
+            .ok_or_else(|| AppError::config("expected a proxy url"))?;
+        assert_eq!(url, "http://user:pass@proxy:7890/");
+
+        assert!(build_proxy_url("http://proxy", "not-a-port", "", "").is_err());
+        assert!(matches!(build_proxy_url("", "7890", "", ""), Ok(None)));
+        Ok(())
+    }
+
+    #[test]
+    fn single_url_settings_route_by_scheme() -> Result<()> {
+        let http = settings_fields("http://proxy:7890")?
+            .ok_or_else(|| AppError::config("expected proxy settings"))?;
+        assert_eq!(http.all_proxy, None);
+        assert_eq!(http.http_proxy.as_deref(), Some("http://proxy:7890/"));
+        assert_eq!(http.https_proxy.as_deref(), Some("http://proxy:7890/"));
+
+        let socks = settings_fields("socks5://127.0.0.1:1080")?
+            .ok_or_else(|| AppError::config("expected proxy settings"))?;
+        assert_eq!(socks.all_proxy.as_deref(), Some("socks5://127.0.0.1:1080"));
+        assert_eq!(socks.http_proxy, None);
+
+        assert!(settings_fields("ftp://proxy").is_err());
+        assert_eq!(settings_fields("   ")?, None);
+        Ok(())
+    }
+}

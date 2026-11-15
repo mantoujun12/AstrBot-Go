@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+coverage
+test-report.junit.xml
 
 # Editor directories and files
 .vscode/*
