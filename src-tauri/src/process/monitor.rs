@@ -27,6 +27,8 @@ use super::ALIVE_EXIT_THRESHOLD;
 #[derive(Clone)]
 struct LiveSnapshot {
     id: String,
+    // kept for an upcoming monitor feature
+    #[allow(dead_code)]
     port: u16,
     pid: u32,
     executable_path: PathBuf,
