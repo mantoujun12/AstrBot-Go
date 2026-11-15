@@ -22,6 +22,8 @@ const TRANSPARENT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color
 // Used only by Windows-only DWM/Mica gating; dead on other cfg targets.
 #[allow(dead_code)]
 const WINDOWS_11_FIRST_BUILD: u32 = 22000;
+// Reserved for Windows 11 22H2 build detection / DWM gating.
+#[allow(dead_code)]
 const WINDOWS_11_22H2_BUILD: u32 = 22621;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
