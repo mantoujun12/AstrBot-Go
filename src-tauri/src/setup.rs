@@ -19,6 +19,8 @@ const LIGHT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(255, 
 const DARK_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(36, 36, 36, 255);
 const TRANSPARENT_WINDOW_BACKGROUND: tauri::window::Color = tauri::window::Color(0, 0, 0, 0);
 
+// Used only by Windows-only DWM/Mica gating; dead on other cfg targets.
+#[allow(dead_code)]
 const WINDOWS_11_FIRST_BUILD: u32 = 22000;
 const WINDOWS_11_22H2_BUILD: u32 = 22621;
 
