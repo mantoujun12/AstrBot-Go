@@ -34,6 +34,8 @@ pub const STARTUP_TIMEOUT_SECS: u64 = 300;
 
 /// Timeout (in seconds) for liveness probes. After this many seconds of
 /// consecutive probe failures, the process is treated as dead.
+// Only consumed by the Windows-only ALIVE_EXIT_THRESHOLD; kept for the process liveness check on all targets.
+#[allow(dead_code)]
 pub const LIVENESS_TIMEOUT_SECS: u64 = 300;
 
 /// Liveness probe interval in seconds.
