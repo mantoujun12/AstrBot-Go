@@ -8,6 +8,8 @@
 #   reusing one dependency compilation instead of paying for two parallel ones.
 # - clippy and test run before the cache save, so new crates compiled for tests stay cached.
 # - the frontend job caches the pnpm store; the cache key is bumped when the store layout changes.
+# - the frontend job now runs `pnpm test` (vitest unit tests). The GitHub
+#   Actions tests workflow was removed so CircleCI stays the check gate.
 # - caches only the cargo registry and git, not target/: caches are billed as size x retention
 #   and a debug Tauri target directory would exceed the free storage allowance.
 # - `cargo test` was verified locally on Windows: 137 tests pass in ~3s and compilation
@@ -94,6 +96,9 @@ jobs:
       - run:
           name: Type check and build frontend
           command: pnpm build
+      - run:
+          name: Unit tests
+          command: pnpm test
 
   backend:
     docker:

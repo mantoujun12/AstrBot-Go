@@ -1,0 +1,71 @@
+# Runs rust-clippy on the src-tauri workspace and uploads the findings to
+# GitHub code scanning as SARIF.
+# More details at https://github.com/rust-lang/rust-clippy
+# and https://rust-lang.github.io/rust-clippy/
+
+name: Rust-clippy analyze
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: ["main"]
+  schedule:
+    - cron: "27 21 * * 4"
+
+jobs:
+  rust-clippy-analyze:
+    name: Run rust-clippy analyzing
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      # Only required for a private repository by
+      # github/codeql-action/upload-sarif to get the Action run status
+      actions: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install required cargo tools
+        run: cargo install clippy-sarif sarif-fmt
+
+      - name: Run rust-clippy
+        working-directory: src-tauri
+        run: >
+          cargo clippy --all-features --message-format=json
+          | clippy-sarif
+          | tee rust-clippy-results.sarif
+          | sarif-fmt
+        continue-on-error: true
+
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: src-tauri/rust-clippy-results.sarif
+          wait-for-processing: true

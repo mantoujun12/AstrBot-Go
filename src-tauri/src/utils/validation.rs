@@ -19,3 +19,25 @@ pub(crate) fn validate_instance_id(instance_id: &str) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_single_component_ids() {
+        assert!(validate_instance_id("main").is_ok());
+        assert!(validate_instance_id("盘.符").is_ok());
+    }
+
+    #[test]
+    fn rejects_empty_aliases_separators_and_invalid_chars() {
+        assert!(validate_instance_id("").is_err());
+        assert!(validate_instance_id("..").is_err());
+        assert!(validate_instance_id(". ").is_err());
+        assert!(validate_instance_id("a/b").is_err());
+        assert!(validate_instance_id("a\\\\b").is_err());
+        assert!(validate_instance_id("a:b").is_err());
+        assert!(validate_instance_id("a\\0b").is_err());
+    }
+}
