@@ -1578,6 +1578,8 @@ onMounted(() => {
             <SettingsItem :title="t('settings.about.version')">
               <span class="settings-value">{{ appVersion }}</span>
             </SettingsItem>
+          </div>
+          <div class="settings-list-card">
             <SettingsItem
               title="astrbot-launcher"
               :subtitle="t('settings.about.launcherRepoDescription')"
