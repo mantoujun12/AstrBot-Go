@@ -7,6 +7,8 @@ use crate::utils::proxy::{
     ProxySource,
 };
 
+// reserved for system proxy environment parsing
+#[allow(dead_code)]
 const LOCAL_NO_PROXY_ENTRIES: [&str; 4] = ["localhost", "127.0.0.1", "::1", ".local"];
 
 #[derive(Clone, Copy)]
