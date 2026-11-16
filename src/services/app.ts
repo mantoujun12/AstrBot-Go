@@ -9,10 +9,6 @@ export function getAppSnapshot(): Promise<AppSnapshot> {
   return invoke<AppSnapshot>("get_app_snapshot");
 }
 
-export function rebuildAppSnapshot(): Promise<AppSnapshot> {
-  return invoke<AppSnapshot>("rebuild_app_snapshot");
-}
-
 export function openFolder(path: string): Promise<void> {
   return invoke("open_folder", { path });
 }

@@ -188,10 +188,6 @@ export function toUserMessage(error: unknown): string {
   return parseBackendError(error).message;
 }
 
-export function isLockError(error: unknown): boolean {
-  return parseBackendError(error).lock !== null;
-}
-
 export function isDownloadCancelled(error: unknown): boolean {
   return toBackendError(error)?.code === 1006;
 }

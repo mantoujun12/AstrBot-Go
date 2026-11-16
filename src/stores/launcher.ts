@@ -18,7 +18,6 @@ const dataDir = computed(() => snapshot.value?.data_dir ?? "");
 let initPromise: Promise<void> | null = null;
 let refreshChain: Promise<void> | null = null;
 let refreshQueued = false;
-let stopListening: (() => void) | null = null;
 let eventTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function loadOnce(): Promise<void> {
@@ -73,7 +72,7 @@ export function initLauncherStore(): Promise<void> {
 
   initPromise = (async () => {
     try {
-      stopListening = await listenAppSnapshot(() => {
+      await listenAppSnapshot(() => {
         scheduleRefresh();
       });
     } catch (cause) {
@@ -83,15 +82,6 @@ export function initLauncherStore(): Promise<void> {
   })();
 
   return initPromise;
-}
-
-export function disposeLauncherStore(): void {
-  stopListening?.();
-  stopListening = null;
-  if (eventTimer !== null) {
-    clearTimeout(eventTimer);
-    eventTimer = null;
-  }
 }
 
 /**

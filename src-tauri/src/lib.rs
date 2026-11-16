@@ -243,7 +243,6 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_app_snapshot,
-            commands::rebuild_app_snapshot,
             // Window
             commands::show_main_window,
             commands::set_window_theme,
@@ -263,7 +262,6 @@ pub fn run() {
             commands::save_use_uv_for_deps,
             commands::save_close_to_tray,
             commands::save_autostart_minimize_to_tray,
-            commands::compare_versions,
             commands::save_check_instance_update,
             commands::save_auto_check_launcher_update,
             commands::save_auto_update_launcher,
@@ -280,7 +278,6 @@ pub fn run() {
             commands::save_tray_style,
             commands::test_network_source,
             commands::test_http_proxy,
-            commands::is_macos,
             commands::is_linux,
             // Data Directory
             commands::set_data_dir,
@@ -296,8 +293,6 @@ pub fn run() {
             updater::check_launcher_update,
             updater::download_launcher_update,
             updater::install_launcher_update,
-            updater::restart_launcher,
-            commands::fetch_launcher_release_notes,
             // Version Management
             commands::install_version,
             commands::pause_download,
@@ -326,12 +321,10 @@ pub fn run() {
             commands::start_instance,
             commands::stop_instance,
             commands::restart_instance,
-            commands::get_instance_port,
             commands::check_instance_health,
             commands::list_discovered_instances,
             // Resource Monitoring
             commands::get_instance_resource_history,
-            commands::get_resources_snapshot,
             commands::set_resource_alert_threshold,
             commands::get_resource_alert_threshold,
             // Backup

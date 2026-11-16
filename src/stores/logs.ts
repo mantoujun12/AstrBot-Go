@@ -10,7 +10,6 @@ const entries = shallowRef<LogEntry[]>([]);
 let pending: LogEntry[] = [];
 let flushTimer: number | null = null;
 let initPromise: Promise<void> | null = null;
-let stopListening: (() => void) | null = null;
 
 function flush(): void {
   flushTimer = null;
@@ -37,7 +36,7 @@ export function initLogStore(): Promise<void> {
   }
 
   initPromise = (async () => {
-    stopListening = await listenLogEntry(enqueue);
+    await listenLogEntry(enqueue);
   })().catch(() => {
     initPromise = null;
   });
@@ -48,15 +47,6 @@ export function initLogStore(): Promise<void> {
 export function clearLogs(): void {
   pending = [];
   entries.value = [];
-}
-
-export function disposeLogStore(): void {
-  stopListening?.();
-  stopListening = null;
-  if (flushTimer !== null) {
-    clearTimeout(flushTimer);
-    flushTimer = null;
-  }
 }
 
 export function useLogStore() {

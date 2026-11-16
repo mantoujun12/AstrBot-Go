@@ -38,12 +38,3 @@ pub async fn check_instance_updates(
         latest_release,
     ))
 }
-
-#[tauri::command]
-pub async fn fetch_launcher_release_notes(
-    state: State<'_, AppState>,
-    version: String,
-) -> Result<Option<String>> {
-    let client = state.client();
-    github::fetch_launcher_release_notes(&client, &version).await
-}

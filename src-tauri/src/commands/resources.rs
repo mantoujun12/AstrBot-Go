@@ -14,13 +14,6 @@ pub async fn get_instance_resource_history(
     Ok(state.process_manager.get_resource_history(&instance_id))
 }
 
-#[tauri::command]
-pub async fn get_resources_snapshot(
-    state: State<'_, AppState>,
-) -> Result<std::collections::HashMap<String, crate::process::ResourceSample>> {
-    Ok(state.process_manager.get_all_latest_resources())
-}
-
 fn validate_resource_thresholds(thresholds: &crate::process::ResourceAlertThreshold) -> Result<()> {
     if !thresholds.cpu_percent.is_finite()
         || thresholds.cpu_percent <= 0.0

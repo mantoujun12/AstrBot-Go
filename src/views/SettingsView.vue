@@ -254,7 +254,11 @@ const trayStyleSaving = ref(false);
 const isLinuxPlatform = ref(false);
 
 async function detectPlatform(): Promise<void> {
-  isLinuxPlatform.value = await isLinux();
+  try {
+    isLinuxPlatform.value = await isLinux();
+  } catch {
+    isLinuxPlatform.value = false;
+  }
 }
 
 function isTrayStyle(value: unknown): value is TrayStyle {

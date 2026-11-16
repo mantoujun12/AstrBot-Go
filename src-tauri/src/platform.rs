@@ -57,10 +57,6 @@ pub fn find_python_asset_for_version(
     ))
 }
 
-pub fn is_macos() -> bool {
-    OS == "macos"
-}
-
 pub fn is_linux() -> bool {
     OS == "linux"
 }

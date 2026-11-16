@@ -131,20 +131,6 @@ export function saveUvMirror(uvMirror: string): Promise<void> {
   return invoke("save_uv_mirror", { uvMirror });
 }
 
-export function compareVersions(a: string, b: string): Promise<number> {
-  return invoke<number>("compare_versions", { a, b });
-}
-
-export function isMacos(): Promise<boolean> {
-  return invoke<boolean>("is_macos");
-}
-
-export async function isLinux(): Promise<boolean> {
-  try {
-    return await invoke<boolean>("is_linux");
-  } catch {
-    // Backends without the command behave like the pre-detection builds: the
-    // tray style setting stays visible and nothing is rewritten.
-    return false;
-  }
+export function isLinux(): Promise<boolean> {
+  return invoke<boolean>("is_linux");
 }

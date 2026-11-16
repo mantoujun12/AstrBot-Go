@@ -234,11 +234,6 @@ pub(crate) fn install_launcher_update(update_state: State<'_, LauncherUpdateStat
     Ok(())
 }
 
-#[tauri::command]
-pub(crate) fn restart_launcher(app: AppHandle) {
-    app.restart();
-}
-
 async fn check_for_update(app: &AppHandle, config: &AppConfig) -> Result<Option<Update>> {
     let updater = build_updater(app, config)?;
     let mut update = updater.check().await.map_err(map_updater_error)?;

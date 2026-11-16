@@ -24,9 +24,3 @@ export function cancelVersionDownload(version: string): Promise<void> {
 export function uninstallVersion(version: string): Promise<void> {
   return invoke("uninstall_version", { version });
 }
-
-export function fetchLauncherReleaseNotes(
-  version: string,
-): Promise<string | null> {
-  return invoke<string | null>("fetch_launcher_release_notes", { version });
-}

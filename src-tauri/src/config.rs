@@ -415,17 +415,9 @@ pub fn load_config() -> Result<Arc<AppConfig>> {
     Ok(Arc::new(config))
 }
 
-pub fn reload_config() -> Result<Arc<AppConfig>> {
-    load_config()
-}
-
 pub fn load_manifest() -> Result<Arc<AppManifest>> {
     let manifest = load_or_init_manifest_value()?;
     Ok(Arc::new(manifest))
-}
-
-pub fn reload_manifest() -> Result<Arc<AppManifest>> {
-    load_manifest()
 }
 
 #[cfg(test)]

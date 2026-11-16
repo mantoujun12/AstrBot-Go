@@ -45,10 +45,6 @@ export function restartInstance(instanceId: string): Promise<number> {
   return invoke<number>("restart_instance", { instanceId });
 }
 
-export function getInstancePort(instanceId: string): Promise<number> {
-  return invoke<number>("get_instance_port", { instanceId });
-}
-
 export function checkInstanceHealth(
   instanceId: string,
 ): Promise<InstanceHealthReport> {
