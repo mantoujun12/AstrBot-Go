@@ -4,6 +4,10 @@
 
 - Separated the display of application name + version and repository link in "Settings → About". (Direct commit)
 
+### Removed
+
+- Removed pre-release compatibility and migration paths: the legacy launcher data-directory migration wizard, `data.redb` and TOML config/manifest import, the old `mainland_acceleration` preset conversion, and legacy task-history and Python directory migrations.
+
 ### Fixed
 
 - Resolved all open code scanning alerts: annotated Windows-only and reserved system-proxy items to silence clippy dead-code warnings, removed a redundant clone in the backup module, and restricted GITHUB_TOKEN permissions in the coverage workflow.
@@ -14,6 +18,10 @@
 ### 变更
 
 - 将 “设置 → 关于” 中，显示应用名称+版本与仓库跳转，进行分隔。（直接提交）
+
+### 移除
+
+- 移除面向预发布旧版本的兼容与迁移逻辑：旧版启动器数据目录迁移向导、`data.redb` 与 TOML 配置/清单导入、旧 `mainland_acceleration` 预设转换，以及旧任务记录与 Python 目录迁移。
 
 ### 修复
 
