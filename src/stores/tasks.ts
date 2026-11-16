@@ -82,6 +82,7 @@ export function initTaskStore(): Promise<void> {
       unlistenRemoved = null;
       error.value = toUserMessage(cause);
       loaded.value = true;
+      initPromise = null;
     }
   })();
 

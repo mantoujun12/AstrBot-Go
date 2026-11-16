@@ -7,6 +7,7 @@ import { useLauncherStore } from "../stores/launcher";
 import { useTaskStore } from "../stores/tasks";
 import type { TaskKind, TaskRecord, TaskStatus } from "../types/launcher";
 import { formatDateTime } from "../utils/format";
+import { translateDynamicKey } from "../i18n/dynamic";
 
 type TaskFilter = "all" | TaskKind;
 
@@ -22,7 +23,22 @@ const {
   resumeTask,
   removeTask,
   clearFinishedTasks,
+  init: initTasks,
 } = useTaskStore();
+
+const retrying = ref(false);
+
+async function retryTaskInit(): Promise<void> {
+  if (retrying.value) {
+    return;
+  }
+  retrying.value = true;
+  try {
+    await initTasks();
+  } finally {
+    retrying.value = false;
+  }
+}
 
 const filter = ref<TaskFilter>("all");
 
@@ -62,7 +78,11 @@ function isActive(task: TaskRecord): boolean {
 }
 
 function taskTitle(task: TaskRecord): string {
-  return t(task.title_key, task.title_args);
+  return translateDynamicKey(
+    task.title_key,
+    task.message || task.title_key,
+    task.title_args,
+  );
 }
 
 function taskMessage(task: TaskRecord): string {
@@ -167,7 +187,19 @@ function errorText(task: TaskRecord): string {
         variant="tonal"
         class="tasks-view__error"
       >
-        {{ error }}
+        <div class="tasks-view__error-row">
+          <span>{{ error }}</span>
+          <v-btn
+            color="primary"
+            variant="tonal"
+            size="small"
+            :loading="retrying"
+            :disabled="retrying"
+            @click="retryTaskInit"
+          >
+            {{ t("common.actions.retry") }}
+          </v-btn>
+        </div>
       </v-alert>
       <TransitionGroup
         v-else-if="filteredTasks.length > 0"
@@ -310,6 +342,14 @@ function errorText(task: TaskRecord): string {
 
 .tasks-view__error {
   margin: 12px;
+}
+
+.tasks-view__error-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
 }
 
 .task-item {

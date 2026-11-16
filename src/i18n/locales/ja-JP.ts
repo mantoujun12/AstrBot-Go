@@ -745,6 +745,7 @@ const jaJP = {
     title: "リソース監視",
     open: "リソース監視を開く",
     stoppedHint: "インスタンスの実行中にリソースデータを収集します。",
+    loadFailed: "データの取得に失敗しました",
     metrics: {
       cpu: "CPU",
       memory: "メモリ",
@@ -842,6 +843,7 @@ const jaJP = {
     clearLogs: "ログをクリア",
     copied: "コピーしました",
     copyFailed: "コピーに失敗しました",
+    loadFailed: "ログの購読に失敗しました",
     jumpToLatest: "最新へ移動",
     jumpToLatestAria: "最新のログへ移動",
   },

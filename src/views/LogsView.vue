@@ -46,8 +46,22 @@ const LEVEL_TEXT: Record<LogLevel, string> = {
 };
 
 const route = useRoute();
-const { entries, clearLogs } = useLogStore();
+const { entries, error: logError, clearLogs, init: initLogs } = useLogStore();
 const { instances } = useLauncherStore();
+
+const retrying = ref(false);
+
+async function retryLogInit(): Promise<void> {
+  if (retrying.value) {
+    return;
+  }
+  retrying.value = true;
+  try {
+    await initLogs();
+  } finally {
+    retrying.value = false;
+  }
+}
 
 const sourceOptions = computed<SourceOption[]>(() => [
   { title: t("logs.sources.all"), value: SOURCE_ALL },
@@ -385,7 +399,30 @@ function handleClear(): void {
       </div>
     </div>
 
+    <v-alert
+      v-if="logError"
+      type="error"
+      variant="tonal"
+      class="logs-error"
+      role="alert"
+    >
+      <div class="logs-error__row">
+        <span>{{ logError }}</span>
+        <v-btn
+          color="primary"
+          variant="tonal"
+          size="small"
+          :loading="retrying"
+          :disabled="retrying"
+          @click="retryLogInit"
+        >
+          {{ t("common.actions.retry") }}
+        </v-btn>
+      </div>
+    </v-alert>
+
     <LogConsole
+      v-else
       :entries="renderedEntries"
       :source-labels="sourceLabels"
       :keyword="searchKeyword"
@@ -403,6 +440,14 @@ function handleClear(): void {
   gap: 12px;
   height: 100%;
   min-height: 0;
+}
+
+.logs-error__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
 }
 
 .logs-toolbar {

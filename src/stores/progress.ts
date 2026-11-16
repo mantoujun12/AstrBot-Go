@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import type { DeployProgress, DownloadProgress } from "../types/launcher";
+import { toUserMessage } from "../services/errors";
 import {
   listenDeployProgress,
   listenDownloadProgress,
@@ -8,6 +9,7 @@ import {
 const deploys = ref<Record<string, DeployProgress>>({});
 const downloads = ref<Record<string, DownloadProgress>>({});
 const activeDeployId = ref<string | null>(null);
+const error = ref<string | null>(null);
 
 const clearTimers = new Map<string, number>();
 let initPromise: Promise<void> | null = null;
@@ -71,7 +73,9 @@ export function initProgressStore(): Promise<void> {
   initPromise = (async () => {
     await listenDeployProgress(handleDeploy);
     await listenDownloadProgress(handleDownload);
-  })().catch(() => {
+    error.value = null;
+  })().catch((cause) => {
+    error.value = toUserMessage(cause);
     initPromise = null;
   });
 
@@ -95,6 +99,7 @@ export function useProgressStore() {
     deploys,
     downloads,
     activeDeployId,
+    error,
     beginDeploy,
     dismissDeploy,
     init: initProgressStore,

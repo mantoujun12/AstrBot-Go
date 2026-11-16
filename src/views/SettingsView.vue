@@ -389,36 +389,42 @@ const scanPaths = computed<string[]>(() => config.value?.instance_scan_paths ?? 
 
 async function addScanPath(): Promise<void> {
   const selected = await pickDirectory();
+  const configValue = config.value;
   // Recheck after the picker resolves: another save may have started while
   // the dialog was open, and overlapping whole-list saves could persist
   // snapshots out of order and drop a directory.
-  if (!selected || !config.value || scanPathsSaving.value) {
+  if (!selected || !configValue || scanPathsSaving.value) {
     return;
   }
   const previous = scanPaths.value;
-  config.value!.instance_scan_paths = [...previous, selected];
+  configValue.instance_scan_paths = [...previous, selected];
   await saveScanPaths(previous);
 }
 
 async function removeScanPath(path: string): Promise<void> {
-  if (scanPathsSaving.value || !config.value) {
+  const configValue = config.value;
+  if (scanPathsSaving.value || !configValue) {
     return;
   }
   const previous = scanPaths.value;
-  config.value!.instance_scan_paths = previous.filter(
+  configValue.instance_scan_paths = previous.filter(
     (item) => item !== path,
   );
   await saveScanPaths(previous);
 }
 
 async function saveScanPaths(previous: string[]): Promise<void> {
+  const configValue = config.value;
+  if (!configValue) {
+    return;
+  }
   scanPathsSaving.value = true;
   try {
     const saved = await saveInstanceScanPaths(scanPaths.value);
-    config.value!.instance_scan_paths = saved;
+    configValue.instance_scan_paths = saved;
     await loadDiscovery();
   } catch (cause) {
-    config.value!.instance_scan_paths = previous;
+    configValue.instance_scan_paths = previous;
     showErrorToast(cause);
   } finally {
     scanPathsSaving.value = false;

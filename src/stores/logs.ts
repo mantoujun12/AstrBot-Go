@@ -1,11 +1,13 @@
-import { shallowRef } from "vue";
+import { ref, shallowRef } from "vue";
 import type { LogEntry } from "../types/launcher";
+import { toUserMessage } from "../services/errors";
 import { listenLogEntry } from "../services/events";
 
 const MAX_ENTRIES = 2000;
 const FLUSH_INTERVAL_MS = 80;
 
 const entries = shallowRef<LogEntry[]>([]);
+const error = ref<string | null>(null);
 
 let pending: LogEntry[] = [];
 let flushTimer: number | null = null;
@@ -37,7 +39,9 @@ export function initLogStore(): Promise<void> {
 
   initPromise = (async () => {
     await listenLogEntry(enqueue);
-  })().catch(() => {
+    error.value = null;
+  })().catch((cause) => {
+    error.value = toUserMessage(cause);
     initPromise = null;
   });
 
@@ -52,6 +56,7 @@ export function clearLogs(): void {
 export function useLogStore() {
   return {
     entries,
+    error,
     clearLogs,
     init: initLogStore,
   };
