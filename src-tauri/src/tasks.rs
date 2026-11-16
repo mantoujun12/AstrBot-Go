@@ -1,10 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
+use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use futures_util::FutureExt as _;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter as _};
@@ -182,6 +184,10 @@ struct TaskRuntime {
 struct TaskManager {
     records: Vec<TaskRecord>,
     runtimes: HashMap<String, TaskRuntime>,
+    /// Test-only redirect for task-record persistence so unit tests never
+    /// touch the real data directory. Always `None` in production builds.
+    #[cfg(test)]
+    persist_dir: Option<PathBuf>,
 }
 
 impl TaskManager {
@@ -201,9 +207,20 @@ impl TaskManager {
         let manager = Self {
             records,
             runtimes: HashMap::new(),
+            #[cfg(test)]
+            persist_dir: None,
         };
         manager.persist_in(&data_dir);
         manager
+    }
+
+    /// Whether an active task of `kind` already holds `target_id`.
+    fn has_active_task_for_target(&self, kind: TaskKind, target_id: &str) -> bool {
+        self.records.iter().any(|record| {
+            record.kind == kind
+                && record.target_id.as_deref() == Some(target_id)
+                && record.status.is_active()
+        })
     }
 
     fn register(
@@ -213,12 +230,7 @@ impl TaskManager {
     ) -> Result<(TaskContext, TaskRecord)> {
         if spec.dedupe_target {
             if let Some(target_id) = &spec.target_id {
-                let duplicate = self.records.iter().any(|record| {
-                    record.kind == spec.kind
-                        && record.target_id.as_deref() == Some(target_id.as_str())
-                        && record.status.is_active()
-                });
-                if duplicate {
+                if self.has_active_task_for_target(spec.kind, target_id) {
                     return Err(AppError::other("该任务已在进行中"));
                 }
             }
@@ -266,20 +278,11 @@ impl TaskManager {
         Ok((context, record))
     }
 
-    fn finish(
-        &mut self,
-        app_handle: &AppHandle,
-        id: &str,
-        result: std::result::Result<(), ErrorKind>,
-    ) {
+    fn finish(&mut self, id: &str, result: std::result::Result<(), ErrorKind>) {
         let Some(index) = self.records.iter().position(|item| item.id == id) else {
             return;
         };
         let runtime = self.runtimes.remove(id);
-        let app_handle = runtime
-            .as_ref()
-            .map(|runtime| runtime.app_handle.clone())
-            .unwrap_or_else(|| app_handle.clone());
         let token_cancelled = runtime
             .as_ref()
             .is_some_and(|runtime| runtime.token.is_cancelled());
@@ -313,10 +316,17 @@ impl TaskManager {
         }
         let record = record.clone();
         self.persist();
-        emit_record(&app_handle, &record);
+        if let Some(runtime) = &runtime {
+            emit_record(&runtime.app_handle, &record);
+        }
     }
 
     fn persist(&self) {
+        #[cfg(test)]
+        if let Some(dir) = &self.persist_dir {
+            self.persist_in(dir);
+            return;
+        }
         self.persist_in(&get_data_dir());
     }
 
@@ -352,6 +362,34 @@ fn outcome_status(
         Err(ErrorKind::DownloadCancelled) => TaskStatus::Cancelled,
         Err(_) if token_cancelled => TaskStatus::Cancelled,
         Err(_) => TaskStatus::Failed,
+    }
+}
+
+/// Build the failed outcome reported when task work panics unexpectedly,
+/// mirroring `execute_blocking`'s panic handling.
+fn panic_outcome(task_id: &str, payload: Box<dyn std::any::Any + Send>) -> AppError {
+    let detail = payload
+        .downcast_ref::<&'static str>()
+        .map(|message| (*message).to_string())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "unknown panic payload".to_string());
+    log::error!("Task {} work panicked: {}", task_id, detail);
+    AppError::process(format!("Task work panicked: {}", detail))
+}
+
+/// Await task work, converting an unexpected panic into a failed outcome so
+/// the task record can still be finalized instead of staying `Running`.
+async fn catch_work_panic<F, Fut, T>(task_id: &str, work: F) -> Result<T>
+where
+    F: FnOnce() -> Fut + Send,
+    Fut: Future<Output = Result<T>> + Send,
+{
+    match AssertUnwindSafe(async move { work().await })
+        .catch_unwind()
+        .await
+    {
+        Ok(outcome) => outcome,
+        Err(payload) => Err(panic_outcome(task_id, payload)),
     }
 }
 
@@ -482,8 +520,8 @@ where
 {
     let (context, record) = manager().register(&app_handle, spec)?;
     let task_id = record.id;
-    let outcome = work(context).await;
-    manager().finish(&app_handle, &task_id, task_outcome(&outcome));
+    let outcome = catch_work_panic(&task_id, || work(context)).await;
+    manager().finish(&task_id, task_outcome(&outcome));
     outcome
 }
 
@@ -502,7 +540,7 @@ where
             error
         ))),
     };
-    manager().finish(&app_handle, &task_id, task_outcome(&outcome));
+    manager().finish(&task_id, task_outcome(&outcome));
     outcome
 }
 
@@ -892,5 +930,67 @@ mod tests {
 
         assert!(load_persisted_records(data_dir.path()).is_empty());
         Ok(())
+    }
+
+    /// Panics with a string payload to simulate a task work panic.
+    #[allow(clippy::panic)]
+    fn panic_with_message(message: &'static str) -> ! {
+        std::panic::panic_any(message)
+    }
+
+    #[tokio::test]
+    async fn work_panic_finalizes_the_task_and_frees_its_target() -> Result<()> {
+        let data_dir = TestDataDir::new()?;
+        let mut store = TaskManager {
+            records: Vec::new(),
+            runtimes: HashMap::new(),
+            persist_dir: Some(data_dir.path().to_path_buf()),
+        };
+        let mut record = sample_record();
+        record.id = "task-panic".to_string();
+        record.kind = TaskKind::Deploy;
+        record.status = TaskStatus::Running;
+        record.target_id = Some("target-1".to_string());
+        store.records.push(record);
+
+        let mut spec = TaskSpec::new(TaskKind::Deploy, "tasks.titles.deployVersion");
+        spec.dedupe_target = true;
+        spec.target_id = Some("target-1".to_string());
+
+        // While the task runs, the same target is blocked.
+        assert!(store.has_active_task_for_target(spec.kind, "target-1"));
+
+        let outcome: Result<()> = catch_work_panic("task-panic", || async {
+            panic_with_message("deploy exploded")
+        })
+        .await;
+
+        // The panic becomes a failed outcome instead of escaping the task.
+        assert_eq!(task_outcome(&outcome), Err(ErrorKind::Process));
+        store.finish("task-panic", task_outcome(&outcome));
+
+        // The record is terminal and reports the process error.
+        assert_eq!(store.records[0].status, TaskStatus::Failed);
+        assert!(store.records[0].finished_at.is_some());
+        assert_eq!(
+            store.records[0].error.clone().map(|error| error.kind),
+            Some(ErrorKind::Process)
+        );
+
+        // The target is free again, so the same task can be submitted.
+        assert!(!store.has_active_task_for_target(spec.kind, "target-1"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn non_panicking_work_passes_through_catch_work_panic() {
+        let succeeded: Result<u8> = catch_work_panic("task-ok", || async { Ok(7) }).await;
+        assert_eq!(task_outcome(&succeeded), Ok(()));
+
+        let failed: Result<()> = catch_work_panic("task-failed", || async {
+            Err::<(), _>(AppError::other("boom"))
+        })
+        .await;
+        assert_eq!(task_outcome(&failed), Err(ErrorKind::Other));
     }
 }
