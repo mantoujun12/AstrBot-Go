@@ -730,6 +730,7 @@ const zhCN = {
     "title": "资源监控",
     "open": "查看资源监控",
     "stoppedHint": "实例运行后可采集资源数据。",
+    "loadFailed": "数据获取失败",
     "metrics": {
       "cpu": "CPU",
       "memory": "内存",
@@ -827,6 +828,7 @@ const zhCN = {
     "clearLogs": "清空日志",
     "copied": "已复制",
     "copyFailed": "复制失败",
+    "loadFailed": "日志订阅失败",
     "jumpToLatest": "回到最新",
     "jumpToLatestAria": "回到最新日志"
   }

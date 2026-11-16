@@ -9,6 +9,7 @@ import {
   showSnapOverlay,
   toggleMaximizeWindow,
 } from "../services/windowControls";
+import { toUserMessage } from "../services/errors";
 import TitleBarTabs from "./TitleBarTabs.vue";
 
 const { t } = useI18n();
@@ -26,7 +27,7 @@ async function updateMaximizedState() {
   try {
     isMaximized.value = await isWindowMaximized();
   } catch (error: unknown) {
-    console.error("读取窗口状态失败", error);
+    console.error("读取窗口状态失败", toUserMessage(error));
   }
 }
 
@@ -34,7 +35,7 @@ async function runWindowAction(action: () => Promise<void>) {
   try {
     await action();
   } catch (error: unknown) {
-    console.error("窗口操作失败", error);
+    console.error("窗口操作失败", toUserMessage(error));
   }
 }
 
@@ -85,7 +86,7 @@ onMounted(async () => {
       unlisten();
     }
   } catch (error: unknown) {
-    console.error("监听窗口状态失败", error);
+    console.error("监听窗口状态失败", toUserMessage(error));
   }
 });
 

@@ -746,6 +746,7 @@ const enUS = {
     title: "Resource Monitor",
     open: "View resource monitor",
     stoppedHint: "Resource data is collected while the instance is running.",
+    loadFailed: "Failed to load metrics",
     metrics: {
       cpu: "CPU",
       memory: "Memory",
@@ -843,6 +844,7 @@ const enUS = {
     clearLogs: "Clear Logs",
     copied: "Copied",
     copyFailed: "Copy failed",
+    loadFailed: "Failed to subscribe to logs",
     jumpToLatest: "Jump to Latest",
     jumpToLatestAria: "Jump to latest log",
   },

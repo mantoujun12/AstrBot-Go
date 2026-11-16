@@ -54,6 +54,7 @@ const diskInput = ref("");
 const loading = ref(false);
 const saving = ref(false);
 const thresholdError = ref("");
+const pollError = ref(false);
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let requestSequence = 0;
@@ -305,13 +306,29 @@ async function refreshHistory(): Promise<void> {
     const next = await getInstanceResourceHistory(id);
     if (sequence === requestSequence && id === activeInstanceId) {
       history.value = next;
+      pollError.value = false;
     }
-  } catch {
+  } catch (cause) {
     if (sequence === requestSequence) {
+      pollError.value = true;
       stopPolling();
+      showErrorToast(cause);
     }
   } finally {
     refreshing = false;
+  }
+}
+
+/** Re-fetch after a failed poll; polling resumes on success. */
+async function retryRefresh(): Promise<void> {
+  pollError.value = false;
+  if (history.value.length === 0) {
+    await initialize();
+    return;
+  }
+  await refreshHistory();
+  if (!pollError.value) {
+    startPolling();
   }
 }
 
@@ -372,6 +389,7 @@ async function initialize(): Promise<void> {
   activeInstanceId = instance.id;
   history.value = [];
   thresholdError.value = "";
+  pollError.value = false;
   loading.value = true;
 
   try {
@@ -387,6 +405,9 @@ async function initialize(): Promise<void> {
     syncFormFromThresholds(nextThresholds);
     startPolling();
   } catch (cause) {
+    if (activeInstanceId === instance.id) {
+      pollError.value = true;
+    }
     showErrorToast(cause);
   } finally {
     // A poll that starts while this load is in flight must not strand the
@@ -538,7 +559,26 @@ onBeforeUnmount(stopPolling);
           </div>
         </div>
 
-        <div class="resource-charts">
+        <v-alert
+          v-if="pollError"
+          type="error"
+          variant="tonal"
+          class="resource-charts__error"
+          role="alert"
+        >
+          <div class="resource-charts__error-row">
+            <span>{{ t("resources.loadFailed") }}</span>
+            <v-btn
+              color="primary"
+              variant="tonal"
+              size="small"
+              @click="retryRefresh"
+            >
+              {{ t("common.actions.retry") }}
+            </v-btn>
+          </div>
+        </v-alert>
+        <div v-else class="resource-charts">
           <section class="resource-panel">
             <h3 class="resource-panel__title">
               {{ t("resources.charts.cpu") }}
@@ -723,6 +763,14 @@ onBeforeUnmount(stopPolling);
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.resource-charts__error-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
 }
 
 .resource-panel {
