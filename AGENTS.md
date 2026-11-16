@@ -133,7 +133,7 @@ Project styles in `src/scss/` and component `<style>` blocks are unlayered, so t
 - Download version files into a staging directory. Validate their source, size, or hash before an atomic replacement, and preserve recoverable previous data if the operation fails.
 - Backup and restore operations must retain version, timestamp, instance information, and a manifest. Prefer temporary files and atomic renames when writing critical configuration.
 - Redact tokens, passwords, full user paths, and private configuration from logs. Diagnostics should identify problems without exposing sensitive content.
-- When changing AstrBot data formats, version compatibility, or runtime environments, account for legacy instances, interrupted operations, and repeated execution.
+- When changing AstrBot data formats or runtime environments, account for interrupted operations and repeated execution. Until the first stable release, do not add compatibility or migration code for data written by earlier versions.
 
 ## Copy and Internationalization
 
