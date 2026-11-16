@@ -140,8 +140,10 @@ watch(
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
-/* Mobile matches upstream ≤959.98px: no gap, no radius, no border, full-width content. */
-@media (max-width: 959.98px) {
+/* Mobile matches the Vuetify md breakpoint (<840px): no gap, no radius, no
+   border, full-width content. This must stay in sync with the floating menu
+   button, which only renders when the drawer is temporary. */
+@media (max-width: 839.98px) {
   .launcher-main {
     --launcher-content-gap: 0px;
   }

@@ -27,6 +27,13 @@ html[data-platform='windows'] .v-application.v-theme--light {
   --launcher-chrome-alpha: 0.78;
 }
 
+/* The teleported title bar lives on `body`, outside `.v-application`, so it
+   cannot inherit the light-theme token above; mirror it at body level to keep
+   bar and shell on the same colour. Dark theme keeps `:root`'s surface. */
+html[data-platform='windows'] body:has(.v-application.v-theme--light) {
+  --launcher-chrome-bg: 242, 242, 247;
+}
+
 html[data-platform='windows'] .v-application.v-theme--dark {
   --launcher-chrome-alpha: 0.84;
 }
