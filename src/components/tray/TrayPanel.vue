@@ -74,6 +74,7 @@ const startedAtNow = ref(Date.now());
 const pendingActions = ref<Record<string, InstanceActionKind>>({});
 const actionErrors = ref<Record<string, string>>({});
 const confirmStopId = ref<string | null>(null);
+const confirmQuit = ref(false);
 const headerRef = ref<HTMLElement | null>(null);
 const listRef = ref<HTMLElement | null>(null);
 const footerRef = ref<HTMLElement | null>(null);
@@ -114,6 +115,7 @@ let heightFrame: number | null = null;
 let heightTimer: number | null = null;
 let lastReportedHeight = -1;
 let confirmStopTimer: number | null = null;
+let confirmQuitTimer: number | null = null;
 let disposed = false;
 const actionErrorTimers = new Map<string, number>();
 const unlisteners: UnlistenFn[] = [];
@@ -263,6 +265,23 @@ function requestStopConfirmation(instanceId: string): void {
   }, 3000);
 }
 
+function clearQuitConfirm(): void {
+  if (confirmQuitTimer !== null) {
+    window.clearTimeout(confirmQuitTimer);
+    confirmQuitTimer = null;
+  }
+  confirmQuit.value = false;
+}
+
+function requestQuitConfirmation(): void {
+  clearQuitConfirm();
+  confirmQuit.value = true;
+  confirmQuitTimer = window.setTimeout(() => {
+    confirmQuitTimer = null;
+    confirmQuit.value = false;
+  }, 3000);
+}
+
 async function runInstanceAction(
   instanceId: string,
   kind: InstanceActionKind,
@@ -314,7 +333,12 @@ async function quitLauncher(): Promise<void> {
   if (quitting.value) {
     return;
   }
+  if (!confirmQuit.value) {
+    requestQuitConfirmation();
+    return;
+  }
 
+  clearQuitConfirm();
   quitting.value = true;
   try {
     await quitApp();
@@ -328,6 +352,10 @@ function handleKeydown(event: KeyboardEvent): void {
     return;
   }
   event.preventDefault();
+  if (confirmQuit.value) {
+    clearQuitConfirm();
+    return;
+  }
   if (confirmStopId.value !== null) {
     clearStopConfirm();
     return;
@@ -509,6 +537,9 @@ onBeforeUnmount(() => {
   if (confirmStopTimer !== null) {
     window.clearTimeout(confirmStopTimer);
   }
+  if (confirmQuitTimer !== null) {
+    window.clearTimeout(confirmQuitTimer);
+  }
   for (const timer of actionErrorTimers.values()) {
     window.clearTimeout(timer);
   }
@@ -687,15 +718,27 @@ onBeforeUnmount(() => {
       </v-btn>
       <v-btn
         class="tray-panel__footer-button"
+        :class="{
+          'tray-panel__action--confirm': confirmQuit,
+        }"
         variant="text"
         size="small"
         color="error"
-        prepend-icon="mdi-power"
+        :prepend-icon="confirmQuit ? 'mdi-check-bold' : 'mdi-power'"
         :loading="quitting"
         :disabled="quitting"
+        :aria-label="
+          confirmQuit
+            ? t('trayPanel.actions.confirmQuit')
+            : t('trayPanel.quit')
+        "
         @click="quitLauncher"
       >
-        {{ t("trayPanel.quit") }}
+        {{
+          confirmQuit
+            ? t("trayPanel.actions.confirmQuit")
+            : t("trayPanel.quit")
+        }}
       </v-btn>
     </footer>
   </div>

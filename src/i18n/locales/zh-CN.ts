@@ -53,6 +53,7 @@ const zhCN = {
       "start": "启动 {name}",
       "stop": "停止 {name}",
       "confirmStop": "再次点击确认停止 {name}",
+      "confirmQuit": "再次点击确认退出",
       "restart": "重启 {name}"
     }
   },

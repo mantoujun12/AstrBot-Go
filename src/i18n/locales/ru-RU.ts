@@ -55,6 +55,7 @@ const ruRU = {
       start: "Запустить {name}",
       stop: "Остановить {name}",
       confirmStop: "Нажмите ещё раз, чтобы остановить {name}",
+      confirmQuit: "Нажмите ещё раз, чтобы выйти",
       restart: "Перезапустить {name}",
     },
   },

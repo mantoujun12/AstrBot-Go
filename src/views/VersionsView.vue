@@ -135,6 +135,10 @@ const installedVersionSet = computed(
 // registry so uninstall operations on the same version do not show pause/stop.
 const activeDownloads = reactive(new Set<string>());
 
+// Pause/resume/stop control commands. Guards against duplicate submissions
+// from rapid double clicks, which would emit conflicting command errors.
+const pauseStopBusy = reactive(new Set<string>());
+
 const releaseRows = computed<ReleaseRow[]>(() =>
   releases.value.map((release) => {
     const progress = downloads.value[release.tag_name] ?? null;
@@ -410,20 +414,33 @@ function handleInstallRelease(release: GitHubRelease): void {
 
 async function handleTogglePause(row: ReleaseRow): Promise<void> {
   const tag = row.release.tag_name;
+  if (pauseStopBusy.has(tag)) {
+    return;
+  }
+  pauseStopBusy.add(tag);
   try {
     await (row.paused
       ? resumeVersionDownload(tag)
       : pauseVersionDownload(tag));
   } catch (cause) {
     showErrorToast(cause);
+  } finally {
+    pauseStopBusy.delete(tag);
   }
 }
 
 async function handleStopDownload(row: ReleaseRow): Promise<void> {
+  const tag = row.release.tag_name;
+  if (pauseStopBusy.has(tag)) {
+    return;
+  }
+  pauseStopBusy.add(tag);
   try {
-    await cancelVersionDownload(row.release.tag_name);
+    await cancelVersionDownload(tag);
   } catch (cause) {
     showErrorToast(cause);
+  } finally {
+    pauseStopBusy.delete(tag);
   }
 }
 
@@ -745,6 +762,8 @@ function openReleaseNotes(release: GitHubRelease): void {
                   variant="tonal"
                   color="primary"
                   :prepend-icon="row.paused ? 'mdi-play' : 'mdi-pause'"
+                  :loading="pauseStopBusy.has(row.release.tag_name)"
+                  :disabled="pauseStopBusy.has(row.release.tag_name)"
                   @click="handleTogglePause(row)"
                 >
                   {{
@@ -758,6 +777,8 @@ function openReleaseNotes(release: GitHubRelease): void {
                   variant="tonal"
                   color="error"
                   prepend-icon="mdi-stop"
+                  :loading="pauseStopBusy.has(row.release.tag_name)"
+                  :disabled="pauseStopBusy.has(row.release.tag_name)"
                   @click="handleStopDownload(row)"
                 >
                   {{ t("versions.actions.stop") }}
