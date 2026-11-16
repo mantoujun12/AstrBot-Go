@@ -187,10 +187,7 @@ struct TaskManager {
 impl TaskManager {
     fn load() -> Self {
         let data_dir = get_data_dir();
-        let LoadedRecords {
-            mut records,
-            legacy_to_remove,
-        } = read_persisted_records(&data_dir);
+        let mut records = read_records_file(&tasks_file(&data_dir)).unwrap_or_default();
         let now = chrono::Utc::now().to_rfc3339();
         for record in &mut records {
             if record.status.is_active() {
@@ -205,13 +202,7 @@ impl TaskManager {
             records,
             runtimes: HashMap::new(),
         };
-        // Only drop the legacy file after the migrated records are safely stored
-        // in the data root.
-        if manager.persist_in(&data_dir) {
-            if let Some(legacy_path) = legacy_to_remove.as_deref() {
-                remove_legacy_tasks_file(legacy_path);
-            }
-        }
+        manager.persist_in(&data_dir);
         manager
     }
 
@@ -329,8 +320,7 @@ impl TaskManager {
         self.persist_in(&get_data_dir());
     }
 
-    /// Persist into an explicit data directory snapshot so the write and any
-    /// related legacy cleanup always target the same location.
+    /// Persist into an explicit data directory snapshot.
     fn persist_in(&self, data_dir: &Path) -> bool {
         let mut active: Vec<_> = self
             .records
@@ -382,22 +372,9 @@ fn manager() -> MutexGuard<TaskManager> {
 
 type MutexGuard<T> = std::sync::MutexGuard<'static, T>;
 
-/// Task records loaded from disk, plus the legacy file they were migrated from.
-/// The legacy file is only removed after these records have been persisted to
-/// the data root.
-struct LoadedRecords {
-    records: Vec<TaskRecord>,
-    legacy_to_remove: Option<PathBuf>,
-}
-
 /// Path to the task records file in the data root.
 fn tasks_file(data_dir: &Path) -> PathBuf {
     data_dir.join("tasks.json")
-}
-
-/// Legacy location used before task records moved to the data root.
-fn legacy_tasks_file(data_dir: &Path) -> PathBuf {
-    data_dir.join("tasks").join("tasks.json")
 }
 
 /// Read task records from `path`, returning `None` when the file is missing or
@@ -410,28 +387,6 @@ fn read_records_file(path: &Path) -> Option<Vec<TaskRecord>> {
             log::warn!("Failed to parse persisted task records: {}", error);
             None
         }
-    }
-}
-
-fn read_persisted_records(data_dir: &Path) -> LoadedRecords {
-    if let Some(records) = read_records_file(&tasks_file(data_dir)) {
-        return LoadedRecords {
-            records,
-            legacy_to_remove: None,
-        };
-    }
-    // The root file is missing or unusable: fall back to a valid legacy file so
-    // upgrading users do not lose their task history.
-    let legacy_path = legacy_tasks_file(data_dir);
-    match read_records_file(&legacy_path) {
-        Some(records) => LoadedRecords {
-            records,
-            legacy_to_remove: Some(legacy_path),
-        },
-        None => LoadedRecords {
-            records: Vec::new(),
-            legacy_to_remove: None,
-        },
     }
 }
 
@@ -461,20 +416,6 @@ fn write_persisted_records(data_dir: &Path, records: &[TaskRecord]) -> bool {
         return false;
     }
     true
-}
-
-/// Drop a migrated legacy task file so a stale copy can no longer shadow the
-/// records in the data root.
-fn remove_legacy_tasks_file(legacy_path: &Path) {
-    if let Err(error) = std::fs::remove_file(legacy_path) {
-        if error.kind() != std::io::ErrorKind::NotFound {
-            log::warn!("Failed to remove legacy task records: {}", error);
-        }
-        return;
-    }
-    if let Some(parent) = legacy_path.parent() {
-        let _ = std::fs::remove_dir(parent);
-    }
 }
 
 fn emit_record(app_handle: &AppHandle, record: &TaskRecord) {
@@ -904,14 +845,6 @@ mod tests {
         }
     }
 
-    fn write_records(path: &Path, records: &[TaskRecord]) -> Result<()> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(path, serde_json::to_string_pretty(records)?)?;
-        Ok(())
-    }
-
     fn sample_with_id(id: &str) -> TaskRecord {
         let mut record = sample_record();
         record.id = id.to_string();
@@ -919,84 +852,26 @@ mod tests {
     }
 
     #[test]
-    fn root_records_take_precedence_over_legacy_records() -> Result<()> {
+    fn persisted_records_round_trip() -> Result<()> {
         let data_dir = TestDataDir::new()?;
-        write_records(&tasks_file(data_dir.path()), &[sample_with_id("root")])?;
-        write_records(
-            &legacy_tasks_file(data_dir.path()),
-            &[sample_with_id("legacy")],
-        )?;
+        assert!(write_persisted_records(
+            data_dir.path(),
+            &[sample_with_id("root")]
+        ));
 
-        let loaded = read_persisted_records(data_dir.path());
+        let records = read_records_file(&tasks_file(data_dir.path())).unwrap_or_default();
 
-        assert_eq!(loaded.records.len(), 1);
-        assert_eq!(loaded.records[0].id, "root");
-        assert!(loaded.legacy_to_remove.is_none());
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].id, "root");
         Ok(())
     }
 
     #[test]
-    fn malformed_root_records_fall_back_to_valid_legacy_records() -> Result<()> {
+    fn malformed_records_are_ignored() -> Result<()> {
         let data_dir = TestDataDir::new()?;
         std::fs::write(tasks_file(data_dir.path()), b"{ not json")?;
-        let legacy_path = legacy_tasks_file(data_dir.path());
-        write_records(&legacy_path, &[sample_with_id("legacy")])?;
 
-        let loaded = read_persisted_records(data_dir.path());
-
-        assert_eq!(loaded.records.len(), 1);
-        assert_eq!(loaded.records[0].id, "legacy");
-        assert_eq!(
-            loaded.legacy_to_remove.as_deref(),
-            Some(legacy_path.as_path())
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn unreadable_legacy_records_are_kept_and_not_marked_for_removal() -> Result<()> {
-        let data_dir = TestDataDir::new()?;
-        let legacy_path = legacy_tasks_file(data_dir.path());
-        if let Some(parent) = legacy_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(&legacy_path, b"{ not json")?;
-
-        let loaded = read_persisted_records(data_dir.path());
-
-        assert!(loaded.records.is_empty());
-        assert!(loaded.legacy_to_remove.is_none());
-        assert!(legacy_path.is_file());
-        Ok(())
-    }
-
-    #[test]
-    fn migrated_legacy_records_are_removed_after_a_successful_write() -> Result<()> {
-        let data_dir = TestDataDir::new()?;
-        write_records(
-            &legacy_tasks_file(data_dir.path()),
-            &[sample_with_id("legacy")],
-        )?;
-
-        let LoadedRecords {
-            records,
-            legacy_to_remove,
-        } = read_persisted_records(data_dir.path());
-        assert!(write_persisted_records(data_dir.path(), &records));
-        let Some(legacy_path) = legacy_to_remove else {
-            return Err(AppError::other("legacy cleanup was not requested"));
-        };
-        remove_legacy_tasks_file(&legacy_path);
-
-        assert!(!legacy_path.exists());
-        let Some(legacy_parent) = legacy_path.parent() else {
-            return Err(AppError::other("legacy task file has no parent"));
-        };
-        assert!(!legacy_parent.exists());
-        assert_eq!(
-            read_records_file(&tasks_file(data_dir.path())).map(|items| items.len()),
-            Some(1)
-        );
+        assert!(read_records_file(&tasks_file(data_dir.path())).is_none());
         Ok(())
     }
 }
