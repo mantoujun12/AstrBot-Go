@@ -276,6 +276,9 @@ const deleteMessage = computed(() => {
 });
 
 function requestDelete(path: string): void {
+  if (isBusy(restoreKey(path))) {
+    return;
+  }
   const backup = findBackup(path);
   if (!backup) {
     return;
@@ -476,6 +479,7 @@ async function handleOpenFolder(path: string): Promise<void> {
                 variant="text"
                 color="error"
                 prepend-icon="mdi-delete-outline"
+                :disabled="isBusy(restoreKey(item.path))"
                 @click="requestDelete(item.path)"
               >
                 {{ t("common.actions.delete") }}

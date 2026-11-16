@@ -55,6 +55,7 @@ const jaJP = {
       start: "{name} を起動",
       stop: "{name} を停止",
       confirmStop: "もう一度クリックして {name} を停止",
+      confirmQuit: "もう一度クリックして終了",
       restart: "{name} を再起動",
     },
   },

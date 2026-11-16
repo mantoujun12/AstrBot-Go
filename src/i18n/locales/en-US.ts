@@ -55,6 +55,7 @@ const enUS = {
       start: "Start {name}",
       stop: "Stop {name}",
       confirmStop: "Click again to stop {name}",
+      confirmQuit: "Click again to quit",
       restart: "Restart {name}",
     },
   },
