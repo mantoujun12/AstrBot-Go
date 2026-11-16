@@ -22,6 +22,7 @@
 - Surfaced frontend event-subscription and polling failures: the resource monitor now shows an error state with retry instead of frozen charts, and the log and task pages expose subscription/list failures with a retry action.
 - Fixed instance discovery process plumbing: discovery subprocesses no longer stall on an unread stderr pipe and get falsely reported as unavailable, and the timeout kill path no longer leaks zombie processes.
 - Redacted local paths and raw URLs embedded in archive-extraction and network error messages, and replaced the empty error text shown when a required backup file is missing with a specific description.
+- Made critical cache/config writes atomic (GitHub releases cache, data-directory override) and cleaned up leftover `.restore-rollback-*` directories before a new restore.
 
 ## 中文
 
@@ -47,3 +48,4 @@
 - 前端事件订阅与轮询失败不再被静默吞掉：资源监控改为展示错误态并提供重试，日志页与任务页在订阅或列表失败时展示可重试的错误态。
 - 修复实例发现流程的进程管道问题：发现子进程不再因 stderr 管道无人读取而阻塞并被误报为不可用，超时强杀路径也不再泄漏僵尸进程。
 - 修复归档解压与网络错误消息中泄漏本地完整路径及原始 URL 的问题，并为必需备份文件缺失时的空错误信息补充具体描述。
+- 将关键缓存/配置写入改为原子操作（GitHub Releases 缓存、数据目录覆盖文件），并在新恢复开始前清理残留的 `.restore-rollback-*` 目录。

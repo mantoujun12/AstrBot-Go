@@ -733,7 +733,7 @@ impl DataSwap {
     }
 }
 
-fn remove_stale_restore_staging_dirs(instance_dir: &Path) {
+fn remove_stale_restore_temp_dirs(instance_dir: &Path) {
     let entries = match fs::read_dir(instance_dir) {
         Ok(entries) => entries,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return,
@@ -753,13 +753,15 @@ fn remove_stale_restore_staging_dirs(instance_dir: &Path) {
         };
         if name.starts_with(RESTORE_STAGING_PREFIX) {
             remove_dir_if_exists(&entry.path(), "stale restore staging directory");
+        } else if name.starts_with(RESTORE_ROLLBACK_PREFIX) {
+            remove_dir_if_exists(&entry.path(), "stale restore rollback directory");
         }
     }
 }
 
 /// Extract a backup into a unique staging directory and swap it into place.
 fn prepare_data_swap(backup_path: &Path, instance_dir: &Path, core_dir: &Path) -> Result<DataSwap> {
-    remove_stale_restore_staging_dirs(instance_dir);
+    remove_stale_restore_temp_dirs(instance_dir);
 
     let staging_root =
         instance_dir.join(format!("{RESTORE_STAGING_PREFIX}{}", uuid::Uuid::new_v4()));
@@ -1157,6 +1159,35 @@ mod tests {
             fs::read_to_string(core_dir.join("data").join("config.json"))?,
             "old"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn stale_restore_temp_dirs_are_removed_and_normal_dirs_kept() -> Result<()> {
+        let dir = TestDir::new("stale-temp-dirs")?;
+
+        let staging_dir = dir.path().join(".restore-staging-old");
+        fs::create_dir_all(&staging_dir)?;
+        let rollback_dir = dir.path().join(".restore-rollback-old");
+        fs::create_dir_all(&rollback_dir)?;
+        write_file(&rollback_dir.join("data").join("config.json"), b"old")?;
+
+        let normal_dir = dir.path().join("core");
+        fs::create_dir_all(&normal_dir)?;
+        write_file(&normal_dir.join("config.json"), b"current")?;
+        let normal_file = dir.path().join("backup.zip");
+        write_file(&normal_file, b"zip")?;
+
+        remove_stale_restore_temp_dirs(dir.path());
+
+        assert!(!staging_dir.exists());
+        assert!(!rollback_dir.exists());
+        assert!(normal_dir.exists());
+        assert_eq!(
+            fs::read_to_string(normal_dir.join("config.json"))?,
+            "current"
+        );
+        assert!(normal_file.exists());
         Ok(())
     }
 }

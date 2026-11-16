@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::load_config;
 use crate::error::Result;
 use crate::network_config;
+use crate::utils::fs_ops::{replace_file_atomically, unique_sibling_path};
 use crate::utils::index_url::wrap_with_proxy;
 use crate::utils::log_redact;
 use crate::utils::net::fetch_json;
@@ -109,7 +110,24 @@ fn save_releases_cache_to_disk(cache: &ReleasesCache) {
         }
     };
 
-    if let Err(e) = fs::write(&path, content) {
+    let temp_path = match unique_sibling_path(&path, "tmp") {
+        Ok(temp) => temp,
+        Err(e) => {
+            log::warn!("Failed to prepare temp file for releases cache: {}", e);
+            return;
+        }
+    };
+    if let Err(e) = fs::write(&temp_path, content) {
+        let _ = fs::remove_file(&temp_path);
+        log::warn!(
+            "Failed to write releases cache to {}: {}",
+            log_redact::path_name(&path),
+            e
+        );
+        return;
+    }
+    if let Err(e) = replace_file_atomically(&temp_path, &path) {
+        let _ = fs::remove_file(&temp_path);
         log::warn!(
             "Failed to write releases cache to {}: {}",
             log_redact::path_name(&path),
