@@ -1768,9 +1768,11 @@ function openWebui(instance: InstanceStatus): void {
   min-width: 208px;
 }
 
-@media (max-width: 959px) {
-  .instance-actions {
-    justify-content: flex-start;
+/* Mobile card layout (mdAndDown): align the name group with the other values. */
+@media (max-width: 1144.98px) {
+  .instance-name-cell {
+    justify-content: flex-end;
+    text-align: start;
   }
 }
 </style>

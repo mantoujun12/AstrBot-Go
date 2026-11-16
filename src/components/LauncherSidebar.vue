@@ -102,6 +102,7 @@ const toggleLabel = computed(() =>
         </v-list>
 
         <v-btn
+          v-if="props.permanent"
           class="launcher-sidebar__toggle"
           :icon="props.rail ? 'mdi-chevron-right' : 'mdi-chevron-left'"
           :aria-label="toggleLabel"
@@ -120,14 +121,23 @@ const toggleLabel = computed(() =>
   left: 0 !important;
   height: calc(100% - var(--launcher-titlebar-height)) !important;
   border-inline-end: 0;
-  /* Keep Vuetify's opaque surface background out; the `.launcher-shell`
-     base already paints the shared chrome tint, and a second layer would
-     double-stack the alpha and hide the Mica tint. */
+  /* Keep Vuetify's opaque surface background out: in the permanent and rail
+     modes the drawer sits inside `.launcher-shell`, which already paints the
+     shared chrome tint, and a second layer would double-stack the alpha and
+     hide the Mica tint. The temporary drawer floats above the content outside
+     that shell, so it must paint its own background — see below. */
   background: transparent !important;
   box-shadow: none !important;
   transition:
     width 180ms cubic-bezier(0.2, 0, 0, 1),
     transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Temporary (< md, i.e. narrower than 840px): overlays the page instead of
+   sharing the shell tint, so a transparent background would show the page
+   content through the nav. Reuse the same chrome tint, fully opaque. */
+.launcher-sidebar.v-navigation-drawer--temporary {
+  background: rgb(var(--launcher-chrome-bg)) !important;
 }
 
 .launcher-sidebar__content {

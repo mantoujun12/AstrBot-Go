@@ -173,6 +173,7 @@ onBeforeUnmount(() => {
   /* The `.launcher-shell` base already paints the shared chrome tint; an
      extra layer here would double-stack the alpha and hide the Mica tint. */
   background: transparent;
+  transition: background-color 160ms ease;
   border-bottom: 0;
   user-select: none;
 }
@@ -239,13 +240,26 @@ onBeforeUnmount(() => {
   outline: 2px solid rgb(var(--v-theme-primary));
   outline-offset: -3px;
 }
+</style>
 
-/* While a scrimmed overlay is active the title bar swaps its transparent Mica
-   base for an opaque chrome base: the scrim (z-index 2400+, teleported to body)
-   sits under the title bar but would cover the strip through a transparent
-   base; opaque keeps the bar at normal brightness (native modal style: content
-   dims, title bar chrome stays). */
-:global(body:has(.v-overlay--active .v-overlay__scrim)) .app-titlebar {
-  background: rgb(var(--launcher-chrome-bg));
+<style>
+/* Not inside the scoped block: the scoped compiler mangles `:global()` wrapping
+   a `:has()` with nested parens and drops the `.app-titlebar` compound selector.
+
+   Two opaque-chrome cases, both matched from `body` because the title bar is
+   teleported there and outside `.launcher-shell`:
+   - a scrimmed overlay is active: the scrim (z-index 2400+, also teleported to
+     body) sits under the title bar and would dim the strip through a
+     transparent base; opaque keeps the bar at normal brightness (native modal
+     style: content dims, title bar chrome stays);
+   - the temporary (narrow-window) sidebar drawer is open: it paints the same
+     opaque `--launcher-chrome-bg`, so a transparent Mica bar next to it looks
+     like a seam. Only `--temporary --active` matches; a permanent drawer is
+     always active and must not lock the bar opaque.
+   `background-color` (not the `background` shorthand) so the transition in the
+   scoped block animates instead of snapping. */
+body:has(.v-overlay--active .v-overlay__scrim) .app-titlebar,
+body:has(.v-navigation-drawer--temporary.v-navigation-drawer--active) .app-titlebar {
+  background-color: rgb(var(--launcher-chrome-bg));
 }
 </style>
