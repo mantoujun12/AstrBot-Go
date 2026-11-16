@@ -187,7 +187,7 @@ struct TaskManager {
 impl TaskManager {
     fn load() -> Self {
         let data_dir = get_data_dir();
-        let mut records = read_records_file(&tasks_file(&data_dir)).unwrap_or_default();
+        let mut records = load_persisted_records(&data_dir);
         let now = chrono::Utc::now().to_rfc3339();
         for record in &mut records {
             if record.status.is_active() {
@@ -388,6 +388,12 @@ fn read_records_file(path: &Path) -> Option<Vec<TaskRecord>> {
             None
         }
     }
+}
+
+/// Load task records from `<data_dir>/tasks.json`; missing or invalid files
+/// yield an empty list.
+fn load_persisted_records(data_dir: &Path) -> Vec<TaskRecord> {
+    read_records_file(&tasks_file(data_dir)).unwrap_or_default()
 }
 
 /// Persist task records into `data_dir`, returning whether the write succeeded.
@@ -852,14 +858,21 @@ mod tests {
     }
 
     #[test]
-    fn persisted_records_round_trip() -> Result<()> {
+    fn persisted_records_use_root_tasks_file() -> Result<()> {
         let data_dir = TestDataDir::new()?;
+        let root_file = data_dir.path().join("tasks.json");
         assert!(write_persisted_records(
             data_dir.path(),
-            &[sample_with_id("root")]
+            &[sample_with_id("written")]
         ));
+        assert!(root_file.is_file());
+        assert!(!data_dir.path().join("tasks").exists());
 
-        let records = read_records_file(&tasks_file(data_dir.path())).unwrap_or_default();
+        std::fs::write(
+            &root_file,
+            serde_json::to_string(&[sample_with_id("root")])?,
+        )?;
+        let records = load_persisted_records(data_dir.path());
 
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].id, "root");
@@ -867,11 +880,17 @@ mod tests {
     }
 
     #[test]
-    fn malformed_records_are_ignored() -> Result<()> {
+    fn nested_tasks_file_is_not_loaded() -> Result<()> {
         let data_dir = TestDataDir::new()?;
-        std::fs::write(tasks_file(data_dir.path()), b"{ not json")?;
+        std::fs::write(data_dir.path().join("tasks.json"), b"{ not json")?;
+        let nested_dir = data_dir.path().join("tasks");
+        std::fs::create_dir_all(&nested_dir)?;
+        std::fs::write(
+            nested_dir.join("tasks.json"),
+            serde_json::to_string(&[sample_with_id("nested")])?,
+        )?;
 
-        assert!(read_records_file(&tasks_file(data_dir.path())).is_none());
+        assert!(load_persisted_records(data_dir.path()).is_empty());
         Ok(())
     }
 }
