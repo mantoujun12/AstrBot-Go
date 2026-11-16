@@ -9,8 +9,6 @@
     "main"
   ],
   "permissions": [
-    "log:allow-log",
-    "window-state:default",
     "autostart:default"
   ]
 }

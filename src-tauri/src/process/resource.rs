@@ -538,6 +538,9 @@ fn parse_smaps_private_bytes(rollup: &str) -> Option<u64> {
 }
 
 #[cfg(target_os = "macos")]
+/// Platform limitation: on macOS this samples only the root process (a single
+/// `pidrusage` call) instead of walking the process tree like the Windows and
+/// Linux implementations, so resource charts underreport on macOS.
 fn read_process_tree_usage(pid: u32) -> (Vec<ProcessCpuTime>, Option<u64>) {
     use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
 

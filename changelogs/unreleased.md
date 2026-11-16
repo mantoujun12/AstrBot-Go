@@ -1,5 +1,9 @@
 ## English
 
+### Security
+
+- Hardened the Tauri configuration: disabled `withGlobalTauri`, narrowed the opener permission to `allow-open-url`, removed unused `log` and `window-state` capability permissions, and dropped the unused `tauri-plugin-process` dependency.
+
 ### Changed
 
 - Separated the display of application name + version and repository link in "Settings → About". (Direct commit)
@@ -15,6 +19,10 @@
 - Guarded against duplicate submissions in the frontend: a backup being restored can no longer be deleted, download pause/resume and stop buttons ignore rapid double clicks, and quitting the launcher from the tray now uses the same click-again confirmation as stopping an instance.
 
 ## 中文
+
+### 安全
+
+- 加固 Tauri 配置：关闭 `withGlobalTauri`，将 opener 权限收窄为 `allow-open-url`，移除未使用的 `log` 与 `window-state` 能力权限，并删除未使用的 `tauri-plugin-process` 依赖。
 
 ### 变更
 
