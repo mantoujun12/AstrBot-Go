@@ -40,17 +40,6 @@ pub(crate) fn default_data_dir() -> PathBuf {
     home.join(".astrbot_go")
 }
 
-/// Data directory used by AstrBot Launcher, the predecessor app.
-pub(crate) fn legacy_default_data_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| home.join(".astrbot_launcher"))
-}
-
-/// Marker file recording that the user declined migrating the legacy data
-/// directory, so the migration wizard does not ask again.
-pub(crate) fn legacy_migration_dismissed_marker_path() -> Option<PathBuf> {
-    launcher_config_dir().map(|dir| dir.join(".legacy-data-dir-dismissed"))
-}
-
 /// Validate a user-provided data directory path.
 pub(crate) fn validate_data_dir(dir: &Path) -> Result<()> {
     if dir.as_os_str().is_empty() {
