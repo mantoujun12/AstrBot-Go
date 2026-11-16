@@ -296,23 +296,30 @@ pub async fn update_instance(
         )?;
 
         // Clear core_dir and venv_dir
-        if core_dir.exists() {
-            std::fs::remove_dir_all(&core_dir).map_err(|e| {
-                AppError::io(format!(
-                    "Failed to remove core directory {:?}: {}",
-                    core_dir, e
-                ))
-            })?;
-        }
         let venv_dir = get_instance_venv_dir(instance_id);
-        if venv_dir.exists() {
-            std::fs::remove_dir_all(&venv_dir).map_err(|e| {
-                AppError::io(format!(
-                    "Failed to remove venv directory {:?}: {}",
-                    venv_dir, e
-                ))
-            })?;
-        }
+        tokio::task::spawn_blocking(move || {
+            if core_dir.exists() {
+                std::fs::remove_dir_all(&core_dir).map_err(|e| {
+                    AppError::io(format!(
+                        "Failed to remove core directory {:?}: {}",
+                        core_dir, e
+                    ))
+                })?;
+            }
+            if venv_dir.exists() {
+                std::fs::remove_dir_all(&venv_dir).map_err(|e| {
+                    AppError::io(format!(
+                        "Failed to remove venv directory {:?}: {}",
+                        venv_dir, e
+                    ))
+                })?;
+            }
+            Ok::<(), AppError>(())
+        })
+        .await
+        .map_err(|error| {
+            AppError::io(format!("Failed to clean instance directories: {}", error))
+        })??;
 
         // Deploy(internally emits extract 10-30%, venv 40-50%, deps 60-90%)
         deploy_instance_core_with_version(instance_id, new_version, app_handle).await?;

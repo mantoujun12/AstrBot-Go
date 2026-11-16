@@ -2,6 +2,7 @@
 
 ### Changed
 
+- Moved large file IO and blocking network probes (version archive extraction, instance directory cleanup, lock checks, and port probing) off the async runtime onto the blocking thread pool.
 - Separated the display of application name + version and repository link in "Settings → About". (Direct commit)
 
 ### Removed
@@ -17,6 +18,7 @@
 
 ### 变更
 
+- 将大文件 IO 与阻塞网络探测（版本压缩包解压、实例目录清理、锁文件检查、端口探测）移出异步运行时，改为在阻塞线程池中执行。
 - 将 “设置 → 关于” 中，显示应用名称+版本与仓库跳转，进行分隔。（直接提交）
 
 ### 移除

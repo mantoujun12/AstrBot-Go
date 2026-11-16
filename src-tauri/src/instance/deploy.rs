@@ -132,7 +132,14 @@ async fn deploy_instance_with_version_impl(
             .map_err(|e| AppError::io(format!("Failed to create core dir: {}", e)))?;
         clear_core_except_data(&core_dir)?;
 
-        extract_zip_flat(&zip_path, &core_dir)?;
+        let extract_result = tokio::task::spawn_blocking({
+            let zip_path = zip_path.clone();
+            let core_dir = core_dir.clone();
+            move || extract_zip_flat(&zip_path, &core_dir)
+        })
+        .await
+        .map_err(|error| AppError::io(format!("Failed to extract version archive: {}", error)))?;
+        extract_result?;
         emit_progress(
             app_handle,
             instance_id,
@@ -672,7 +679,15 @@ async fn ensure_webui_for_version_with_progress(
             progress.1,
         )?;
 
-        match extract_webui_archive(&zip_path, &temp_dist_dir, version) {
+        let archive_zip_path = zip_path.clone();
+        let archive_temp_dist_dir = temp_dist_dir.clone();
+        let archive_version = version.to_string();
+        let extraction_result = tokio::task::spawn_blocking(move || {
+            extract_webui_archive(&archive_zip_path, &archive_temp_dist_dir, &archive_version)
+        })
+        .await
+        .map_err(|error| AppError::io(format!("Failed to extract WebUI archive: {}", error)))?;
+        match extraction_result {
             Ok(()) => {
                 let replace_result = replace_webui_dist(&dist_dir, &temp_dist_dir);
                 if let Err(error) = replace_result {
