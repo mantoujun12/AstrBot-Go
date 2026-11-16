@@ -189,12 +189,13 @@ pub(crate) async fn check_instance_health(
         check_python(&instance.version).await,
         check_venv(instance_id).await,
         check_dependencies(instance_id).await,
-        check_port(
-            instance.host.as_str(),
+        spawn_port_check(
+            instance.host.clone(),
             running_port.unwrap_or(instance.port),
             running_port.is_some(),
             is_transitioning,
-        ),
+        )
+        .await,
         check_disk_space(instance_id),
         check_configuration(instance_id),
         check_webui(
@@ -399,6 +400,24 @@ fn missing_requirement_count(output: &[u8]) -> Option<usize> {
     serde_json::from_slice::<Vec<String>>(output)
         .ok()
         .map(|missing| missing.len())
+}
+
+/// Runs the blocking port probe on the blocking thread pool.
+async fn spawn_port_check(
+    host: String,
+    port: u16,
+    is_running: bool,
+    is_transitioning: bool,
+) -> InstanceHealthCheck {
+    tokio::task::spawn_blocking(move || check_port(&host, port, is_running, is_transitioning))
+        .await
+        .unwrap_or_else(|_| {
+            InstanceHealthCheck::warning(
+                InstanceHealthCheckKey::Port,
+                InstanceHealthDetailCode::PortCheckFailed,
+                Some(port.to_string()),
+            )
+        })
 }
 
 fn check_port(

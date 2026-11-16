@@ -31,6 +31,14 @@ fn run_instance_data_lock_check(instance_id: &str) -> Result<()> {
     ensure_target_not_locked(&target_files)
 }
 
+/// Runs the lock check on a blocking thread: it walks the instance data
+/// directory and must not block the async runtime.
+async fn run_instance_data_lock_check_off_runtime(instance_id: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || run_instance_data_lock_check(&instance_id))
+        .await
+        .map_err(|error| AppError::other(format!("Lock check task failed: {}", error)))?
+}
+
 #[tauri::command]
 pub async fn check_lock(
     target: LockCheckTarget,
@@ -46,7 +54,7 @@ pub async fn check_lock(
                 .as_deref()
                 .ok_or_else(|| AppError::other("check_lock 缺少 instance_id"))?;
             let _guard = state.process_manager.acquire_guard(instance_id)?;
-            run_instance_data_lock_check(instance_id)
+            run_instance_data_lock_check_off_runtime(instance_id.to_string()).await
         }
         LockCheckTarget::BackupRestore => {
             let backup_path = backup_path
@@ -54,7 +62,7 @@ pub async fn check_lock(
                 .ok_or_else(|| AppError::other("check_lock 缺少 backup_path"))?;
             let (_, metadata) = backup::resolve_restore_backup_input(backup_path)?;
             let _guard = state.process_manager.acquire_guard(&metadata.instance_id)?;
-            run_instance_data_lock_check(&metadata.instance_id)
+            run_instance_data_lock_check_off_runtime(metadata.instance_id.clone()).await
         }
     }
 }
