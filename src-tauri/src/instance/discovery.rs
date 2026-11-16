@@ -188,9 +188,14 @@ pub(crate) const COMMAND_TIMEOUT: Duration = Duration::from_secs(5);
 /// Default TCP connect timeout for WebUI liveness probes.
 pub(crate) const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
 
-/// Run a short-lived command with an upper bound on waiting. Output is
-/// captured with pipes and no inherited console; a hang beyond
+/// Run a short-lived command with an upper bound on waiting. stdout is
+/// captured with a pipe and stderr is discarded; a hang beyond
 /// [`COMMAND_TIMEOUT`] is killed by PID and reported as unavailable.
+///
+/// stderr is deliberately not piped: this helper never reads it (the return
+/// value carries stdout only), and an unread pipe fills at ~64 KiB and then
+/// blocks the child on write, forcing the timeout kill on a perfectly healthy
+/// but chatty-on-stderr process.
 ///
 /// The child is owned by the waiter thread, so the timeout path can kill it
 /// by PID without contending with `wait()` for a shared mutex.
@@ -199,7 +204,9 @@ pub(crate) fn run_capped(program: &str, args: &[&str]) -> Option<String> {
     command
         .args(args)
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        // Never read by this helper, so an unread pipe would fill (~64 KiB)
+        // and block a chatty child on write until the timeout kill.
+        .stderr(Stdio::null());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt as _;
@@ -250,6 +257,10 @@ pub(crate) fn run_capped(program: &str, args: &[&str]) -> Option<String> {
 /// Forcefully terminate a spawned discovery child by PID. Uses the platform
 /// termination tool, which lives in system directories and cannot be
 /// shadowed by user PATH entries.
+///
+/// `status()` blocks until the helper exits, reaping it instead of leaking a
+/// zombie (a bare `spawn()` without `wait()` would leave one behind on every
+/// timeout).
 fn kill_process(pid: u32) {
     #[cfg(windows)]
     let mut command = {
@@ -263,8 +274,11 @@ fn kill_process(pid: u32) {
         command.args(["-9", &pid.to_string()]);
         command
     };
-    command.stdout(Stdio::null()).stderr(Stdio::null());
-    let _ = command.spawn();
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    let _ = command.status();
 }
 
 /// Resolve an external program to an absolute path, or `None` when it is
@@ -478,5 +492,58 @@ mod tests {
         assert!(dirscan_only
             .iter()
             .all(|instance| instance.source == "dir_scan" && instance.capabilities.read_only));
+    }
+
+    #[test]
+    fn run_capped_returns_stdout_and_discards_stderr() -> Result<()> {
+        #[cfg(windows)]
+        let (program, args) = (
+            "powershell",
+            vec![
+                "-NoProfile",
+                "-Command",
+                "[Console]::Error.WriteLine(('y' * 70000)); Write-Output ok",
+            ],
+        );
+        #[cfg(not(windows))]
+        let (program, args) = (
+            "sh",
+            vec!["-c", "printf 'y%.0s' $(seq 1 70000) >&2; echo ok"],
+        );
+
+        // 70 KiB on stderr would previously fill the unread 64 KiB pipe and
+        // stall the child on write until the 5 s timeout kill reported it
+        // unavailable; a discarded stderr must let it exit normally.
+        let text = run_capped(program, &args)
+            .ok_or_else(|| AppError::other("chatty-stderr child reported unavailable"))?;
+        assert!(text.contains("ok"));
+        Ok(())
+    }
+
+    #[test]
+    fn kill_process_terminates_victim_and_reaps_helper() -> Result<()> {
+        #[cfg(windows)]
+        let mut child = {
+            use std::os::windows::process::CommandExt as _;
+            use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+            let mut command = Command::new("cmd");
+            command
+                .args(["/C", "ping -n 30 127.0.0.1 > NUL"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .creation_flags(CREATE_NO_WINDOW.0);
+            command.spawn()?
+        };
+        #[cfg(not(windows))]
+        let mut child = Command::new("sleep")
+            .arg("30")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()?;
+
+        kill_process(child.id());
+        // Our handle reaps the victim; it must be terminated, not running.
+        assert!(!child.wait()?.success());
+        Ok(())
     }
 }
