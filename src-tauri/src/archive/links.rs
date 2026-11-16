@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 
 use super::path::{resolve_within_dir, validate_rel_link_target};
 
@@ -23,8 +24,12 @@ fn create_symlink(
     link_path: &Path,
     _target_kind: Option<SymlinkTargetKind>,
 ) -> Result<()> {
-    std::os::unix::fs::symlink(target, link_path)
-        .map_err(|e| AppError::io(format!("failed to create symlink at {link_path:?}: {e}")))
+    std::os::unix::fs::symlink(target, link_path).map_err(|e| {
+        AppError::io(format!(
+            "failed to create symlink at {}: {e}",
+            log_redact::path_name(link_path)
+        ))
+    })
 }
 
 #[cfg(windows)]
@@ -42,7 +47,12 @@ fn create_symlink(
         SymlinkTargetKind::Dir => std::os::windows::fs::symlink_dir(target, link_path),
         SymlinkTargetKind::File => std::os::windows::fs::symlink_file(target, link_path),
     };
-    result.map_err(|e| AppError::io(format!("failed to create symlink at {link_path:?}: {e}")))
+    result.map_err(|e| {
+        AppError::io(format!(
+            "failed to create symlink at {}: {e}",
+            log_redact::path_name(link_path)
+        ))
+    })
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
@@ -60,7 +70,11 @@ fn create_hard_link(target: &Path, link_path: &Path) -> Result<()> {
     if let Err(e) = fs::hard_link(target, link_path) {
         log::warn!("hard_link failed ({e}), falling back to copy");
         fs::copy(target, link_path).map_err(|e| {
-            AppError::io(format!("failed to copy {target:?} to {link_path:?}: {e}"))
+            AppError::io(format!(
+                "failed to copy {} to {}: {e}",
+                log_redact::path_name(target),
+                log_redact::path_name(link_path)
+            ))
         })?;
     }
     Ok(())
@@ -99,8 +113,12 @@ pub(super) fn create_queued_symlinks(pending: Vec<QueuedSymlink>) -> Result<()> 
             .out_path
             .parent()
             .ok_or_else(|| AppError::io("symlink entry has no parent directory"))?;
-        fs::create_dir_all(parent)
-            .map_err(|e| AppError::io(format!("failed to create directory {parent:?}: {e}")))?;
+        fs::create_dir_all(parent).map_err(|e| {
+            AppError::io(format!(
+                "failed to create directory {}: {e}",
+                log_redact::path_name(parent)
+            ))
+        })?;
         let target_kind = if item.resolved_target.exists() {
             if item.resolved_target.is_dir() {
                 Some(SymlinkTargetKind::Dir)
@@ -120,7 +138,11 @@ pub(super) fn create_hard_link_entry(out_path: &Path, resolved_target: &Path) ->
     let parent = out_path
         .parent()
         .ok_or_else(|| AppError::io("entry has no parent directory"))?;
-    fs::create_dir_all(parent)
-        .map_err(|e| AppError::io(format!("failed to create directory {parent:?}: {e}")))?;
+    fs::create_dir_all(parent).map_err(|e| {
+        AppError::io(format!(
+            "failed to create directory {}: {e}",
+            log_redact::path_name(parent)
+        ))
+    })?;
     create_hard_link(resolved_target, out_path)
 }

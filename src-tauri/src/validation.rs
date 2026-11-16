@@ -20,7 +20,9 @@ pub fn resolve_backup_path(backup_path: &str, require_exists: bool) -> Result<Pa
 
     if !candidate.exists() {
         if require_exists {
-            return Err(AppError::backup(""));
+            return Err(AppError::backup(
+                "Backup file does not exist or has been removed",
+            ));
         }
         return Ok(candidate);
     }

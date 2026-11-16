@@ -3,6 +3,7 @@ use std::io;
 use std::path::Path;
 
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 
 pub(super) fn write_entry<R>(
     out_path: &Path,
@@ -15,14 +16,22 @@ where
     R: io::Read,
 {
     if is_dir {
-        fs::create_dir_all(out_path)
-            .map_err(|e| AppError::io(format!("failed to create directory {out_path:?}: {e}")))?;
+        fs::create_dir_all(out_path).map_err(|e| {
+            AppError::io(format!(
+                "failed to create directory {}: {e}",
+                log_redact::path_name(out_path)
+            ))
+        })?;
         return Ok(());
     }
 
     if let Some(parent) = out_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| AppError::io(format!("failed to create directory {parent:?}: {e}")))?;
+        fs::create_dir_all(parent).map_err(|e| {
+            AppError::io(format!(
+                "failed to create directory {}: {e}",
+                log_redact::path_name(parent)
+            ))
+        })?;
     }
 
     let mut outfile =
@@ -39,8 +48,12 @@ where
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     if let Some(mode) = unix_mode {
         use std::os::unix::fs::PermissionsExt as _;
-        fs::set_permissions(out_path, fs::Permissions::from_mode(mode))
-            .map_err(|e| AppError::io(format!("failed to set permissions on {out_path:?}: {e}")))?;
+        fs::set_permissions(out_path, fs::Permissions::from_mode(mode)).map_err(|e| {
+            AppError::io(format!(
+                "failed to set permissions on {}: {e}",
+                log_redact::path_name(out_path)
+            ))
+        })?;
     }
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     let _ = unix_mode;
