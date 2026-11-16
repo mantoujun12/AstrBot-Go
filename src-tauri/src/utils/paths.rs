@@ -7,6 +7,7 @@ use std::sync::RwLock;
 use once_cell::sync::Lazy;
 
 use crate::error::{AppError, Result};
+use crate::utils::fs_ops::{replace_file_atomically, unique_sibling_path};
 use crate::utils::log_redact;
 use crate::utils::sync::{read_lock_recover, write_lock_recover};
 
@@ -105,7 +106,17 @@ fn persist_data_dir_override(new_dir: Option<&Path>) -> Result<()> {
         validate_data_dir(dir)?;
         fs::create_dir_all(&config_dir).map_err(|e| AppError::io(e.to_string()))?;
         let payload = serde_json::json!({ "data_dir": dir.to_string_lossy() });
-        fs::write(&override_path, payload.to_string()).map_err(|e| AppError::io(e.to_string()))?;
+        let temp_path = unique_sibling_path(&override_path, "tmp")?;
+        fs::write(&temp_path, payload.to_string())
+            .map_err(|e| AppError::io(e.to_string()))
+            .inspect_err(|_| {
+                let _ = fs::remove_file(&temp_path);
+            })?;
+        replace_file_atomically(&temp_path, &override_path)
+            .map_err(|e| AppError::io(e.to_string()))
+            .inspect_err(|_| {
+                let _ = fs::remove_file(&temp_path);
+            })?;
     } else {
         match fs::remove_file(&override_path) {
             Ok(()) => {}
