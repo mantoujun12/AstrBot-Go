@@ -139,11 +139,6 @@ impl ResourceHistory {
     pub fn samples(&self) -> &VecDeque<ResourceSample> {
         &self.samples
     }
-
-    /// Return the most recent sample, if any.
-    pub fn latest(&self) -> Option<&ResourceSample> {
-        self.samples.back()
-    }
 }
 
 /// Convert the current wall-clock time to Unix seconds.

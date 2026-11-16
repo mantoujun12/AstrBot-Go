@@ -12,12 +12,6 @@ export function getInstanceResourceHistory(
   });
 }
 
-export function getResourcesSnapshot(): Promise<
-  Record<string, ResourceSample>
-> {
-  return invoke<Record<string, ResourceSample>>("get_resources_snapshot");
-}
-
 export function getResourceAlertThreshold(
   instanceId: string,
 ): Promise<ResourceAlertThreshold> {

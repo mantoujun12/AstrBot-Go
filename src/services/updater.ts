@@ -75,10 +75,6 @@ export function installLauncherUpdate(): Promise<void> {
   return invoke("install_launcher_update");
 }
 
-export function restartLauncher(): Promise<void> {
-  return invoke("restart_launcher");
-}
-
 export function listenLauncherUpdateProgress(
   handler: (progress: LauncherUpdateProgress) => void,
 ): Promise<UnlistenFn> {

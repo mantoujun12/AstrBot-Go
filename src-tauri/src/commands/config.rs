@@ -20,11 +20,6 @@ use tauri::{AppHandle, State};
 // === Config ===
 
 #[tauri::command]
-pub fn is_macos() -> bool {
-    platform::is_macos()
-}
-
-#[tauri::command]
 pub fn is_linux() -> bool {
     platform::is_linux()
 }
@@ -215,17 +210,6 @@ pub async fn save_use_uv_for_deps(use_uv_for_deps: bool) -> Result<()> {
         config.use_uv_for_deps = use_uv_for_deps;
         Ok(())
     })
-}
-
-#[tauri::command]
-pub fn compare_versions(a: String, b: String) -> i32 {
-    match (
-        semver::Version::parse(a.trim_start_matches('v')),
-        semver::Version::parse(b.trim_start_matches('v')),
-    ) {
-        (Ok(va), Ok(vb)) => va.cmp(&vb) as i32,
-        _ => 0,
-    }
 }
 
 define_save_config_command!(

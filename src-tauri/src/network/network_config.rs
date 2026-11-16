@@ -26,15 +26,6 @@ const NPM_PROBE_PACKAGE: &str = "vue";
 const NODE_ARCHIVE_EXT: &str = if cfg!(windows) { "zip" } else { "tar.gz" };
 const PYTHON_PROBE_ASSET_SUFFIX: &str = "-install_only_stripped.tar.gz";
 
-const LEGACY_MAINLAND_GITHUB_PROXY: &str = "https://gh-proxy.org/";
-const LEGACY_MAINLAND_PYPI_MIRROR: &str = "https://mirrors.cernet.edu.cn/pypi/web/simple";
-const LEGACY_MAINLAND_NODEJS_MIRROR: &str = "https://mirrors.cernet.edu.cn/nodejs-release/";
-const LEGACY_MAINLAND_NPM_REGISTRY: &str = "https://registry.npmmirror.com/";
-const LEGACY_MAINLAND_PYTHON_MIRROR: &str =
-    "https://mirrors.ustc.edu.cn/github-release/astral-sh/python-build-standalone/LatestRelease/";
-const LEGACY_MAINLAND_UV_MIRROR: &str =
-    "https://mirrors.ustc.edu.cn/github-release/astral-sh/uv/LatestRelease/";
-
 /// Source kinds exposed to the network connectivity test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -45,16 +36,6 @@ pub enum NetworkSourceKind {
     Npm,
     Python,
     Uv,
-}
-
-/// Map the removed global mainland switch to the equivalent per-source presets.
-pub(crate) fn apply_legacy_mainland_presets(config: &mut AppConfig) {
-    config.github_proxy = LEGACY_MAINLAND_GITHUB_PROXY.to_string();
-    config.pypi_mirror = LEGACY_MAINLAND_PYPI_MIRROR.to_string();
-    config.nodejs_mirror = LEGACY_MAINLAND_NODEJS_MIRROR.to_string();
-    config.npm_registry = LEGACY_MAINLAND_NPM_REGISTRY.to_string();
-    config.python_mirror = LEGACY_MAINLAND_PYTHON_MIRROR.to_string();
-    config.uv_mirror = LEGACY_MAINLAND_UV_MIRROR.to_string();
 }
 
 pub(crate) fn build_http_client_from_config(config: &AppConfig) -> Result<Client> {
@@ -318,19 +299,6 @@ pub(crate) async fn source_probe_url(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn legacy_presets_migrate_all_sources() {
-        let mut config = AppConfig::default();
-        apply_legacy_mainland_presets(&mut config);
-
-        assert_eq!(config.github_proxy, LEGACY_MAINLAND_GITHUB_PROXY);
-        assert_eq!(config.pypi_mirror, LEGACY_MAINLAND_PYPI_MIRROR);
-        assert_eq!(config.nodejs_mirror, LEGACY_MAINLAND_NODEJS_MIRROR);
-        assert_eq!(config.npm_registry, LEGACY_MAINLAND_NPM_REGISTRY);
-        assert_eq!(config.python_mirror, LEGACY_MAINLAND_PYTHON_MIRROR);
-        assert_eq!(config.uv_mirror, LEGACY_MAINLAND_UV_MIRROR);
-    }
 
     fn sample_python_asset(name: &str) -> GitHubAsset {
         GitHubAsset {

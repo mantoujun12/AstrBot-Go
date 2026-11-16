@@ -174,14 +174,6 @@ pub async fn restart_instance(
 }
 
 #[tauri::command]
-pub async fn get_instance_port(instance_id: String, state: State<'_, AppState>) -> Result<u16> {
-    state
-        .process_manager
-        .get_port(&instance_id)
-        .ok_or_else(AppError::instance_not_running)
-}
-
-#[tauri::command]
 pub async fn check_instance_health(
     instance_id: String,
     state: State<'_, AppState>,

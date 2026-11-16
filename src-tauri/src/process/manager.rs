@@ -255,22 +255,6 @@ impl ProcessManager {
 
     // -- Sync methods (direct lock → read/write → unlock) ---------------------
 
-    /// Returns the port for a **live** instance, or `None` if the instance is
-    /// not in the `Live` state.
-    ///
-    /// Ports are not available during `Starting` or other transient states
-    /// because the actual port is only known after launch completes.
-    pub fn get_port(&self, id: &str) -> Option<u16> {
-        let state = lock_mutex_recover(&self.state, "ProcessState");
-        match state.slots.get(id) {
-            Some(InstanceEntry {
-                slot: Some(Slot::Live(p)),
-                ..
-            }) => Some(p.port),
-            _ => None,
-        }
-    }
-
     pub fn get_runtime_info(&self) -> HashMap<String, InstanceRuntimeInfo> {
         let state = lock_mutex_recover(&self.state, "ProcessState");
         state
@@ -319,22 +303,6 @@ impl ProcessManager {
             }) => process.resource_history.samples().iter().cloned().collect(),
             _ => Vec::new(),
         }
-    }
-
-    /// Return the latest resource sample for every live instance.
-    pub fn get_all_latest_resources(&self) -> HashMap<String, ResourceSample> {
-        let state = lock_mutex_recover(&self.state, "ProcessState");
-        state
-            .slots
-            .iter()
-            .filter_map(|(id, entry)| match &entry.slot {
-                Some(Slot::Live(process)) => process
-                    .resource_history
-                    .latest()
-                    .map(|sample| (id.clone(), sample.clone())),
-                _ => None,
-            })
-            .collect()
     }
 
     /// Returns recorded exit reason, consecutive crash attempts and completed

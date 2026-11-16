@@ -1,8 +1,8 @@
 use crate::component;
 use crate::component::ComponentsSnapshot;
 use crate::config::{
-    load_config, load_manifest, reload_config, reload_manifest, with_config_mut, AppConfig,
-    AppManifest, BackupInfo, InstalledVersion,
+    load_config, load_manifest, with_config_mut, AppConfig, AppManifest, BackupInfo,
+    InstalledVersion,
 };
 use crate::error::{AppError, Result};
 use crate::github::GitHubRelease;
@@ -156,16 +156,6 @@ pub async fn get_app_snapshot(state: State<'_, AppState>) -> Result<AppSnapshot>
         .map_err(|e| AppError::process(format!("Snapshot task panicked: {}", e)))?
 }
 
-#[tauri::command]
-pub async fn rebuild_app_snapshot(state: State<'_, AppState>) -> Result<AppSnapshot> {
-    let pm = state.process_manager.clone();
-    tokio::task::spawn_blocking(move || {
-        build_app_snapshot_with(&pm, reload_config, reload_manifest)
-    })
-    .await
-    .map_err(|e| AppError::process(format!("Snapshot task panicked: {}", e)))?
-}
-
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AppSnapshot {
     pub instances: Vec<InstanceStatus>,
@@ -184,43 +174,6 @@ mod tests {
             version: version.to_string(),
             zip_path: format!("/versions/{version}.zip"),
         }
-    }
-
-    #[test]
-    fn compare_versions_handles_prefixes_and_prereleases() {
-        assert_eq!(
-            compare_versions("v4.0.0".to_string(), "4.0.0".to_string()),
-            0
-        );
-        assert_eq!(
-            compare_versions("4.1.0".to_string(), "4.0.9".to_string()),
-            1
-        );
-        assert_eq!(
-            compare_versions("4.0.0".to_string(), "4.0.0-beta.1".to_string()),
-            1
-        );
-        assert_eq!(
-            compare_versions("4.0.0-beta.2".to_string(), "4.0.0-beta.1".to_string()),
-            1
-        );
-        assert_eq!(
-            compare_versions("4.0.0+build.1".to_string(), "4.0.0+build.1".to_string()),
-            0
-        );
-        assert_eq!(
-            compare_versions("4.0.0+build.2".to_string(), "4.0.0+build.1".to_string()),
-            1
-        );
-    }
-
-    #[test]
-    fn compare_versions_returns_zero_for_invalid_input() {
-        assert_eq!(
-            compare_versions("not-a-version".to_string(), "4.0.0".to_string()),
-            0
-        );
-        assert_eq!(compare_versions("4.0.0".to_string(), String::new()), 0);
     }
 
     #[test]
