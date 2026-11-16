@@ -8,7 +8,6 @@ mod download_control;
 mod error;
 mod i18n;
 mod instance;
-mod migration;
 mod network;
 mod platform;
 mod process;
@@ -129,7 +128,6 @@ pub fn run() {
 
     utils::paths::ensure_data_dirs().expect("Failed to create data directories");
     tasks::initialize();
-    migration::run_startup_migrations();
     github::init_releases_cache();
     validate_window_state();
 

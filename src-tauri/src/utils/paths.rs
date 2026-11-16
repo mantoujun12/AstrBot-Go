@@ -134,11 +134,6 @@ pub(crate) fn set_data_dir_override(new_dir: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
-/// Get the path to the legacy redb database (migration only).
-pub(crate) fn data_db_path() -> PathBuf {
-    get_data_dir().join("data.redb")
-}
-
 /// Get the path to the unified application config JSON file.
 pub(crate) fn config_json_path() -> PathBuf {
     get_data_dir().join("config.json")
@@ -147,16 +142,6 @@ pub(crate) fn config_json_path() -> PathBuf {
 /// Get the path to the unified application manifest JSON file.
 pub(crate) fn manifest_json_path() -> PathBuf {
     get_data_dir().join("manifest.json")
-}
-
-/// Get the path to the legacy config TOML file (migration only).
-pub(crate) fn config_path() -> PathBuf {
-    get_data_dir().join("config.toml")
-}
-
-/// Get the path to the legacy manifest TOML file (migration only).
-pub(crate) fn manifest_path() -> PathBuf {
-    get_data_dir().join("manifest.toml")
 }
 
 /// Get the path to the releases cache file.
