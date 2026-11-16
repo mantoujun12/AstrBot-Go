@@ -49,7 +49,6 @@ portpicker = "0.1.1"
 walkdir = "2.5.0"
 semver = "1"
 tauri-plugin-log = { version = "2", features = ["colored"] }
-tauri-plugin-process = "2"
 once_cell = "1.21.4"
 nanoid = "0.5"
 sys-locale = "0.3"
