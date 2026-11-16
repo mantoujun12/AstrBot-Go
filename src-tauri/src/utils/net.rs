@@ -546,7 +546,7 @@ pub(crate) fn ensure_success_status(
 pub(crate) async fn fetch_json<T: DeserializeOwned>(client: &Client, url: &str) -> Result<T> {
     let resp = send_get(client, url, true)
         .await
-        .map_err(|e| AppError::network(e.to_string()))?;
+        .map_err(|e| AppError::network(log_redact::redact_text(&e.to_string())))?;
     ensure_success_status(&resp, AppError::network)?;
 
     resp.json::<T>()

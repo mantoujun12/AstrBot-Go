@@ -21,6 +21,7 @@
 - Guarded against duplicate submissions in the frontend: a backup being restored can no longer be deleted, download pause/resume and stop buttons ignore rapid double clicks, and quitting the launcher from the tray now uses the same click-again confirmation as stopping an instance.
 - Surfaced frontend event-subscription and polling failures: the resource monitor now shows an error state with retry instead of frozen charts, and the log and task pages expose subscription/list failures with a retry action.
 - Fixed instance discovery process plumbing: discovery subprocesses no longer stall on an unread stderr pipe and get falsely reported as unavailable, and the timeout kill path no longer leaks zombie processes.
+- Redacted local paths and raw URLs embedded in archive-extraction and network error messages, and replaced the empty error text shown when a required backup file is missing with a specific description.
 
 ## 中文
 
@@ -45,3 +46,4 @@
 - 修复前端重复提交问题：恢复中的备份不再允许删除，版本下载的暂停/继续与停止按钮忽略快速连点，托盘退出启动器改为与停止实例一致的二次点击确认。
 - 前端事件订阅与轮询失败不再被静默吞掉：资源监控改为展示错误态并提供重试，日志页与任务页在订阅或列表失败时展示可重试的错误态。
 - 修复实例发现流程的进程管道问题：发现子进程不再因 stderr 管道无人读取而阻塞并被误报为不可用，超时强杀路径也不再泄漏僵尸进程。
+- 修复归档解压与网络错误消息中泄漏本地完整路径及原始 URL 的问题，并为必需备份文件缺失时的空错误信息补充具体描述。
