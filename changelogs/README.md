@@ -1,22 +1,54 @@
 # Changelog
 
+## English
+
+This directory records user-facing changes and provides release notes for the automated release workflow.
+
+Versions follow [Semantic Versioning](https://semver.org/), and the changelog format is based on [Keep a Changelog](https://keepachangelog.com/).
+
+### Unreleased
+
+Each user-facing PR should produce one logical entry. In `unreleased.md`, choose the single most appropriate section—Added, Changed, Deprecated, Removed, Fixed, or Security—and write one English entry and its corresponding Chinese entry. Do not split a change into multiple entries or sections just because it covers multiple aspects. Purely internal refactoring, CI, and documentation changes may be omitted.
+
+Keep entries brief and describe only user-visible changes. Do not add empty sections.
+
+`unreleased.md` is a working draft and is not used directly as release notes. Leave entries untagged during development; add PR links only in the release PR.
+
+### Releasing
+
+When preparing a release, create a version-bump PR:
+
+1. Set the release version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
+2. Run `cargo check` in `src-tauri/`. Cargo will update the `astrbot-go` version in `src-tauri/Cargo.lock`; before committing, confirm that the lockfile contains only the expected version change.
+3. Rename `unreleased.md` to `v<version>.md`, for example `v0.2.0.md`. The version file will form the first part of the GitHub Release notes. The workflow then appends GitHub's automatically generated changelog, including contributors and the Full Changelog link, separated by a divider.
+4. Add the full Markdown link to the source PR to every entry in the version file. Use parentheses for English entries, for example `([#8](https://github.com/mantoujun12/AstrBot-Go/pull/8))`, and full-width parentheses for Chinese entries, for example `（[#8](https://github.com/mantoujun12/AstrBot-Go/pull/8)）`. The English and Chinese entries for the same logical change must link to the same PR.
+5. Create a new, empty `unreleased.md` for the next development cycle.
+6. Before merging, rebase onto the latest `main` and make sure any concurrently added entries are moved back to the new `unreleased.md`; `v<version>.md` should contain only changes included in this release.
+7. Merge into `main`. The workflow validates the version, version file, and whether a GitHub Release already exists, then builds the Windows installer and creates the GitHub Release. If the tag exists but no Release does, the workflow skips the release and prompts for manual handling.
+
+Before releasing, ensure every entry is brief and includes its source PR number. Use `git log --follow -- changelogs/unreleased.md` to trace the source PR for an entry.
+
+Do not add PR links to historical version files (for example, `v0.1.1.md`).
+
+After releasing, continue development by adding changes to the new `unreleased.md`; there is no need to bump the version immediately.
+
+---
+
+## 中文
+
 本目录记录面向用户的变更，并为自动发行工作流提供发布说明。
 
 版本号遵循 [Semantic Versioning](https://semver.org/)，变更日志格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 
-日志需使用中英双语，优先展示英语；中文和英语需分隔开来，不要混合在一起。
-
-## 待发布
+### 待发布
 
 每个面向用户的 PR 只产生一条逻辑条目：在 `unreleased.md` 的“新增”“变更”“弃用”“移除”“修复”“安全”中选择最合适的一个分节，写入一条英文条目和对应的中文条目。不要因为改动涉及多个方面就拆成多条，也不要分散到多个分节。纯内部重构、CI 和文档改动可以省略。
 
-条目应简短，只描述用户可感知的变化。
-
-没有的分节（空分节）就不要添加。
+条目应简短，只描述用户可感知的变化。没有的分节（空分节）就不要添加。
 
 `unreleased.md` 只是工作草稿，不会直接作为 Release 说明。开发期间条目保持不标注，PR 链接只在发版 PR 中补齐。
 
-## 发版
+### 发版
 
 准备发版时创建一个版本更新 PR：
 

@@ -2,7 +2,7 @@
 
 ## Collaboration
 
-- Communicate in Simplified Chinese by default. Stay professional and upbeat, and use emojis and honorifics sparingly.
+- Stay professional and upbeat, and use emojis and honorifics sparingly.
 - Lead with the conclusion, then provide the key evidence and any necessary follow-up actions. Avoid making users reread the process.
 - When the user is only asking a question, do not call tools. If accessing local files or running commands is genuinely necessary, ask for the user's consent first.
 - Apply the same principle to Git operations. Commit, push, create or modify a PR, or rewrite history only after the user explicitly requests it. For irreversible operations, explain the impact and obtain confirmation first.
