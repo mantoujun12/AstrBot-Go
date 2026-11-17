@@ -81,6 +81,15 @@ const footerRef = ref<HTMLElement | null>(null);
 
 const themeClass = computed(() => theme.themeClasses.value);
 
+// Quitting is destructive only while instances run, so the double-tap
+// confirmation applies then; with no active instance it quits directly.
+// A failed snapshot keeps the confirmation because the state is unknown.
+const needsQuitConfirmation = computed(
+  () =>
+    loadFailed.value ||
+    items.value.some((item) => item.state !== "stopped"),
+);
+
 const items = computed<TrayInstanceItem[]>(() => {
   const current = snapshot.value;
   if (!current) {
@@ -333,7 +342,7 @@ async function quitLauncher(): Promise<void> {
   if (quitting.value) {
     return;
   }
-  if (!confirmQuit.value) {
+  if (needsQuitConfirmation.value && !confirmQuit.value) {
     requestQuitConfirmation();
     return;
   }
