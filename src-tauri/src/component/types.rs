@@ -38,6 +38,16 @@ impl ComponentId {
     }
 }
 
+/// Status of a single runtime managed inside a component (e.g. Python 3.10
+/// inside the unified python component), with its detected version.
+#[derive(Debug, Clone, Serialize)]
+pub struct RuntimeStatus {
+    pub id: String,
+    pub label: String,
+    pub installed: bool,
+    pub version: Option<String>,
+}
+
 /// Status of a single component, sent to the frontend.
 #[derive(Debug, Clone, Serialize)]
 pub struct ComponentStatus {
@@ -45,6 +55,7 @@ pub struct ComponentStatus {
     pub installed: bool,
     pub display_name: String,
     pub description: String,
+    pub runtimes: Vec<RuntimeStatus>,
 }
 
 /// Snapshot of all component statuses.

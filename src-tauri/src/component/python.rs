@@ -19,10 +19,23 @@ use crate::utils::paths::{get_python_exe_path, get_python_runtime_dir, get_venv_
 const RUNTIME_PY310: &str = "py310";
 const RUNTIME_PY312: &str = "py312";
 
+/// (runtime dir id, display label) for the managed runtimes, in install order.
+pub(super) const RUNTIME_VERSIONS: [(&str, &str); 2] = [
+    (RUNTIME_PY310, "Python 3.10"),
+    (RUNTIME_PY312, "Python 3.12"),
+];
+
 /// Check whether the unified python component is installed.
 /// Python is considered installed only when both 3.10 and 3.12 runtimes exist.
 pub(super) fn is_component_installed() -> bool {
     is_runtime_installed(RUNTIME_PY310) && is_runtime_installed(RUNTIME_PY312)
+}
+
+/// Detect the installed version of one runtime by running its executable.
+pub(super) fn runtime_version(runtime: &str) -> Option<String> {
+    let exe = get_python_exe_path(&get_python_runtime_dir(runtime));
+    let raw = super::version::probe_exe_version(&exe)?;
+    super::version::parse_version_output(&raw, "Python ")
 }
 
 /// Determine whether a given AstrBot version requires Python 3.10.
@@ -252,7 +265,7 @@ pub async fn create_venv(venv_dir: &Path, version: &str) -> Result<()> {
     Ok(())
 }
 
-fn is_runtime_installed(runtime: &str) -> bool {
+pub(super) fn is_runtime_installed(runtime: &str) -> bool {
     let dir = get_python_runtime_dir(runtime);
     let exe = get_python_exe_path(&dir);
     exe.exists()

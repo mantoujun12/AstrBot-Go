@@ -5,6 +5,7 @@ mod python;
 mod registry;
 mod types;
 mod uv;
+mod version;
 
 use std::env;
 use std::ffi::OsString;
@@ -19,7 +20,7 @@ use crate::utils::paths::{get_component_dir, get_node_exe_path, get_nodejs_shim_
 pub use node_shim::generate_shims;
 pub use nodejs::build_nodejs_env_vars;
 pub use python::{create_venv, get_python_for_version, pip_install_requirements};
-pub use types::{ComponentActionResult, ComponentId, ComponentsSnapshot};
+pub use types::{ComponentActionResult, ComponentId, ComponentsSnapshot, RuntimeStatus};
 pub use uv::{clear_uv_cache, is_uv_installed, uv_sync};
 
 use types::ComponentStatus;
@@ -35,11 +36,40 @@ pub fn build_components_snapshot() -> ComponentsSnapshot {
                 installed: (descriptor.is_installed)(),
                 display_name: id.display_name().to_string(),
                 description: descriptor.description.to_string(),
+                runtimes: build_runtime_statuses(id),
             }
         })
         .collect();
 
     ComponentsSnapshot { components }
+}
+
+/// Build per-runtime statuses (id, label, installed, detected version) for a
+/// component.
+fn build_runtime_statuses(id: ComponentId) -> Vec<RuntimeStatus> {
+    match id {
+        ComponentId::Python => python::RUNTIME_VERSIONS
+            .iter()
+            .map(|(runtime, label)| RuntimeStatus {
+                id: (*runtime).to_string(),
+                label: (*label).to_string(),
+                installed: python::is_runtime_installed(runtime),
+                version: python::runtime_version(runtime),
+            })
+            .collect(),
+        ComponentId::Nodejs => vec![RuntimeStatus {
+            id: "nodejs".to_string(),
+            label: ComponentId::Nodejs.display_name().to_string(),
+            installed: nodejs::is_nodejs_installed(),
+            version: nodejs::detect_nodejs_version(),
+        }],
+        ComponentId::UV => vec![RuntimeStatus {
+            id: "uv".to_string(),
+            label: ComponentId::UV.display_name().to_string(),
+            installed: uv::is_uv_installed(),
+            version: uv::detect_uv_version(),
+        }],
+    }
 }
 
 /// Install a component by id, dispatching to the appropriate sub-module.

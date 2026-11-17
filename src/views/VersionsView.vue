@@ -30,6 +30,7 @@ import { showErrorToast, showToast } from "../stores/toast";
 import type {
   ComponentActionResult,
   ComponentId,
+  ComponentRuntimeStatus,
   ComponentStatus,
   DownloadProgress,
   GitHubRelease,
@@ -70,6 +71,10 @@ const pendingAction = ref<PendingAction | null>(null);
 interface ComponentRow {
   status: ComponentStatus;
   componentId: ComponentId | null;
+  /** Per-runtime sub-rows; only components with more than one runtime. */
+  runtimeRows: ComponentRuntimeStatus[] | null;
+  /** Versions shown inline in the card head; single-runtime components. */
+  inlineVersions: string[];
   progress: DownloadProgress | null;
   busy: boolean;
 }
@@ -104,17 +109,20 @@ function releaseSize(release: GitHubRelease): number {
 const componentRows = computed<ComponentRow[]>(() =>
   components.value.map((status) => {
     const componentId = isComponentId(status.id) ? status.id : null;
+    const multiRuntime = status.runtimes.length > 1;
     return {
       status,
       componentId,
+      runtimeRows: multiRuntime ? status.runtimes : null,
+      inlineVersions: multiRuntime
+        ? []
+        : status.runtimes.flatMap((runtime) =>
+            runtime.version ? [runtime.version] : [],
+          ),
       progress: downloads.value[status.id] ?? null,
       busy: componentId !== null && isBusy(`component:${componentId}`),
     };
   }),
-);
-
-const hasUvComponent = computed(() =>
-  components.value.some((component) => component.id === "uv"),
 );
 
 const installedRows = computed<InstalledRow[]>(() =>
@@ -492,107 +500,151 @@ function openReleaseNotes(release: GitHubRelease): void {
           {{ t("versions.sections.components") }}
         </h2>
       </div>
-      <div class="page-card version-card">
-        <div
-          v-if="snapshotLoading && componentRows.length === 0"
-          class="version-loading"
-        >
+      <div
+        v-if="snapshotLoading && componentRows.length === 0"
+        class="page-card version-card"
+      >
+        <div class="version-loading">
           <v-progress-linear indeterminate color="primary" height="5" rounded />
           <div class="page-muted">{{ t("versions.loading") }}</div>
         </div>
-        <EmptyState
-          v-else-if="componentRows.length === 0"
-          :text="t('versions.components.empty')"
-          icon="mdi-puzzle-outline"
-        />
-        <div v-else class="version-rows">
-          <div
-            v-for="row in componentRows"
-            :key="row.status.id"
-            class="version-row page-row--between"
-          >
-            <div class="version-row__main">
-              <div class="version-row__title page-row page-anywhere">
-                <span>{{ row.status.display_name }}</span>
-                <v-chip
-                  size="x-small"
-                  label
-                  :color="row.status.installed ? 'success' : 'secondary'"
-                  variant="tonal"
-                >
-                  {{
-                    row.status.installed
-                      ? t("versions.status.installed")
-                      : t("versions.status.notInstalled")
-                  }}
-                </v-chip>
-              </div>
-              <div class="version-row__sub page-anywhere">
+      </div>
+      <EmptyState
+        v-else-if="componentRows.length === 0"
+        :text="t('versions.components.empty')"
+        icon="mdi-puzzle-outline"
+      />
+      <div v-else class="component-cards">
+        <div
+          v-for="row in componentRows"
+          :key="row.status.id"
+          class="page-card component-card"
+        >
+          <div class="component-card__head page-row">
+            <span class="component-card__name page-anywhere">
+              {{ row.status.display_name }}
+            </span>
+            <v-chip
+              size="x-small"
+              label
+              :color="row.status.installed ? 'success' : 'secondary'"
+              variant="tonal"
+            >
+              {{
+                row.status.installed
+                  ? t("versions.status.installed")
+                  : t("versions.status.notInstalled")
+              }}
+            </v-chip>
+            <v-chip
+              v-for="version in row.inlineVersions"
+              :key="version"
+              size="x-small"
+              color="primary"
+              variant="tonal"
+              label
+              class="page-mono"
+            >
+              {{ version }}
+            </v-chip>
+          </div>
+          <div class="component-card__sub page-anywhere">
+            {{
+              translateDynamicKey(
+                "components.description." + row.status.id,
+                row.status.description,
+              )
+            }}
+          </div>
+          <div v-if="row.runtimeRows" class="component-card__runtimes">
+            <div
+              v-for="runtime in row.runtimeRows"
+              :key="runtime.id"
+              class="component-runtime page-row"
+            >
+              <span class="component-runtime__label page-anywhere">
+                {{ runtime.label }}
+              </span>
+              <v-chip
+                v-if="runtime.version"
+                size="x-small"
+                color="primary"
+                variant="tonal"
+                label
+                class="page-mono"
+              >
+                {{ runtime.version }}
+              </v-chip>
+              <v-chip
+                size="x-small"
+                :color="runtime.installed ? 'success' : 'secondary'"
+                variant="tonal"
+                label
+              >
                 {{
-                  translateDynamicKey(
-                    "components.description." + row.status.id,
-                    row.status.description,
-                  )
+                  runtime.installed
+                    ? t("versions.status.installed")
+                    : t("versions.status.notInstalled")
                 }}
-              </div>
-              <DownloadProgressBar :progress="row.progress" />
+              </v-chip>
             </div>
-            <div class="version-row__actions page-row">
-              <template v-if="row.componentId">
+          </div>
+          <DownloadProgressBar :progress="row.progress" />
+          <div class="component-card__actions page-row">
+            <template v-if="row.componentId">
+              <v-btn
+                v-if="!row.status.installed"
+                size="small"
+                variant="tonal"
+                color="primary"
+                :loading="row.busy"
+                @click="handleInstallComponent(row.status.id)"
+              >
+                {{ t("versions.actions.download") }}
+              </v-btn>
+              <template v-else>
                 <v-btn
-                  v-if="!row.status.installed"
                   size="small"
                   variant="tonal"
                   color="primary"
-                  :loading="row.busy"
-                  @click="handleInstallComponent(row.status.id)"
+                  :disabled="row.busy"
+                  @click="
+                    requestReinstallComponent(
+                      row.status.id,
+                      row.status.display_name,
+                    )
+                  "
                 >
-                  {{ t("versions.actions.download") }}
+                  {{ t("versions.actions.reinstall") }}
                 </v-btn>
-                <template v-else>
-                  <v-btn
-                    size="small"
-                    variant="tonal"
-                    color="primary"
-                    :disabled="row.busy"
-                    @click="
-                      requestReinstallComponent(
-                        row.status.id,
-                        row.status.display_name,
-                      )
-                    "
-                  >
-                    {{ t("versions.actions.reinstall") }}
-                  </v-btn>
-                  <v-btn
-                    size="small"
-                    variant="tonal"
-                    color="error"
-                    :disabled="row.busy"
-                    @click="
-                      requestUninstallComponent(
-                        row.status.id,
-                        row.status.display_name,
-                      )
-                    "
-                  >
-                    {{ t("common.actions.uninstall") }}
-                  </v-btn>
-                </template>
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="error"
+                  :disabled="row.busy"
+                  @click="
+                    requestUninstallComponent(
+                      row.status.id,
+                      row.status.display_name,
+                    )
+                  "
+                >
+                  {{ t("common.actions.uninstall") }}
+                </v-btn>
               </template>
-            </div>
+            </template>
           </div>
-        </div>
-        <div v-if="hasUvComponent" class="version-card__footer">
-          <v-btn
-            size="small"
-            variant="text"
-            prepend-icon="mdi-broom"
-            :loading="isBusy(CLEAR_UV_CACHE_KEY)"
-            @click="handleClearUvCache"
-          >
-            {{ t("versions.actions.clearUvCache") }}
-          </v-btn>
+          <div v-if="row.status.id === 'uv'" class="component-card__footer">
+            <v-btn
+              size="small"
+              variant="text"
+              prepend-icon="mdi-broom"
+              :loading="isBusy(CLEAR_UV_CACHE_KEY)"
+              @click="handleClearUvCache"
+            >
+              {{ t("versions.actions.clearUvCache") }}
+            </v-btn>
+          </div>
         </div>
       </div>
     </section>
@@ -824,11 +876,62 @@ function openReleaseNotes(release: GitHubRelease): void {
   overflow: hidden;
 }
 
-.version-card__footer {
+.component-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.component-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.component-card__head {
+  gap: 8px;
+}
+
+.component-card__name {
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.component-card__sub {
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.component-card__runtimes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: var(--astrbot-radius-control);
+}
+
+.component-runtime {
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.component-runtime__label {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.component-card__actions {
+  gap: 6px;
+  margin-top: auto;
+}
+
+.component-card__footer {
   display: flex;
   justify-content: flex-end;
-  padding: 8px 14px;
-  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .version-alert {

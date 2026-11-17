@@ -229,11 +229,19 @@ export interface BackupInfo {
   parse_error: string | null;
 }
 
+export interface ComponentRuntimeStatus {
+  id: string;
+  label: string;
+  installed: boolean;
+  version: string | null;
+}
+
 export interface ComponentStatus {
   id: string;
   installed: boolean;
   display_name: string;
   description: string;
+  runtimes: ComponentRuntimeStatus[];
 }
 
 export interface ComponentsSnapshot {

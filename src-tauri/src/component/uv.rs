@@ -6,6 +6,7 @@ use tokio::process::Command;
 
 use super::common::install_from_archive_with_progress;
 use super::types::{result_keys, ComponentActionResult};
+use super::version;
 use crate::archive::ArchiveFormat;
 use crate::config::{load_config, AppConfig};
 use crate::error::{AppError, Result};
@@ -19,6 +20,13 @@ pub fn is_uv_installed() -> bool {
     let uv_exe = get_uv_exe_path(&uv_dir);
     let uvx_exe = get_uvx_exe_path(&uv_dir);
     uv_exe.exists() && uvx_exe.exists()
+}
+
+/// Detect the installed uv version by running its executable.
+pub fn detect_uv_version() -> Option<String> {
+    let exe = get_uv_exe_path(&get_component_dir("uv"));
+    let raw = version::probe_exe_version(&exe)?;
+    version::parse_version_output(&raw, "uv ")
 }
 
 pub fn get_uv_executable() -> Result<PathBuf> {
@@ -189,16 +197,7 @@ async fn detect_installed_uv_version(uv_exe: &std::path::Path) -> String {
     match cmd.output().await {
         Ok(output) if output.status.success() => {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            let version = stdout.trim();
-            if version.is_empty() {
-                "latest".to_string()
-            } else {
-                version
-                    .strip_prefix("uv ")
-                    .unwrap_or(version)
-                    .trim()
-                    .to_string()
-            }
+            version::parse_version_output(&stdout, "uv ").unwrap_or_else(|| "latest".to_string())
         }
         Ok(output) => {
             log::warn!(
