@@ -7,6 +7,8 @@
 <!-- badge -->
 
 <a href="https://github.com/mantoujun12/AstrBot-Go/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/mantoujun12/AstrBot-Go?color=76bad9"></a>
+<a href="https://app.codecov.io/github/mantoujun12/AstrBot-Go"><img alt="Codecov" src="https://img.shields.io/codecov/c/github/mantoujun12/AstrBot-Go?logo=codecov"></a>
+<a href="https://app.circleci.com/projects/github/mantoujun12/AstrBot-Go"><img alt="CircleCI" src="https://img.shields.io/circleci/build/github/mantoujun12/AstrBot-Go?logo=circleci"></a>
 <a href="https://tauri.app"><img alt="Tauri 2.12.5" src="https://img.shields.io/badge/Tauri-2.12.5-24C8D8?logo=tauri&logoColor=white"></a>
 <a href="https://vuetifyjs.com"><img alt="Vuetify 4.3.3" src="https://img.shields.io/badge/Vuetify-4.3.3-1867C0?logo=vuetify"></a>
 
