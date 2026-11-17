@@ -306,6 +306,7 @@ const ruRU = {
     status: {
       installed: "Установлено",
       notInstalled: "Не установлено",
+      versionUnknown: "Неизвестно",
       prerelease: "Предварительная версия",
     },
     installed: {

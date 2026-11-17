@@ -5,10 +5,12 @@ mod python;
 mod registry;
 mod types;
 mod uv;
+mod version;
 
 use std::env;
 use std::ffi::OsString;
 use std::path::Path;
+use std::sync::Mutex;
 
 use reqwest::Client;
 use tauri::AppHandle;
@@ -19,13 +21,21 @@ use crate::utils::paths::{get_component_dir, get_node_exe_path, get_nodejs_shim_
 pub use node_shim::generate_shims;
 pub use nodejs::build_nodejs_env_vars;
 pub use python::{create_venv, get_python_for_version, pip_install_requirements};
-pub use types::{ComponentActionResult, ComponentId, ComponentsSnapshot};
+pub use types::{ComponentActionResult, ComponentId, ComponentsSnapshot, RuntimeStatus};
 pub use uv::{clear_uv_cache, is_uv_installed, uv_sync};
+
+/// Serializes snapshot version probing against component directory mutations
+/// (install extraction, uninstall removal): a running executable would block
+/// directory removal or extraction on Windows.
+static COMPONENT_LOCK: Mutex<()> = Mutex::new(());
 
 use types::ComponentStatus;
 
 /// Build a snapshot of all component statuses.
 pub fn build_components_snapshot() -> ComponentsSnapshot {
+    // Probes below launch executables; keep them off directory mutations.
+    let _guard = COMPONENT_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+
     let components = registry::COMPONENT_DESCRIPTORS
         .iter()
         .map(|descriptor| {
@@ -35,11 +45,45 @@ pub fn build_components_snapshot() -> ComponentsSnapshot {
                 installed: (descriptor.is_installed)(),
                 display_name: id.display_name().to_string(),
                 description: descriptor.description.to_string(),
+                runtimes: build_runtime_statuses(id),
             }
         })
         .collect();
 
     ComponentsSnapshot { components }
+}
+
+/// Build per-runtime statuses (id, label, installed, detected version) for a
+/// component.
+fn build_runtime_statuses(id: ComponentId) -> Vec<RuntimeStatus> {
+    match id {
+        ComponentId::Python => python::RUNTIME_VERSIONS
+            .iter()
+            .map(|(runtime, label)| RuntimeStatus {
+                id: (*runtime).to_string(),
+                label: (*label).to_string(),
+                installed: python::is_runtime_installed(runtime),
+                version: version::cached_runtime_version(&format!("python/{}", runtime), || {
+                    python::runtime_version(runtime)
+                }),
+            })
+            .collect(),
+        ComponentId::Nodejs => vec![RuntimeStatus {
+            id: "nodejs".to_string(),
+            label: ComponentId::Nodejs.display_name().to_string(),
+            installed: nodejs::is_nodejs_installed(),
+            version: version::cached_runtime_version(
+                "nodejs/nodejs",
+                nodejs::detect_nodejs_version,
+            ),
+        }],
+        ComponentId::UV => vec![RuntimeStatus {
+            id: "uv".to_string(),
+            label: ComponentId::UV.display_name().to_string(),
+            installed: uv::is_uv_installed(),
+            version: version::cached_runtime_version("uv/uv", uv::detect_uv_version),
+        }],
+    }
 }
 
 /// Install a component by id, dispatching to the appropriate sub-module.
@@ -60,11 +104,16 @@ pub async fn install_component(
         Err(e) => log::error!("Failed to install component {:?}: {}", id, e),
     }
 
+    version::invalidate_version_cache();
     result
 }
 
 /// Uninstall a component by id, dispatching to the appropriate sub-module.
 pub fn uninstall_component(id: ComponentId) -> Result<ComponentActionResult> {
+    // Directory removal must not overlap snapshot probes (Windows locks
+    // in-use executables). Runs on a blocking thread in the caller.
+    let _guard = COMPONENT_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+
     log::info!("Uninstalling component {:?}", id);
     let result = match id {
         ComponentId::Python => python::uninstall_component(),
@@ -77,6 +126,7 @@ pub fn uninstall_component(id: ComponentId) -> Result<ComponentActionResult> {
         Err(e) => log::error!("Failed to uninstall component {:?}: {}", id, e),
     }
 
+    version::invalidate_version_cache();
     result
 }
 
@@ -86,11 +136,14 @@ pub async fn reinstall_component(
     id: ComponentId,
     app_handle: Option<&AppHandle>,
 ) -> Result<ComponentActionResult> {
-    match id {
+    let result = match id {
         ComponentId::Python => python::reinstall_component(client, app_handle).await,
         ComponentId::Nodejs => nodejs::reinstall_nodejs(client, app_handle).await,
         ComponentId::UV => uv::reinstall_uv(client, app_handle).await,
-    }
+    };
+
+    version::invalidate_version_cache();
+    result
 }
 
 /// Build the PATH environment variable for an instance.

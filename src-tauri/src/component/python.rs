@@ -19,10 +19,23 @@ use crate::utils::paths::{get_python_exe_path, get_python_runtime_dir, get_venv_
 const RUNTIME_PY310: &str = "py310";
 const RUNTIME_PY312: &str = "py312";
 
+/// (runtime dir id, display label) for the managed runtimes, in install order.
+pub(super) const RUNTIME_VERSIONS: [(&str, &str); 2] = [
+    (RUNTIME_PY310, "Python 3.10"),
+    (RUNTIME_PY312, "Python 3.12"),
+];
+
 /// Check whether the unified python component is installed.
 /// Python is considered installed only when both 3.10 and 3.12 runtimes exist.
 pub(super) fn is_component_installed() -> bool {
     is_runtime_installed(RUNTIME_PY310) && is_runtime_installed(RUNTIME_PY312)
+}
+
+/// Detect the installed version of one runtime by running its executable.
+pub(super) fn runtime_version(runtime: &str) -> Option<String> {
+    let exe = get_python_exe_path(&get_python_runtime_dir(runtime));
+    let raw = super::version::probe_exe_version(&exe)?;
+    super::version::parse_version_output(&raw, "Python ")
 }
 
 /// Determine whether a given AstrBot version requires Python 3.10.
@@ -125,13 +138,19 @@ pub(super) async fn reinstall_component(
     let py310_dir = get_python_runtime_dir(RUNTIME_PY310);
     let py312_dir = get_python_runtime_dir(RUNTIME_PY312);
 
-    if py310_dir.exists() {
-        std::fs::remove_dir_all(&py310_dir)
-            .map_err(|e| AppError::io(format!("Failed to clean Python 3.10 runtime: {}", e)))?;
-    }
-    if py312_dir.exists() {
-        std::fs::remove_dir_all(&py312_dir)
-            .map_err(|e| AppError::io(format!("Failed to clean Python 3.12 runtime: {}", e)))?;
+    // Keep removal off snapshot probes (Windows locks in-use executables).
+    {
+        let _guard = super::COMPONENT_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        if py310_dir.exists() {
+            std::fs::remove_dir_all(&py310_dir)
+                .map_err(|e| AppError::io(format!("Failed to clean Python 3.10 runtime: {}", e)))?;
+        }
+        if py312_dir.exists() {
+            std::fs::remove_dir_all(&py312_dir)
+                .map_err(|e| AppError::io(format!("Failed to clean Python 3.12 runtime: {}", e)))?;
+        }
     }
 
     let installed = install_missing_runtimes(client, app_handle).await?;
@@ -252,7 +271,7 @@ pub async fn create_venv(venv_dir: &Path, version: &str) -> Result<()> {
     Ok(())
 }
 
-fn is_runtime_installed(runtime: &str) -> bool {
+pub(super) fn is_runtime_installed(runtime: &str) -> bool {
     let dir = get_python_runtime_dir(runtime);
     let exe = get_python_exe_path(&dir);
     exe.exists()

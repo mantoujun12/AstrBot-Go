@@ -278,6 +278,7 @@ const zhCN = {
     "status": {
       "installed": "已安装",
       "notInstalled": "未安装",
+      "versionUnknown": "未知",
       "prerelease": "预发行"
     },
     "installed": {

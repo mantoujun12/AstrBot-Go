@@ -6,6 +6,7 @@ use tauri::AppHandle;
 
 use super::common::install_from_archive_with_progress;
 use super::types::{result_keys, ComponentActionResult};
+use super::version;
 use crate::archive::ArchiveFormat;
 use crate::config::load_config;
 use crate::error::{AppError, Result};
@@ -41,6 +42,13 @@ pub fn is_nodejs_installed() -> bool {
     let dir = get_component_dir("nodejs");
     let exe = get_node_exe_path(&dir);
     exe.exists()
+}
+
+/// Detect the installed Node.js version by running its executable.
+pub fn detect_nodejs_version() -> Option<String> {
+    let exe = get_node_exe_path(&get_component_dir("nodejs"));
+    let raw = version::probe_exe_version(&exe)?;
+    version::parse_version_output(&raw, "v")
 }
 
 /// Build Node.js environment variables (component-level isolation).
