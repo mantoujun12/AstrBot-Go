@@ -7,6 +7,7 @@
 ### Fixed
 
 - Fixed the blurry taskbar icon on high-DPI Windows displays.
+- Fixed external links not opening in the default browser.
 
 ## 中文
 
@@ -17,3 +18,4 @@
 ### 修复
 
 - 修复高分屏 Windows 下任务栏图标模糊的问题。
+- 修复外部链接无法在默认浏览器中打开的问题。
