@@ -148,6 +148,7 @@ pub fn configure_main_window(window: &tauri::WebviewWindow) {
         // reset the corner preference, so rounding has to come after it.
         apply_windows_backdrop(window);
         apply_windows_corner_preference(window);
+        apply_crisp_window_icon(window);
     }
 
     #[cfg(target_os = "linux")]
@@ -164,6 +165,22 @@ pub fn configure_main_window(window: &tauri::WebviewWindow) {
         crate::MIN_WINDOW_WIDTH as f64,
         crate::MIN_WINDOW_HEIGHT as f64,
     )));
+}
+
+/// `generate_context!` loads the default window icon before the process becomes
+/// DPI aware, so it is always a 32px image. Windows scales that small window icon
+/// up for the taskbar, which blurs it on high-DPI displays. Set the largest
+/// embedded entry instead so the shell always downscales.
+#[cfg(target_os = "windows")]
+fn apply_crisp_window_icon(window: &tauri::WebviewWindow) {
+    match tauri::image::Image::from_app_icon_resource(256) {
+        Ok(icon) => {
+            if let Err(error) = window.set_icon(icon) {
+                log::warn!("Failed to apply the window icon: {error}");
+            }
+        }
+        Err(error) => log::warn!("Failed to load the window icon resource: {error}"),
+    }
 }
 
 fn apply_initial_background(window: &tauri::WebviewWindow) {
