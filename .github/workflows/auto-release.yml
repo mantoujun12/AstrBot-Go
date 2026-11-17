@@ -24,8 +24,11 @@
 # Build matrix / 构建矩阵
 # - Five platforms are built in parallel: Windows x64, Windows ARM64, Linux x64, macOS Apple
 #   Silicon, and macOS Intel. Each platform uploads its bundles as installers-<platform>.
+#   Windows platforms additionally upload a portable zip (main executable only) as
+#   installers-windows-<x64|arm64>; it is not used for the updater manifest.
 #   并行构建五个平台：Windows x64、Windows ARM64、Linux x64、macOS Apple Silicon 与 macOS Intel；
-#   每个平台把构建产物上传为 installers-<平台>。
+#   每个平台把构建产物上传为 installers-<平台>。Windows 平台额外上传一个便携版 zip
+#   （仅含主程序 exe），该 zip 不用于更新清单。
 # - The release carries one latest.json updater manifest with every built platform, keyed by
 #   Tauri updater targets: windows-x86_64-nsis, windows-x86_64-msi, windows-aarch64-nsis,
 #   windows-aarch64-msi, linux-x86_64, darwin-aarch64, and darwin-x86_64.
@@ -254,6 +257,7 @@ jobs:
             bundle_paths: |
               src-tauri/target/**/release/bundle/nsis/*
               src-tauri/target/**/release/bundle/msi/*
+              src-tauri/target/**/release/portable/*.zip
           - platform: windows-arm64
             os: windows-11-arm
             artifact: installers-windows-arm64
@@ -262,6 +266,7 @@ jobs:
             bundle_paths: |
               src-tauri/target/**/release/bundle/nsis/*
               src-tauri/target/**/release/bundle/msi/*
+              src-tauri/target/**/release/portable/*.zip
           - platform: linux-x64
             os: ubuntu-22.04
             artifact: installers-linux-x64
@@ -339,6 +344,10 @@ jobs:
         with:
           retryAttempts: 2
           args: ${{ matrix.args }}
+
+      - name: Build portable zip
+        if: runner.os == 'Windows'
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/portable.ps1 -SkipBuild -Target ${{ matrix.rust_targets }}
 
       - name: Upload installers
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

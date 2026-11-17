@@ -40,7 +40,7 @@
 | Linux | 🟡半支持 | x64、ARM64 | 需要 WebKitGTK 4.1 等 [Tauri 系统依赖](https://v2.tauri.app/start/prerequisites/#linux)。发布构建目前仅提供 x64 安装包。 |
 | macOS | 🟡半支持 | Intel、Apple Silicon | 仅窗口适配，构建时需要 Xcode 及其命令行工具 |
 
-平台相关能力通过 Rust 条件编译和 Tauri 构建配置分别适配。托盘面板在 Windows 与 macOS 上可用；Linux 因 appindicator 不派发点击事件，会回退为仅含“显示”与“退出”的固定托盘菜单。`.github/workflows/auto-release.yml` 会并行构建 Windows x64、Windows ARM64、Linux x64、macOS Apple Silicon 与 macOS Intel，并把全部安装包附加到同一个 Release，因此打上版本标签后会一并发布全部已构建的安装包。macOS 构建不签名、不公证，首次启动会被 Gatekeeper 阻止，需要手动允许后才能打开。
+平台相关能力通过 Rust 条件编译和 Tauri 构建配置分别适配。托盘面板在 Windows 与 macOS 上可用；Linux 因 appindicator 不派发点击事件，会回退为仅含“显示”与“退出”的固定托盘菜单。`.github/workflows/auto-release.yml` 会并行构建 Windows x64、Windows ARM64、Linux x64、macOS Apple Silicon 与 macOS Intel，并把全部安装包附加到同一个 Release，因此打上版本标签后会一并发布全部已构建的安装包；Windows 版 Release 还会额外附上一个仅含主程序 exe 的便携版 zip。macOS 构建不签名、不公证，首次启动会被 Gatekeeper 阻止，需要手动允许后才能打开。
 
 ## 技术栈
 
@@ -73,6 +73,8 @@ pnpm tauri dev
 pnpm build
 pnpm tauri build
 ```
+
+Windows 上可运行 `pnpm portable` 构建并打包主程序 exe 的便携版 zip。
 
 ## 相关链接
 
