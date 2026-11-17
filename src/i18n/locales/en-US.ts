@@ -294,6 +294,7 @@ const enUS = {
     status: {
       installed: "Installed",
       notInstalled: "Not installed",
+      versionUnknown: "Unknown",
       prerelease: "Prerelease",
     },
     installed: {

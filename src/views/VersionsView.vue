@@ -75,6 +75,8 @@ interface ComponentRow {
   runtimeRows: ComponentRuntimeStatus[] | null;
   /** Versions shown inline in the card head; single-runtime components. */
   inlineVersions: string[];
+  /** Installed single runtime whose version could not be detected. */
+  inlineVersionMissing: boolean;
   progress: DownloadProgress | null;
   busy: boolean;
 }
@@ -119,6 +121,10 @@ const componentRows = computed<ComponentRow[]>(() =>
         : status.runtimes.flatMap((runtime) =>
             runtime.version ? [runtime.version] : [],
           ),
+      inlineVersionMissing:
+        !multiRuntime &&
+        status.installed &&
+        status.runtimes.every((runtime) => !runtime.version),
       progress: downloads.value[status.id] ?? null,
       busy: componentId !== null && isBusy(`component:${componentId}`),
     };
@@ -547,6 +553,15 @@ function openReleaseNotes(release: GitHubRelease): void {
             >
               {{ version }}
             </v-chip>
+            <v-chip
+              v-if="row.inlineVersionMissing"
+              size="x-small"
+              color="warning"
+              variant="tonal"
+              label
+            >
+              {{ t("versions.status.versionUnknown") }}
+            </v-chip>
           </div>
           <div class="component-card__sub page-anywhere">
             {{
@@ -574,6 +589,15 @@ function openReleaseNotes(release: GitHubRelease): void {
                 class="page-mono"
               >
                 {{ runtime.version }}
+              </v-chip>
+              <v-chip
+                v-else-if="runtime.installed"
+                size="x-small"
+                color="warning"
+                variant="tonal"
+                label
+              >
+                {{ t("versions.status.versionUnknown") }}
               </v-chip>
               <v-chip
                 size="x-small"

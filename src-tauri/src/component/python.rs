@@ -138,13 +138,19 @@ pub(super) async fn reinstall_component(
     let py310_dir = get_python_runtime_dir(RUNTIME_PY310);
     let py312_dir = get_python_runtime_dir(RUNTIME_PY312);
 
-    if py310_dir.exists() {
-        std::fs::remove_dir_all(&py310_dir)
-            .map_err(|e| AppError::io(format!("Failed to clean Python 3.10 runtime: {}", e)))?;
-    }
-    if py312_dir.exists() {
-        std::fs::remove_dir_all(&py312_dir)
-            .map_err(|e| AppError::io(format!("Failed to clean Python 3.12 runtime: {}", e)))?;
+    // Keep removal off snapshot probes (Windows locks in-use executables).
+    {
+        let _guard = super::COMPONENT_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        if py310_dir.exists() {
+            std::fs::remove_dir_all(&py310_dir)
+                .map_err(|e| AppError::io(format!("Failed to clean Python 3.10 runtime: {}", e)))?;
+        }
+        if py312_dir.exists() {
+            std::fs::remove_dir_all(&py312_dir)
+                .map_err(|e| AppError::io(format!("Failed to clean Python 3.12 runtime: {}", e)))?;
+        }
     }
 
     let installed = install_missing_runtimes(client, app_handle).await?;

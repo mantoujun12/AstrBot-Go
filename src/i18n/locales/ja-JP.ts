@@ -293,6 +293,7 @@ const jaJP = {
     status: {
       installed: "インストール済み",
       notInstalled: "未インストール",
+      versionUnknown: "不明",
       prerelease: "プレリリース",
     },
     installed: {

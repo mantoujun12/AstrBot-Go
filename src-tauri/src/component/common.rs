@@ -17,20 +17,27 @@ pub(super) async fn install_from_archive_with_progress(
     progress_id: &'static str,
     app_handle: Option<&AppHandle>,
 ) -> Result<()> {
-    if target_dir.exists() {
-        std::fs::remove_dir_all(target_dir).map_err(|e| {
+    // Keep directory mutation off snapshot probes (Windows locks in-use
+    // executables).
+    {
+        let _guard = super::COMPONENT_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        if target_dir.exists() {
+            std::fs::remove_dir_all(target_dir).map_err(|e| {
+                AppError::io(format!(
+                    "Failed to clean existing target dir {:?}: {}",
+                    target_dir, e
+                ))
+            })?;
+        }
+        std::fs::create_dir_all(target_dir).map_err(|e| {
             AppError::io(format!(
-                "Failed to clean existing target dir {:?}: {}",
+                "Failed to create target dir {:?}: {}",
                 target_dir, e
             ))
         })?;
     }
-    std::fs::create_dir_all(target_dir).map_err(|e| {
-        AppError::io(format!(
-            "Failed to create target dir {:?}: {}",
-            target_dir, e
-        ))
-    })?;
 
     let opts = app_handle.map(|ah| DownloadOptions {
         app_handle: ah,
@@ -53,9 +60,16 @@ pub(super) async fn install_from_archive_with_progress(
         )?;
     }
 
-    match archive_format {
-        ArchiveFormat::Zip => extract_zip_flat(archive_path, target_dir)?,
-        ArchiveFormat::TarGz => extract_tar_gz_flat(archive_path, target_dir)?,
+    // Extraction must not overlap snapshot probes: a half-written exe the
+    // probe launches would block file replacement on Windows.
+    {
+        let _guard = super::COMPONENT_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        match archive_format {
+            ArchiveFormat::Zip => extract_zip_flat(archive_path, target_dir)?,
+            ArchiveFormat::TarGz => extract_tar_gz_flat(archive_path, target_dir)?,
+        }
     }
 
     if let Err(e) = std::fs::remove_file(archive_path) {
