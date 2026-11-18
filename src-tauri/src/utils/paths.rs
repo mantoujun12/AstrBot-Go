@@ -307,3 +307,67 @@ pub(crate) fn get_uvx_exe_path(uv_dir: &Path) -> PathBuf {
 pub(crate) fn get_uv_cache_dir() -> PathBuf {
     get_component_dir("uv").join("cache")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_data_dir_rejects_empty_and_relative_paths() {
+        assert!(validate_data_dir(Path::new("")).is_err());
+        assert!(validate_data_dir(Path::new("relative/dir")).is_err());
+
+        let unused = std::env::temp_dir().join("astrbot-launcher-unused-dir");
+        assert!(validate_data_dir(&unused).is_ok());
+    }
+
+    #[test]
+    fn validate_data_dir_rejects_existing_files() -> std::result::Result<(), std::io::Error> {
+        let file_path = std::env::temp_dir().join(format!(
+            "astrbot-launcher-paths-file-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::write(&file_path, b"")?;
+
+        assert!(validate_data_dir(&file_path).is_err());
+
+        let _ = std::fs::remove_file(&file_path);
+        Ok(())
+    }
+
+    #[test]
+    fn exe_paths_follow_the_current_platform_layout() {
+        let expect = |base: &Path, windows: &[&str], unix: &[&str]| {
+            let segments = if cfg!(windows) { windows } else { unix };
+            segments
+                .iter()
+                .fold(base.to_path_buf(), |path, segment| path.join(segment))
+        };
+
+        let base = Path::new("runtime");
+        assert_eq!(
+            get_python_exe_path(base),
+            expect(base, &["python.exe"], &["bin", "python3"])
+        );
+        assert_eq!(
+            get_node_exe_path(base),
+            expect(base, &["node.exe"], &["bin", "node"])
+        );
+        assert_eq!(
+            get_npm_exe_path(base),
+            expect(base, &["npm.cmd"], &["bin", "npm"])
+        );
+        assert_eq!(
+            get_npx_exe_path(base),
+            expect(base, &["npx.cmd"], &["bin", "npx"])
+        );
+        assert_eq!(
+            get_venv_python(base),
+            expect(base, &["Scripts", "python.exe"], &["bin", "python"])
+        );
+        assert_eq!(get_uv_exe_path(base), expect(base, &["uv.exe"], &["uv"]));
+        // Windows standalone dirs keep executables at the root, so the base
+        // itself is the bin directory; Unix layouts nest under bin/.
+        assert_eq!(get_node_bin_dir(base), expect(base, &[], &["bin"]));
+    }
+}
