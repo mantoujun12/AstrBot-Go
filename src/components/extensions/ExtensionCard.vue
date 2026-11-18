@@ -10,7 +10,7 @@ defineProps<{
   <article class="extension-card">
     <div class="extension-card__cover" aria-hidden="true" />
     <div class="extension-card__info">
-      <v-avatar class="extension-card__icon" size="32" :rounded="10">
+      <v-avatar class="extension-card__icon" size="32">
         <v-icon :icon="icon" size="18" aria-hidden="true" />
       </v-avatar>
       <div class="extension-card__text">
@@ -29,21 +29,7 @@ defineProps<{
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: var(--astrbot-radius-card);
   overflow: hidden;
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-.extension-card:hover {
-  border-color: rgba(var(--v-theme-primary), 0.45);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
-}
-
-.extension-card:focus-visible {
-  outline: 2px solid rgb(var(--v-theme-primary));
-  outline-offset: -2px;
+  /* shortcut: plain static card until real extensions add open actions */
 }
 
 .extension-card__cover {

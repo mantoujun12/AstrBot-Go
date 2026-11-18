@@ -1048,6 +1048,24 @@ const jaJP = {
   },
   extensions: {
     title: "拡張",
+    items: {
+      hue: {
+        title: "Hue",
+        description: "Material You カラーピッカー",
+      },
+      palette: {
+        title: "Palette",
+        description: "厳選カラーパレット",
+      },
+      converter: {
+        title: "Converter",
+        description: "フォーマット変換ツール",
+      },
+      playground: {
+        title: "Playground",
+        description: "スニペットサンドボックス",
+      },
+    },
   },
 } satisfies typeof zhCN;
 

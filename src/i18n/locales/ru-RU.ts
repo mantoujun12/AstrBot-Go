@@ -1077,6 +1077,24 @@ const ruRU = {
   },
   extensions: {
     title: "Расширения",
+    items: {
+      hue: {
+        title: "Hue",
+        description: "Инструмент выбора цветов Material You",
+      },
+      palette: {
+        title: "Palette",
+        description: "Подборки цветовых палитр",
+      },
+      converter: {
+        title: "Converter",
+        description: "Инструменты конвертации форматов",
+      },
+      playground: {
+        title: "Playground",
+        description: "Песочница для фрагментов кода",
+      },
+    },
   },
 } satisfies typeof zhCN;
 

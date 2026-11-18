@@ -1049,6 +1049,24 @@ const enUS = {
   },
   extensions: {
     title: "Extensions",
+    items: {
+      hue: {
+        title: "Hue",
+        description: "Material You color picker",
+      },
+      palette: {
+        title: "Palette",
+        description: "Curated color palettes",
+      },
+      converter: {
+        title: "Converter",
+        description: "Format conversion tools",
+      },
+      playground: {
+        title: "Playground",
+        description: "Quick snippet sandbox",
+      },
+    },
   },
 } satisfies typeof zhCN;
 

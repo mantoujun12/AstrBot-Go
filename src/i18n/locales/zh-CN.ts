@@ -1030,7 +1030,25 @@ const zhCN = {
     }
   },
   "extensions": {
-    "title": "扩展"
+    "title": "扩展",
+    "items": {
+      "hue": {
+        "title": "Hue",
+        "description": "Material You 取色器"
+      },
+      "palette": {
+        "title": "Palette",
+        "description": "精选配色方案"
+      },
+      "converter": {
+        "title": "Converter",
+        "description": "格式转换工具"
+      },
+      "playground": {
+        "title": "Playground",
+        "description": "代码片段沙盒"
+      }
+    }
   }
 };
 

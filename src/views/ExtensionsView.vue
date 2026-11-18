@@ -15,8 +15,8 @@ const { t } = useI18n();
         v-for="extension in EXTENSIONS"
         :key="extension.id"
         :icon="extension.icon"
-        :title="extension.title"
-        :description="extension.description"
+        :title="t(`extensions.items.${extension.id}.title`)"
+        :description="t(`extensions.items.${extension.id}.description`)"
       />
     </div>
   </div>
