@@ -11,6 +11,7 @@ mod instance;
 mod network;
 mod platform;
 mod process;
+mod scheduler;
 mod setup;
 mod tasks;
 mod tray;
@@ -128,6 +129,7 @@ pub fn run() {
 
     utils::paths::ensure_data_dirs().expect("Failed to create data directories");
     tasks::initialize();
+    scheduler::initialize();
     github::init_releases_cache();
     validate_window_state();
 
@@ -303,6 +305,12 @@ pub fn run() {
             commands::resume_task,
             commands::remove_task,
             commands::clear_finished_tasks,
+            // Scheduled tasks
+            commands::list_scheduled_jobs,
+            commands::save_scheduled_job,
+            commands::delete_scheduled_job,
+            commands::set_scheduled_job_enabled,
+            commands::run_scheduled_job_now,
             commands::uninstall_version,
             // Troubleshooting
             commands::check_lock,

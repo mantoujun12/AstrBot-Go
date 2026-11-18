@@ -8,8 +8,10 @@ import type {
   LogEntry,
   LogLevel,
   ResourceAlertEvent,
+  ScheduledJob,
   TaskRecord,
 } from "../types/launcher";
+import { toScheduledJob } from "./scheduled";
 import { toTaskRecord } from "./tasks";
 import type { TrayPanelAction } from "./tray";
 
@@ -277,6 +279,20 @@ export function listenTaskRemoved(
     if (typeof event.payload === "string") {
       handler(event.payload);
     }
+  });
+}
+
+export function listenScheduledJobsUpdated(
+  handler: (jobs: ScheduledJob[]) => void,
+): Promise<UnlistenFn> {
+  return listen<unknown>("scheduled-jobs-updated", (event) => {
+    if (!Array.isArray(event.payload)) {
+      return;
+    }
+    const jobs = event.payload
+      .map(toScheduledJob)
+      .filter((job): job is ScheduledJob => job !== null);
+    handler(jobs);
   });
 }
 

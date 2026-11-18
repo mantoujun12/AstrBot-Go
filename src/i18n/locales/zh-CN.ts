@@ -381,7 +381,79 @@ const zhCN = {
     }
   },
   "tasks": {
-    "title": "任务",
+    "tabs": {
+      "history": "历史记录",
+      "scheduled": "定时任务"
+    },
+    "scheduled": {
+      "actions": {
+        "create": "新建任务",
+        "edit": "编辑",
+        "runNow": "立即运行",
+        "remove": "删除"
+      },
+      "fields": {
+        "name": "名称",
+        "instance": "实例",
+        "action": "执行操作",
+        "schedule": "调度",
+        "nextRun": "下次运行",
+        "lastRun": "上次运行"
+      },
+      "jobActions": {
+        "startInstance": "启动实例",
+        "stopInstance": "停止实例",
+        "backup": "创建备份",
+        "clearCache": "清除 Python 缓存"
+      },
+      "modes": {
+        "once": "一次性",
+        "interval": "间隔",
+        "daily": "每天",
+        "weekly": "每周"
+      },
+      "units": {
+        "minutes": "分钟",
+        "hours": "小时"
+      },
+      "weekdays": {
+        "sun": "周日",
+        "mon": "周一",
+        "tue": "周二",
+        "wed": "周三",
+        "thu": "周四",
+        "fri": "周五",
+        "sat": "周六"
+      },
+      "desc": {
+        "once": "{time} 执行一次",
+        "interval": "每 {count} {unit}",
+        "daily": "每天 {time}",
+        "weekly": "每{weekday} {time}"
+      },
+      "dialog": {
+        "createTitle": "新建定时任务",
+        "editTitle": "编辑定时任务",
+        "dateTime": "执行时间",
+        "time": "执行时间",
+        "intervalCount": "间隔",
+        "intervalUnit": "单位",
+        "weekday": "星期",
+        "timeInPast": "执行时间必须晚于当前时间",
+        "noInstances": "暂无实例，请先创建实例"
+      },
+      "result": {
+        "never": "尚未运行",
+        "succeeded": "成功",
+        "failed": "失败"
+      },
+      "empty": "暂无定时任务",
+      "hint": "仅在应用运行时执行；备份与清除缓存需实例处于停止状态",
+      "confirm": {
+        "title": "删除定时任务",
+        "message": "将删除“{name}”，此操作不可撤销。"
+      }
+    },
     "filters": {
       "all": "全部",
       "download": "下载",
