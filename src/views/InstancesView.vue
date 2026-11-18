@@ -14,6 +14,7 @@ import InstanceFormDialog from "../components/instances/InstanceFormDialog.vue";
 import InstanceStatusCell from "../components/instances/InstanceStatusCell.vue";
 import StatusChip from "../components/common/StatusChip.vue";
 import HealthCheckDialog from "../components/instances/HealthCheckDialog.vue";
+import InstanceDataDialog from "../components/instances/data/InstanceDataDialog.vue";
 import RepairDialog from "../components/instances/RepairDialog.vue";
 import ResourceMonitorDialog from "../components/instances/ResourceMonitorDialog.vue";
 import { useOperation } from "../composables/useOperation";
@@ -373,6 +374,8 @@ const formBusy = computed(() => {
 
 const repairOpen = ref(false);
 const repairTarget = ref<InstanceStatus | null>(null);
+const dataOpen = ref(false);
+const dataTarget = ref<InstanceStatus | null>(null);
 const resourceOpen = ref(false);
 const resourceTarget = ref<InstanceStatus | null>(null);
 const healthOpen = ref(false);
@@ -1064,6 +1067,11 @@ function openRepair(instance: InstanceStatus): void {
   repairOpen.value = true;
 }
 
+function openData(instance: InstanceStatus): void {
+  dataTarget.value = instance;
+  dataOpen.value = true;
+}
+
 async function handleRepair(scope: RepairPreserveScope): Promise<void> {
   const target = repairTarget.value;
   if (!target || isInstanceBusy(target.id)) {
@@ -1574,6 +1582,12 @@ function openWebui(instance: InstanceStatus): void {
                   @click="openEdit(item)"
                 />
                 <v-list-item
+                  v-if="!item.external"
+                  prepend-icon="mdi-database-cog-outline"
+                  :title="t('instances.actions.manageData')"
+                  @click="openData(item)"
+                />
+                <v-list-item
                   prepend-icon="mdi-archive-arrow-down-outline"
                   :title="t('instances.actions.createBackup')"
                   :disabled="
@@ -1673,6 +1687,8 @@ function openWebui(instance: InstanceStatus): void {
     />
 
     <RepairDialog v-model="repairOpen" @submit="handleRepair" />
+
+    <InstanceDataDialog v-model="dataOpen" :instance="dataTarget" />
 
     <ResourceMonitorDialog
       v-model="resourceOpen"

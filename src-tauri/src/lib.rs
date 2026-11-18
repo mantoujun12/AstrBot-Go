@@ -330,6 +330,18 @@ pub fn run() {
             commands::restart_instance,
             commands::check_instance_health,
             commands::list_discovered_instances,
+            // Instance Data
+            commands::list_instance_personas,
+            commands::save_instance_personas,
+            commands::list_instance_persona_folders,
+            commands::list_instance_cron_jobs,
+            commands::save_instance_cron_jobs,
+            commands::list_instance_config_files,
+            commands::read_instance_config_file,
+            commands::write_instance_config_file,
+            commands::list_instance_knowledge_bases,
+            commands::delete_instance_knowledge_base,
+            commands::copy_instance_data,
             // Resource Monitoring
             commands::get_instance_resource_history,
             commands::set_resource_alert_threshold,
