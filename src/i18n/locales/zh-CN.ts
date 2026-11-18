@@ -610,7 +610,8 @@ const zhCN = {
       "deleteInstance": "删除实例",
       "upgrade": "升级",
       "upgradeAll": "全部升级",
-      "healthCheck": "健康诊断"
+      "healthCheck": "健康诊断",
+      "manageData": "管理数据"
     },
     "health": {
       "title": "{instance} · 实例体检",
@@ -904,6 +905,128 @@ const zhCN = {
     "loadFailed": "日志订阅失败",
     "jumpToLatest": "回到最新",
     "jumpToLatestAria": "回到最新日志"
+  },
+  "instanceData": {
+    "title": "数据管理",
+    "saved": "已保存",
+    "v4Unsupported": "实例数据仅支持 AstrBot v4 及以上版本。",
+    "readonlyTooltip": "实例未停止，无法保存更改。",
+    "editConfigFile": "编辑配置文件",
+    "searchPlaceholder": "搜索",
+    "actionsColumn": "操作",
+    "all": "全部",
+    "none": "无",
+    "unsavedTitle": "未保存的更改",
+    "unsavedMessage": "有未保存的更改，关闭后将丢弃。",
+    "sections": {
+      "personas": "人格",
+      "cronJobs": "定时任务",
+      "mcpServers": "MCP 服务器",
+      "configFiles": "配置文件",
+      "knowledgeBases": "知识库"
+    },
+    "personas": {
+      "empty": "暂无人格",
+      "addTitle": "新增人格",
+      "editTitle": "编辑人格",
+      "idRequired": "ID 不能为空。",
+      "idExists": "ID 已存在。",
+      "columns": {
+        "personaId": "ID",
+        "folder": "文件夹",
+        "systemPrompt": "系统提示词",
+        "tools": "工具",
+        "skills": "技能"
+      },
+      "fields": {
+        "personaId": "ID",
+        "systemPrompt": "系统提示词",
+        "beginDialogs": "开场对话",
+        "beginDialogsPlaceholder": "每行一条",
+        "tools": "工具",
+        "skills": "技能",
+        "customErrorMessage": "自定义错误消息",
+        "listPlaceholder": "逗号或换行分隔，留空为全部",
+        "folder": "所属文件夹",
+        "rootFolder": "根目录",
+        "sortOrder": "排序"
+      }
+    },
+    "cronJobs": {
+      "empty": "暂无定时任务",
+      "addTitle": "新增定时任务",
+      "editTitle": "编辑定时任务",
+      "nameRequired": "名称不能为空。",
+      "cronRequired": "请填写 Cron 表达式。",
+      "payloadInvalid": "Payload 必须是 JSON 对象。",
+      "columns": {
+        "name": "名称",
+        "jobType": "类型",
+        "cronExpression": "Cron 表达式",
+        "enabled": "启用",
+        "nextRun": "下次运行"
+      },
+      "jobTypes": {
+        "basic": "基础",
+        "activeAgent": "主动智能体"
+      },
+      "fields": {
+        "name": "名称",
+        "description": "描述",
+        "jobType": "类型",
+        "cronExpression": "Cron 表达式",
+        "timezone": "时区",
+        "payload": "Payload",
+        "enabled": "启用",
+        "persistent": "持久化",
+        "runOnce": "仅运行一次",
+        "runAt": "运行时间",
+        "prompt": "提示词"
+      }
+    },
+    "mcpServers": {
+      "empty": "暂无 MCP 服务器",
+      "parseError": "mcp_server.json 不是有效的 MCP 配置。",
+      "fileMissing": "mcp_server.json 尚未生成，实例首次运行后自动创建。",
+      "addServer": "添加服务器",
+      "removeServer": "删除服务器",
+      "removeMessage": "确定删除服务器“{name}”吗？",
+      "newServerName": "服务器名称",
+      "duplicateName": "名称已存在。",
+      "fields": {
+        "name": "名称",
+        "command": "命令",
+        "args": "参数",
+        "url": "URL",
+        "active": "启用",
+        "env": "环境变量"
+      }
+    },
+    "knowledgeBases": {
+      "empty": "暂无知识库",
+      "emptyHint": "知识库与文档请在实例 WebUI 中添加。",
+      "deleteTitle": "删除知识库",
+      "deleteMessage": "确定删除知识库“{name}”吗？该操作立即生效。",
+      "deleted": "已删除",
+      "columns": {
+        "name": "名称",
+        "description": "描述",
+        "docs": "文档数",
+        "chunks": "分块数",
+        "size": "大小"
+      }
+    },
+    "configFiles": {
+      "empty": "暂无配置文件",
+      "jsonInvalid": "JSON 格式无效。"
+    },
+    "copy": {
+      "title": "复制到实例",
+      "targets": "目标实例",
+      "overwrite": "覆盖同名项",
+      "noTargets": "没有已停止的其他实例。",
+      "copied": "已复制"
+    }
   }
 };
 

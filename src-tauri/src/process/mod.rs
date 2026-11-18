@@ -20,6 +20,7 @@ pub use control::{
     can_signal_expected_process, check_port_available, find_available_port, force_kill,
     graceful_shutdown, is_expected_process_alive, resolve_process_executable_path,
 };
+pub use manager::InstanceGuard;
 pub use manager::ProcessManager;
 pub(crate) use resource::{
     compute_disk_usage, sample_metric, sample_process_resources, unix_secs_now, AlertTracker,

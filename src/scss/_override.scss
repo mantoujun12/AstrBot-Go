@@ -169,6 +169,11 @@ pre, code, .markdown pre, .markdown code, .release-notes pre, .release-notes cod
   > .v-overlay__content > form > .v-card,
   > .v-overlay__content > form > .v-sheet {
     border-radius: 0 !important;
+    /* The title bar is a body-level fixed element (z-index 3000) that stays
+       above every overlay, so fullscreen dialogs must not paint under it.
+       The custom property is defined on `.launcher-app`, which teleported
+       overlay content cannot see — the 40px fallback is the real value. */
+    padding-top: var(--launcher-titlebar-height, 40px);
   }
 }
 

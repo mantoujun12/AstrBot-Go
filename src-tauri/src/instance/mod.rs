@@ -8,6 +8,7 @@
 
 mod cleanup;
 mod crud;
+pub(crate) mod data_manage;
 mod deploy;
 pub mod discovery;
 mod discovery_dirscan;
@@ -21,6 +22,11 @@ mod types;
 // Re-export types
 pub use health::InstanceHealthReport;
 pub use types::InstanceStatus;
+
+pub use data_manage::{
+    CopyInstanceDataRequest, InstanceConfigFile, InstanceCronJob, InstanceKnowledgeBase,
+    InstancePersona, InstancePersonaFolder,
+};
 
 pub(crate) use health::check_instance_health;
 
