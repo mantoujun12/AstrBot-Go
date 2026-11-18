@@ -536,6 +536,7 @@ const enUS = {
       backups: "Backups",
       tasks: "Tasks",
       logs: "Logs",
+      extensions: "Extensions",
       settings: "Settings",
     },
     sidebar: {
@@ -1044,6 +1045,27 @@ const enUS = {
       overwrite: "Overwrite existing entries",
       noTargets: "No other stopped instances.",
       copied: "Copied",
+    },
+  },
+  extensions: {
+    title: "Extensions",
+    items: {
+      hue: {
+        title: "Hue",
+        description: "Material You color picker",
+      },
+      palette: {
+        title: "Palette",
+        description: "Curated color palettes",
+      },
+      converter: {
+        title: "Converter",
+        description: "Format conversion tools",
+      },
+      playground: {
+        title: "Playground",
+        description: "Quick snippet sandbox",
+      },
     },
   },
 } satisfies typeof zhCN;

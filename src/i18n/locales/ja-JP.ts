@@ -535,6 +535,7 @@ const jaJP = {
       backups: "バックアップ",
       tasks: "タスク",
       logs: "ログ",
+      extensions: "拡張",
       settings: "設定",
     },
     sidebar: {
@@ -1043,6 +1044,27 @@ const jaJP = {
       overwrite: "同名の項目を上書き",
       noTargets: "停止中の他のインスタンスがありません。",
       copied: "コピーしました",
+    },
+  },
+  extensions: {
+    title: "拡張",
+    items: {
+      hue: {
+        title: "Hue",
+        description: "Material You カラーピッカー",
+      },
+      palette: {
+        title: "Palette",
+        description: "厳選カラーパレット",
+      },
+      converter: {
+        title: "Converter",
+        description: "フォーマット変換ツール",
+      },
+      playground: {
+        title: "Playground",
+        description: "スニペットサンドボックス",
+      },
     },
   },
 } satisfies typeof zhCN;

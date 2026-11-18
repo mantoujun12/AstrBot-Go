@@ -520,6 +520,7 @@ const zhCN = {
       "backups": "备份",
       "tasks": "任务",
       "logs": "日志",
+      "extensions": "扩展",
       "settings": "设置"
     },
     "sidebar": {
@@ -1026,6 +1027,27 @@ const zhCN = {
       "overwrite": "覆盖同名项",
       "noTargets": "没有已停止的其他实例。",
       "copied": "已复制"
+    }
+  },
+  "extensions": {
+    "title": "扩展",
+    "items": {
+      "hue": {
+        "title": "Hue",
+        "description": "Material You 取色器"
+      },
+      "palette": {
+        "title": "Palette",
+        "description": "精选配色方案"
+      },
+      "converter": {
+        "title": "Converter",
+        "description": "格式转换工具"
+      },
+      "playground": {
+        "title": "Playground",
+        "description": "代码片段沙盒"
+      }
     }
   }
 };

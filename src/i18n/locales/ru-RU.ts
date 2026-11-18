@@ -551,6 +551,7 @@ const ruRU = {
       backups: "Резервные копии",
       tasks: "Задачи",
       logs: "Журналы",
+      extensions: "Расширения",
       settings: "Настройки",
     },
     sidebar: {
@@ -1072,6 +1073,27 @@ const ruRU = {
       overwrite: "Перезаписывать существующие",
       noTargets: "Нет других остановленных экземпляров.",
       copied: "Скопировано",
+    },
+  },
+  extensions: {
+    title: "Расширения",
+    items: {
+      hue: {
+        title: "Hue",
+        description: "Инструмент выбора цветов Material You",
+      },
+      palette: {
+        title: "Palette",
+        description: "Подборки цветовых палитр",
+      },
+      converter: {
+        title: "Converter",
+        description: "Инструменты конвертации форматов",
+      },
+      playground: {
+        title: "Playground",
+        description: "Песочница для фрагментов кода",
+      },
     },
   },
 } satisfies typeof zhCN;
