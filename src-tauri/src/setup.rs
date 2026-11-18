@@ -133,6 +133,7 @@ pub fn on_setup(app: &tauri::App) -> std::result::Result<(), Box<dyn std::error:
     spawn_event_forwarder(app);
     spawn_log_forwarder(app);
     spawn_resource_alert_forwarder(app);
+    crate::scheduler::start(app.handle().clone());
     tray::build_tray(app)?;
     crate::tray_panel::prewarm(app.handle());
     restore_instances(app);

@@ -348,6 +348,34 @@ export interface TaskRecord {
   started_at: string | null;
   finished_at: string | null;
 }
+export type ScheduledAction =
+  | "start_instance"
+  | "stop_instance"
+  | "backup"
+  | "clear_cache";
+
+export type ScheduleMode = "once" | "interval" | "daily" | "weekly";
+
+export interface ScheduledJob {
+  id: string;
+  name: string;
+  action: ScheduledAction;
+  instance_id: string;
+  mode: ScheduleMode;
+  /** Local `YYYY-MM-DDTHH:MM` value, only used by `once`. */
+  run_at: string | null;
+  interval_minutes: number | null;
+  /** Local `HH:MM`, used by `daily` and `weekly`. */
+  time: string | null;
+  /** `0` = Sunday … `6` = Saturday, only used by `weekly`. */
+  weekday: number | null;
+  enabled: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_success: boolean | null;
+  last_error: string | null;
+}
+
 export interface ComponentActionResult {
   key: string;
   versions: string[];
