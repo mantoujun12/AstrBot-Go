@@ -267,4 +267,35 @@ mod tests {
             validate_rel_link_target(Path::new("data").join("file").as_path(), "symlink").is_ok()
         );
     }
+
+    #[test]
+    fn detect_common_top_dir_requires_one_nested_top_level_dir() {
+        assert_eq!(
+            detect_common_top_dir(["AstrBot/config.json", "AstrBot\\bot/data.py"]),
+            Some("AstrBot".to_string())
+        );
+        // Flat entries without a top-level directory are not rewritten.
+        assert_eq!(detect_common_top_dir(["config.json", "bot/data.py"]), None);
+        // Mixed top-level entries invalidate the candidate.
+        assert_eq!(
+            detect_common_top_dir(["AstrBot/config.json", "other/config.json"]),
+            None
+        );
+    }
+
+    #[test]
+    fn strip_common_top_dir_removes_top_and_drops_top_only_entries() {
+        assert_eq!(
+            strip_common_top_dir(Path::new("AstrBot/bot/data/config.json"), Some("AstrBot")),
+            Some(Path::new("bot").join("data").join("config.json"))
+        );
+        assert_eq!(
+            strip_common_top_dir(Path::new("bot/data"), None),
+            Some(Path::new("bot").join("data"))
+        );
+        assert_eq!(
+            strip_common_top_dir(Path::new("AstrBot"), Some("AstrBot")),
+            None
+        );
+    }
 }

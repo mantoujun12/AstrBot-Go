@@ -355,4 +355,27 @@ mod tests {
         assert_eq!(payload.map(|map| map.len()), Some(0));
         Ok(())
     }
+
+    #[test]
+    fn io_error_converts_to_io_kind_with_detail() {
+        let error: AppError =
+            std::io::Error::new(std::io::ErrorKind::NotFound, "missing file").into();
+        assert_eq!(error.kind(), ErrorKind::Io);
+        assert_eq!(
+            error.payload.get("detail").map(String::as_str),
+            Some("missing file")
+        );
+    }
+
+    #[test]
+    fn display_includes_kind_and_payload_pairs() {
+        assert_eq!(
+            AppError::download_cancelled().to_string(),
+            "DownloadCancelled"
+        );
+        assert_eq!(
+            AppError::instance_not_found("abc").to_string(),
+            "InstanceNotFound: id=abc"
+        );
+    }
 }

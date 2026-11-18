@@ -108,4 +108,12 @@ mod tests {
         );
         assert_eq!(redact_text("no urls here"), "no urls here");
     }
+
+    #[test]
+    fn redacts_each_embedded_url_and_stops_at_punctuation() {
+        assert_eq!(
+            redact_text("get https://a.example/x?sig=1 then https://bob:hunter@b.example/y, ok"),
+            "get https://a.example/x then https://b.example/y, ok"
+        );
+    }
 }

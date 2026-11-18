@@ -62,4 +62,16 @@ mod tests {
             "https://mirror.example.com/simple"
         );
     }
+
+    #[test]
+    fn wrap_with_proxy_prepends_trimmed_prefix_only_when_set() {
+        assert_eq!(
+            wrap_with_proxy("https://proxy.example/", "https://example.com/a.zip"),
+            "https://proxy.example/https://example.com/a.zip"
+        );
+        assert_eq!(
+            wrap_with_proxy("", "https://example.com/a.zip"),
+            "https://example.com/a.zip"
+        );
+    }
 }

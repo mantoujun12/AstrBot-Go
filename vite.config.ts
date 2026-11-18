@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { codecovVitePlugin } from "@codecov/vite-plugin";
 import vue from "@vitejs/plugin-vue";
 import vuetify from "vite-plugin-vuetify";
 // @ts-expect-error type error without @types/node package
@@ -11,6 +12,11 @@ export default defineConfig(() => ({
     vue(),
     vuetify({
       autoImport: true,
+    }),
+    codecovVitePlugin({
+      enableBundleAnalysis: process.env.CODECOV_TOKEN !== undefined,
+      bundleName: "astrbot-go",
+      uploadToken: process.env.CODECOV_TOKEN,
     }),
   ],
 
