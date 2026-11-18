@@ -536,6 +536,7 @@ const enUS = {
       backups: "Backups",
       tasks: "Tasks",
       logs: "Logs",
+      extensions: "Extensions",
       settings: "Settings",
     },
     sidebar: {
@@ -1045,6 +1046,9 @@ const enUS = {
       noTargets: "No other stopped instances.",
       copied: "Copied",
     },
+  },
+  extensions: {
+    title: "Extensions",
   },
 } satisfies typeof zhCN;
 

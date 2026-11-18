@@ -83,6 +83,14 @@ const toggleLabel = computed(() =>
           :active="props.homeActive ? undefined : false"
           @select="emit('navigate')"
         />
+        <SidebarNavItem
+          icon="mdi-puzzle-outline"
+          :label="t('shell.nav.extensions')"
+          to="/extensions"
+          :tooltip-disabled="!props.rail"
+          :active="props.homeActive ? undefined : false"
+          @select="emit('navigate')"
+        />
       </v-list>
 
       <div class="launcher-sidebar__footer">

@@ -551,6 +551,7 @@ const ruRU = {
       backups: "Резервные копии",
       tasks: "Задачи",
       logs: "Журналы",
+      extensions: "Расширения",
       settings: "Настройки",
     },
     sidebar: {
@@ -1073,6 +1074,9 @@ const ruRU = {
       noTargets: "Нет других остановленных экземпляров.",
       copied: "Скопировано",
     },
+  },
+  extensions: {
+    title: "Расширения",
   },
 } satisfies typeof zhCN;
 

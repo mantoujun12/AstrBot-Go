@@ -535,6 +535,7 @@ const jaJP = {
       backups: "バックアップ",
       tasks: "タスク",
       logs: "ログ",
+      extensions: "拡張",
       settings: "設定",
     },
     sidebar: {
@@ -1044,6 +1045,9 @@ const jaJP = {
       noTargets: "停止中の他のインスタンスがありません。",
       copied: "コピーしました",
     },
+  },
+  extensions: {
+    title: "拡張",
   },
 } satisfies typeof zhCN;
 
