@@ -777,6 +777,9 @@ const enUS = {
       goVersions: "Go to Versions",
       openapiKeyConfigured: "Configured; enter a new key to replace it",
       openapiKeyHint: "Create an API key in AstrBot WebUI under Settings > OpenAPI with the chat scope (the model list needs the provider scope). Requires AstrBot v4.18.0 or newer.",
+      openapiKeyClear: "Clear saved key",
+      openapiKeyKeep: "Keep saved key",
+      openapiKeyClearPending: "The saved key will be removed on save.",
       validation: {
         nameRequired: "Enter a name",
         versionRequired: "Select a version",

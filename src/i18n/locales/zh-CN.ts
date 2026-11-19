@@ -761,6 +761,9 @@ const zhCN = {
       "goVersions": "前往版本页",
       "openapiKeyConfigured": "已配置，输入可更换",
       "openapiKeyHint": "在 AstrBot WebUI 设置 → OpenAPI 创建 API Key（需勾选 chat 权限，模型列表需 provider 权限），要求 AstrBot ≥ v4.18.0。",
+      "openapiKeyClear": "清除已保存的密钥",
+      "openapiKeyKeep": "保留已保存的密钥",
+      "openapiKeyClearPending": "保存后将清除已保存的密钥。",
       "validation": {
         "nameRequired": "请输入名称",
         "versionRequired": "请选择版本",

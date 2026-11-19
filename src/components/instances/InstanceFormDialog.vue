@@ -37,8 +37,13 @@ const autoRestart = ref(false);
 const maxRetriesText = ref("3");
 const autoRestartNotify = ref(true);
 const openapiKey = ref("");
+const clearOpenapiKey = ref(false);
 
 const isEditing = computed(() => props.instance !== null);
+
+const openapiKeyConfigured = computed(
+  () => props.instance?.openapi_key_configured === true,
+);
 
 const otherPorts = computed(() => {
   const selfPort = props.instance?.configured_port;
@@ -93,13 +98,31 @@ function initialize(): void {
   autoRestartNotify.value = target?.auto_restart_notify ?? true;
   // The stored key never reaches the frontend, so the field starts empty.
   openapiKey.value = "";
+  clearOpenapiKey.value = false;
 }
 
 const openapiKeyPlaceholder = computed(() =>
-  props.instance?.openapi_key_configured
+  openapiKeyConfigured.value && !clearOpenapiKey.value
     ? t("instances.form.openapiKeyConfigured")
     : "abk_...",
 );
+
+const openapiKeyActionLabel = computed(() =>
+  clearOpenapiKey.value
+    ? t("instances.form.openapiKeyKeep")
+    : t("instances.form.openapiKeyClear"),
+);
+
+function toggleClearOpenapiKey(): void {
+  clearOpenapiKey.value = !clearOpenapiKey.value;
+}
+
+// Typing a new key cancels the pending clear.
+watch(openapiKey, (value) => {
+  if (value !== "") {
+    clearOpenapiKey.value = false;
+  }
+});
 
 function validateName(value: unknown): true | string {
   return typeof value === "string" && value.trim() !== ""
@@ -171,9 +194,11 @@ async function submit(): Promise<void> {
         : 3,
       autoRestartNotify: autoRestartNotify.value,
     };
-    // An empty input keeps the stored key; only a typed value overwrites it.
+    // A typed value overwrites the stored key; the clear flag sends "".
     if (openapiKeyValue !== "") {
       request.openapiKey = openapiKeyValue;
+    } else if (clearOpenapiKey.value) {
+      request.openapiKey = "";
     }
     emit("update", target.id, request);
     return;
@@ -339,9 +364,30 @@ watch(
               autocomplete="off"
               spellcheck="false"
               :disabled="loading"
-            />
+            >
+              <template v-if="openapiKeyConfigured" #append-inner>
+                <v-tooltip :text="openapiKeyActionLabel" location="top">
+                  <template #activator="{ props: tip }">
+                    <v-btn
+                      v-bind="tip"
+                      :icon="clearOpenapiKey ? 'mdi-undo' : 'mdi-close'"
+                      size="small"
+                      variant="text"
+                      color="error"
+                      :aria-label="openapiKeyActionLabel"
+                      :disabled="loading"
+                      @click="toggleClearOpenapiKey"
+                    />
+                  </template>
+                </v-tooltip>
+              </template>
+            </v-text-field>
             <p class="instance-form__hint">
-              {{ t("instances.form.openapiKeyHint") }}
+              {{
+                clearOpenapiKey
+                  ? t("instances.form.openapiKeyClearPending")
+                  : t("instances.form.openapiKeyHint")
+              }}
             </p>
           </template>
         </v-form>

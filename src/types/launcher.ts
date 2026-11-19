@@ -399,7 +399,7 @@ export interface UpdateInstanceRequest {
   autoRestartEnabled?: boolean;
   autoRestartMaxRetries?: number;
   autoRestartNotify?: boolean;
-  /** Only sent when the user typed a value; the stored key is never echoed back. */
+  /** "" clears the stored key; omitted keeps it; a value sets it. */
   openapiKey?: string;
 }
 

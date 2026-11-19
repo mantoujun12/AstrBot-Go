@@ -776,6 +776,9 @@ const jaJP = {
       goVersions: "バージョンページへ移動",
       openapiKeyConfigured: "設定済み（入力で変更）",
       openapiKeyHint: "AstrBot WebUI の設定 → OpenAPI で API キーを作成してください（chat スコープ必須、モデル一覧には provider スコープが必要）。AstrBot v4.18.0 以上が必要です。",
+      openapiKeyClear: "保存済みキーを削除",
+      openapiKeyKeep: "保存済みキーを保持",
+      openapiKeyClearPending: "保存時に保存済みキーを削除します。",
       validation: {
         nameRequired: "名前を入力してください",
         versionRequired: "バージョンを選択してください",
