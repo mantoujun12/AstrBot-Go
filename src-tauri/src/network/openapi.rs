@@ -4,6 +4,8 @@
 //! is not exposed to CORS. The key is sent as `Authorization: Bearer abk_...`
 //! and must never appear in logs or error payloads.
 
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::State;
@@ -19,6 +21,10 @@ use crate::utils::validation::validate_instance_id;
 
 /// Fixed WebChat identity used as the OpenAPI `username` and session owner.
 const CHAT_USERNAME: &str = "astrbot-go";
+
+/// Lists must not hang on a stalled response; chat streaming is separate and
+/// deliberately has no total timeout.
+const LIST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Stream event forwarded to the webview while a chat message is processed.
 /// Field names and the `type` tag are the pinned frontend contract.
@@ -269,11 +275,46 @@ fn instance_endpoint(state: &AppState, instance_id: &str) -> Result<(String, u16
     Ok((host, port, instance.openapi_key.clone()))
 }
 
+/// Whether the host is the local machine; only then is cleartext HTTP safe.
+fn is_loopback_host(host: &str) -> bool {
+    let host = host.trim().trim_start_matches('[').trim_end_matches(']');
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|address| address.is_loopback())
+}
+
+/// Base URL for an instance. Loopback instances keep `http://`; any remote
+/// host gets TLS so the bearer key never travels in cleartext.
+fn dashboard_base_url(host: &str, port: u16) -> String {
+    let host = normalize_dashboard_host(host);
+    let scheme = if is_loopback_host(&host) {
+        "http"
+    } else {
+        "https"
+    };
+    format!("{scheme}://{host}:{port}")
+}
+
 /// Client without a total timeout: chat streams stay idle for minutes while
-/// the agent thinks, so only connection setup is limited.
-fn build_stream_client() -> Result<reqwest::Client> {
-    let config = load_config()?;
-    network_config::build_download_client_from_config(config.as_ref())
+/// the agent thinks, so only connection setup is limited. Loopback targets
+/// bypass any configured proxy so it cannot capture the bearer key.
+fn build_instance_client(host: &str) -> Result<reqwest::Client> {
+    if !is_loopback_host(host) {
+        let config = load_config()?;
+        return network_config::build_download_client_from_config(config.as_ref());
+    }
+
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(30))
+        .no_proxy()
+        .build()
+        .map_err(|error| {
+            AppError::network(format!(
+                "创建网络客户端失败：{}",
+                crate::utils::log_redact::redact_text(&error.to_string())
+            ))
+        })
 }
 
 fn require_key(key: &str, locale: Locale) -> Result<String> {
@@ -297,6 +338,7 @@ async fn get_openapi_data<T: serde::de::DeserializeOwned>(
         .get(url)
         .bearer_auth(key)
         .header("User-Agent", USER_AGENT)
+        .timeout(LIST_TIMEOUT)
         .send()
         .await
         .map_err(|error| {
@@ -346,8 +388,11 @@ pub async fn chat_list_providers(
     let locale = current_locale();
     let (host, port, raw_key) = instance_endpoint(&state, &instance_id)?;
     let key = require_key(&raw_key, locale)?;
-    let client = build_stream_client()?;
-    let url = format!("http://{host}:{port}/api/v1/providers?capability=chat");
+    let client = build_instance_client(&host)?;
+    let url = format!(
+        "{}/api/v1/providers?capability=chat",
+        dashboard_base_url(&host, port)
+    );
 
     let data: ProvidersData = get_openapi_data(&client, &url, &key, locale, "provider").await?;
     Ok(data
@@ -366,8 +411,11 @@ pub async fn chat_list_sessions(
     let locale = current_locale();
     let (host, port, raw_key) = instance_endpoint(&state, &instance_id)?;
     let key = require_key(&raw_key, locale)?;
-    let client = build_stream_client()?;
-    let url = format!("http://{host}:{port}/api/v1/chat/sessions?username={CHAT_USERNAME}");
+    let client = build_instance_client(&host)?;
+    let url = format!(
+        "{}/api/v1/chat/sessions?username={CHAT_USERNAME}",
+        dashboard_base_url(&host, port)
+    );
 
     let data: SessionsData = get_openapi_data(&client, &url, &key, locale, "chat").await?;
     Ok(data
@@ -393,7 +441,7 @@ pub async fn chat_send_message(
     let locale = current_locale();
     let (host, port, raw_key) = instance_endpoint(&state, &instance_id)?;
     let key = require_key(&raw_key, locale)?;
-    let client = build_stream_client()?;
+    let client = build_instance_client(&host)?;
 
     let mut body = serde_json::json!({
         "username": CHAT_USERNAME,
@@ -422,7 +470,7 @@ pub async fn chat_send_message(
     }
 
     let send_result = client
-        .post(format!("http://{host}:{port}/api/v1/chat"))
+        .post(format!("{}/api/v1/chat", dashboard_base_url(&host, port)))
         .bearer_auth(key)
         .header("User-Agent", USER_AGENT)
         .json(&body)
@@ -673,6 +721,25 @@ mod tests {
             ("example.com", "example.com"),
         ] {
             assert_eq!(normalize_dashboard_host(input), expected, "input: {input}");
+        }
+    }
+
+    #[test]
+    fn dashboard_base_url_uses_http_only_for_loopback() {
+        for (host, expected) in [
+            ("127.0.0.1", "http://127.0.0.1:6185"),
+            ("127.0.0.2", "http://127.0.0.2:6185"),
+            ("localhost", "http://127.0.0.1:6185"),
+            ("0.0.0.0", "http://127.0.0.1:6185"),
+            ("::1", "http://[::1]:6185"),
+            ("[::1]", "http://[::1]:6185"),
+            // Remote IPv6 stays bracketed and must use TLS.
+            ("fe80::1", "https://[fe80::1]:6185"),
+            ("[fe80::1]", "https://[fe80::1]:6185"),
+            ("192.168.1.5", "https://192.168.1.5:6185"),
+            ("example.com", "https://example.com:6185"),
+        ] {
+            assert_eq!(dashboard_base_url(host, 6185), expected, "host: {host}");
         }
     }
 
