@@ -57,6 +57,14 @@ const zhCN = {
       "restart": "重启 {name}"
     }
   },
+  "chat": {
+    "emptyNoInstance": "暂无可用的实例",
+    "ready": "聊天界面准备中。",
+    "states": {
+      "notRunning": "实例未运行，请先在启动器中启动实例。",
+      "keyMissing": "实例未配置 OpenAPI 密钥，请先在实例设置中配置。"
+    },
+  },
   "settings": {
     "appearance": {
       "language": "语言",
@@ -514,6 +522,7 @@ const zhCN = {
   },
   "shell": {
     "nav": {
+      "chat": "聊天",
       "overview": "概览",
       "instances": "实例",
       "versions": "版本",

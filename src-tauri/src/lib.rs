@@ -1,5 +1,6 @@
 mod archive;
 mod backup;
+mod chat_window;
 mod commands;
 mod component;
 mod config;
@@ -164,7 +165,7 @@ pub fn run() {
                         | StateFlags::DECORATIONS
                         | StateFlags::FULLSCREEN,
                 )
-                .with_denylist(&[tray_panel::PANEL_LABEL])
+                .with_denylist(&[tray_panel::PANEL_LABEL, chat_window::CHAT_LABEL])
                 .build(),
         )
         .plugin(
@@ -187,6 +188,7 @@ pub fn run() {
         .plugin(webview_shortcuts::plugin())
         .manage(setup::StartupWindowState::new())
         .manage(tray_panel::TrayPanelState::default())
+        .manage(chat_window::ChatWindowState::default())
         .manage(updater::LauncherUpdateState::default())
         .manage({
             let startup_client = (|| {
@@ -227,6 +229,12 @@ pub fn run() {
                 return;
             }
 
+            if window.label() == chat_window::CHAT_LABEL {
+                // A secondary window: closing it just destroys it, without
+                // the main window's hide-to-tray or exit-on-close handling.
+                return;
+            }
+
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if load_config().map(|c| c.close_to_tray).unwrap_or(true) {
                     api.prevent_close();
@@ -245,6 +253,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_app_snapshot,
             // Window
+            chat_window::open_chat_window,
+            chat_window::chat_window_target,
             commands::show_main_window,
             commands::set_window_theme,
             commands::set_tray_panel_height,

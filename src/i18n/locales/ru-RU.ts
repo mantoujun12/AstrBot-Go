@@ -59,6 +59,16 @@ const ruRU = {
       restart: "Перезапустить {name}",
     },
   },
+  chat: {
+    emptyNoInstance: "Нет доступных экземпляров",
+    ready: "Chat UI готовится.",
+    states: {
+      notRunning:
+        "Экземпляр не запущен — сначала запустите его в лаунчере.",
+      keyMissing:
+        "У экземпляра не настроен ключ OpenAPI — настройте его в параметрах экземпляра.",
+    },
+  },
   settings: {
     appearance: {
       language: "Язык",
@@ -545,6 +555,7 @@ const ruRU = {
   },
   shell: {
     nav: {
+      chat: "Чат",
       overview: "Обзор",
       instances: "Экземпляры",
       versions: "Версии",

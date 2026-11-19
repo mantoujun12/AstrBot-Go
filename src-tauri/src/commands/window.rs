@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use tauri::{AppHandle, Manager as _};
+use tauri::AppHandle;
 
 // === Window ===
 
@@ -42,10 +42,9 @@ pub fn show_main_window(app: AppHandle) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn set_window_theme(dark: bool, app_handle: AppHandle) -> Result<()> {
-    let window = app_handle
-        .get_webview_window("main")
-        .ok_or_else(|| AppError::other("Failed to set the window theme: main window not found"))?;
+pub fn set_window_theme(dark: bool, window: tauri::WebviewWindow) -> Result<()> {
+    // The invoking window is resolved instead of the "main" label so the
+    // chat window's DWM tint follows its own theme as well.
     apply_window_theme(&window, dark)
 }
 

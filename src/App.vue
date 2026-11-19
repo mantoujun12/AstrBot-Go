@@ -21,6 +21,7 @@ import {
   listenResourceAlert,
   listenTrayPanelAction,
 } from "./services/events";
+import { isChatWindow } from "./services/chat";
 import { syncWindowTheme } from "./services/nativeWindow";
 import type { TrayPanelAction } from "./services/tray";
 import { useLauncherStore } from "./stores/launcher";
@@ -46,7 +47,17 @@ const { init: initLogs } = useLogStore();
 const { init: initProgress } = useProgressStore();
 const { init: initTasks } = useTaskStore();
 
-useTabShortcuts();
+// The standalone chat window shares this entry and this component tree, but
+// it renders only the chat layout: no launcher shell, tabs, tray listeners or
+// tab shortcuts. Theme, i18n, snackbar and the launcher store stay shared.
+const chatWindow = isChatWindow();
+if (chatWindow) {
+  if (router.currentRoute.value.name !== "chat") {
+    void router.replace("/chat");
+  }
+} else {
+  useTabShortcuts();
+}
 useFadingScrollbars();
 
 const isCollapsed = ref(false);
@@ -127,19 +138,21 @@ function resourceAlertMessage(alert: ResourceAlertEvent): string {
   });
 }
 
-watch(
-  () => instances.value.map((instance) => instance.id),
-  (ids) => {
-    pruneTabs(ids);
-  },
-  { immediate: true },
-);
+if (!chatWindow) {
+  watch(
+    () => instances.value.map((instance) => instance.id),
+    (ids) => {
+      pruneTabs(ids);
+    },
+    { immediate: true },
+  );
 
-watch(activeTab, (tab) => {
-  if (tab !== HOME_TAB && !mdAndUp.value) {
-    mobileDrawerOpen.value = false;
-  }
-});
+  watch(activeTab, (tab) => {
+    if (tab !== HOME_TAB && !mdAndUp.value) {
+      mobileDrawerOpen.value = false;
+    }
+  });
+}
 
 watch(
   () => config.value?.theme_preference,
@@ -195,10 +208,17 @@ watch(
 );
 
 onMounted(() => {
+  // The chat window needs the instance list (for its selector and running
+  // state) but none of the launcher-shell event listeners below.
+  void initLauncher();
+
+  if (chatWindow) {
+    return;
+  }
+
   void initLogs();
   void initProgress();
   void initTasks();
-  void initLauncher();
   void listenDefaultCredentials((payload) => {
     credentials.value = payload;
     credentialsOpen.value = true;
@@ -269,6 +289,16 @@ onBeforeUnmount(() => {
 
 <template>
   <v-app class="launcher-app">
+    <!-- The chat window renders its own chrome and layout: the launcher shell
+         (sidebar, tabs, dialogs) stays out of it entirely. The setup block
+         above already redirected this window to the /chat route. -->
+    <template v-if="chatWindow">
+      <div class="chat-shell">
+        <router-view />
+        <AppSnackbar />
+      </div>
+    </template>
+    <template v-else>
     <!-- The title bar teleports itself to `body`: `.launcher-shell`'s
          `isolation` and Vuetify `.v-application__wrap`'s stacking context
          would otherwise trap it below the dialog scrim (z-index 2400). -->
@@ -296,6 +326,7 @@ onBeforeUnmount(() => {
       />
       <LauncherUpdatePrompt />
     </div>
+    </template>
   </v-app>
 </template>
 
@@ -330,6 +361,20 @@ onBeforeUnmount(() => {
 }
 
 .launcher-shell {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: rgba(var(--launcher-chrome-bg), var(--launcher-chrome-alpha, 1));
+}
+
+/* Chat window shell: same chrome tint and stacking isolation as the launcher
+   shell, so the teleported chat title bar sits above overlay scrims. */
+.chat-shell {
   position: relative;
   isolation: isolate;
   width: 100%;

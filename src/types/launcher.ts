@@ -108,6 +108,7 @@ export interface InstanceStatus {
   port: number;
   version: string;
   dashboard_enabled: boolean;
+  openapi_key_configured: boolean;
   pid_tracker_not_available: boolean;
   configured_host: string;
   configured_port: number;
@@ -115,7 +116,6 @@ export interface InstanceStatus {
   auto_restart_enabled: boolean;
   auto_restart_max_retries: number;
   auto_restart_notify: boolean;
-  openapi_key_configured: boolean;
   last_exit_reason: string;
   restart_attempts: number;
   restarts_completed: number;

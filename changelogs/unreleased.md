@@ -7,6 +7,7 @@
 - Split the Tasks page into History and Scheduled sections; each scheduled task can start, stop, back up or clear the cache of an instance once, on an interval, daily or weekly while the app is running.
 - Manage an instance's personas, scheduled jobs, MCP servers, config files and knowledge bases directly in the launcher, including copying them to other instances.
 - Add the Extensions page with a card grid, reachable from a new sidebar entry.
+- Add a standalone chat window opened from the entry at the top of the sidebar; it resolves the target instance and guides you to start it and configure its OpenAPI key before chatting.
 
 ## 中文
 
@@ -17,3 +18,4 @@
 - 任务页拆分为“历史记录”与“定时任务”两部分：定时任务可按一次性、间隔、每天或每周运行，执行启动、停止、备份或清除实例缓存，仅在应用运行时生效。
 - 在启动器中直接管理实例的人格、定时任务、MCP 服务器、配置文件与知识库，并支持复制到其他实例。
 - 新增扩展功能页面，以卡片网格呈现，侧边栏增加对应入口。
+- 新增独立聊天窗口，入口位于侧边栏顶部；窗口会确定目标实例，并引导你先启动实例、配置 OpenAPI 密钥，然后开始聊天。

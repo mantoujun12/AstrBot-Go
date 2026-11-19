@@ -59,6 +59,15 @@ const jaJP = {
       restart: "{name} を再起動",
     },
   },
+  chat: {
+    emptyNoInstance: "利用できるインスタンスがありません",
+    ready: "チャットUI を準備中です。",
+    states: {
+      notRunning: "インスタンスが実行されていません。先にランチャーから起動してください。",
+      keyMissing:
+        "インスタンスに OpenAPI キーが設定されていません。先にインスタンス設定で構成してください。",
+    },
+  },
   settings: {
     appearance: {
       language: "言語",
@@ -529,6 +538,7 @@ const jaJP = {
   },
   shell: {
     nav: {
+      chat: "チャット",
       overview: "概要",
       instances: "インスタンス",
       versions: "バージョン",

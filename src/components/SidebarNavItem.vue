@@ -2,7 +2,9 @@
 defineProps<{
   icon: string;
   label: string;
-  to: string;
+  to?: string;
+  /** Right-edge arrow hint for entries that open something instead of navigating. */
+  appendIcon?: string;
   tooltipDisabled: boolean;
   active?: boolean;
 }>();
@@ -34,7 +36,17 @@ const emit = defineEmits<{
           <v-icon :icon="icon" size="18" />
         </template>
         <v-list-item-title>{{ label }}</v-list-item-title>
+        <template v-if="appendIcon" #append>
+          <v-icon :icon="appendIcon" size="16" class="sidebar-nav-append" />
+        </template>
       </v-list-item>
     </template>
   </v-tooltip>
 </template>
+
+<style scoped>
+/* A hint arrow stays quieter than the item text in both themes. */
+.sidebar-nav-append {
+  opacity: 0.45;
+}
+</style>

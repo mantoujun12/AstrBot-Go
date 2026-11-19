@@ -59,6 +59,15 @@ const enUS = {
       restart: "Restart {name}",
     },
   },
+  chat: {
+    emptyNoInstance: "No instance available",
+    ready: "Chat UI is coming.",
+    states: {
+      notRunning: "The instance is not running. Start it from the launcher first.",
+      keyMissing:
+        "The instance has no OpenAPI key configured. Configure it in the instance settings first.",
+    },
+  },
   settings: {
     appearance: {
       language: "Language",
@@ -530,6 +539,7 @@ const enUS = {
   },
   shell: {
     nav: {
+      chat: "Chat",
       overview: "Overview",
       instances: "Instances",
       versions: "Versions",
