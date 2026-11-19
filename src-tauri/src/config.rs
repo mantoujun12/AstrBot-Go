@@ -203,6 +203,18 @@ pub struct AppManifest {
     pub tracked_instances_snapshot: Vec<String>,
 }
 
+/// Keep a launcher record readable by its owner only. The manifest stores the
+/// per-instance OpenAPI key, so group/other read access must be dropped on
+/// Unix. Windows keeps the default ACL: the record already lives in the
+/// per-user profile directory.
+#[cfg(unix)]
+fn restrict_record_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|e| AppError::config(format!("chmod {}: {}", path.display(), e)))
+}
+
 /// Serialize and write a JSON record atomically (temp file + rename).
 fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     ensure_data_dirs()?;
@@ -210,6 +222,9 @@ fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let temp = path.with_extension("json.tmp");
     fs::write(&temp, payload)
         .map_err(|e| AppError::config(format!("write {}: {}", path.display(), e)))?;
+    // Set the mode on the temp file so the rename publishes it already private.
+    #[cfg(unix)]
+    restrict_record_permissions(&temp)?;
     fs::rename(&temp, path)
         .map_err(|e| AppError::config(format!("rename {}: {}", path.display(), e)))?;
     Ok(())
@@ -656,6 +671,25 @@ version = "v4.0.0"
         assert!(config.python_mirror.is_empty());
         assert!(config.uv_mirror.is_empty());
         assert!(!config.allow_local_dns_probe);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn launcher_records_are_readable_by_the_owner_only() -> Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = std::env::temp_dir().join(format!(
+            "astrbot-launcher-record-{}.json",
+            uuid::Uuid::new_v4()
+        ));
+        fs::write(&path, b"{}")?;
+
+        restrict_record_permissions(&path)?;
+
+        let mode = fs::metadata(&path)?.permissions().mode() & 0o777;
+        let _ = fs::remove_file(&path);
+        assert_eq!(mode, 0o600);
         Ok(())
     }
 

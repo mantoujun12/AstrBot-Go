@@ -52,9 +52,9 @@ pub struct UpdateInstanceRequest {
     pub auto_restart_enabled: Option<bool>,
     pub auto_restart_max_retries: Option<u32>,
     pub auto_restart_notify: Option<bool>,
-    /// `Some` overwrites the stored key (an empty value clears it); the UI
-    /// only sends a value the user typed, since the stored key never comes
-    /// back to the frontend.
+    /// `None` (absent or `null`) keeps the stored key, an empty value clears
+    /// it, and any other value replaces it. The stored key never comes back to
+    /// the frontend, so the UI sends nothing unless the user typed a value.
     pub openapi_key: Option<String>,
 }
 

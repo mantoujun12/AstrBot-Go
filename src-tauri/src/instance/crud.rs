@@ -28,6 +28,14 @@ fn ensure_version_installed(manifest: &AppManifest, version: &str) -> Result<()>
     }
 }
 
+/// `None` keeps the stored key, an empty (or whitespace-only) value clears it,
+/// and any other value replaces it after trimming.
+fn apply_openapi_key(instance: &mut InstanceConfig, openapi_key: Option<&str>) {
+    if let Some(key) = openapi_key {
+        instance.openapi_key = key.trim().to_string();
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn update_instance_config(
     instance_id: &str,
@@ -45,7 +53,6 @@ fn update_instance_config(
     let name_owned = name.map(ToOwned::to_owned);
     let version_owned = version.map(ToOwned::to_owned);
     let host_owned = host.map(normalize_instance_host);
-    let openapi_key_owned = openapi_key.map(ToOwned::to_owned);
 
     with_manifest_mut(move |manifest| {
         let instance = manifest
@@ -77,9 +84,7 @@ fn update_instance_config(
         if let Some(v) = auto_restart_notify {
             instance.auto_restart_notify = v;
         }
-        if let Some(k) = openapi_key_owned {
-            instance.openapi_key = k.trim().to_string();
-        }
+        apply_openapi_key(instance, openapi_key);
         Ok(())
     })
 }
@@ -475,4 +480,55 @@ pub fn list_instances(
 
     instances.sort_by_cached_key(|a| a.id.clone());
     instances
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::process::ResourceAlertThreshold;
+
+    fn instance(openapi_key: &str) -> InstanceConfig {
+        let defaults = ResourceAlertThreshold::default();
+        InstanceConfig {
+            name: "main".to_string(),
+            version: "v4.29.4".to_string(),
+            host: DEFAULT_INSTANCE_HOST.to_string(),
+            port: 0,
+            created_at: String::new(),
+            check_update_enabled: true,
+            resource_alert_cpu_percent: Some(defaults.cpu_percent),
+            resource_alert_memory_bytes: Some(defaults.memory_bytes),
+            resource_alert_disk_bytes: Some(defaults.disk_bytes),
+            resource_alert_enabled: defaults.enabled,
+            auto_restart_enabled: false,
+            auto_restart_max_retries: 3,
+            auto_restart_notify: true,
+            openapi_key: openapi_key.to_string(),
+        }
+    }
+
+    #[test]
+    fn openapi_key_none_keeps_the_stored_key() {
+        let mut config = instance("abk_saved");
+        apply_openapi_key(&mut config, None);
+        assert_eq!(config.openapi_key, "abk_saved");
+    }
+
+    #[test]
+    fn openapi_key_empty_or_blank_clears_the_stored_key() {
+        let mut config = instance("abk_saved");
+        apply_openapi_key(&mut config, Some(""));
+        assert_eq!(config.openapi_key, "");
+
+        let mut config = instance("abk_saved");
+        apply_openapi_key(&mut config, Some("   "));
+        assert_eq!(config.openapi_key, "");
+    }
+
+    #[test]
+    fn openapi_key_is_trimmed_when_replaced() {
+        let mut config = instance("abk_saved");
+        apply_openapi_key(&mut config, Some("  abk_new  "));
+        assert_eq!(config.openapi_key, "abk_new");
+    }
 }

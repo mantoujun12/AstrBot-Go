@@ -24,7 +24,7 @@ pub fn rebuild_instance_manifest_from_disk() -> Result<RebuildInstanceManifestRe
 
     with_manifest_mut(move |manifest| {
         manifest.installed_versions = installed_versions;
-        manifest.instances = instances;
+        manifest.instances = merge_recovered_instances(instances, &manifest.instances);
         let rebuilt_ids: HashSet<String> = manifest.instances.keys().cloned().collect();
         manifest
             .tracked_instances_snapshot
@@ -36,6 +36,23 @@ pub fn rebuild_instance_manifest_from_disk() -> Result<RebuildInstanceManifestRe
         instances: instance_count,
         versions: version_count,
     })
+}
+
+/// Keep the stored OpenAPI key of every instance that survives a rebuild; the
+/// recovered record cannot read it back from the instance directory.
+fn merge_recovered_instances(
+    recovered: HashMap<String, InstanceConfig>,
+    existing: &HashMap<String, InstanceConfig>,
+) -> HashMap<String, InstanceConfig> {
+    recovered
+        .into_iter()
+        .map(|(id, mut instance)| {
+            if let Some(saved) = existing.get(&id) {
+                instance.openapi_key = saved.openapi_key.clone();
+            }
+            (id, instance)
+        })
+        .collect()
 }
 
 fn scan_installed_versions() -> Result<Vec<InstalledVersion>> {
@@ -200,4 +217,50 @@ fn read_pyproject_version(instance_dir: &Path) -> Option<String> {
 fn default_instance_name(instance_id: &str) -> String {
     let short_id: String = instance_id.chars().take(8).collect();
     format!("Rev {}", short_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::process::ResourceAlertThreshold;
+
+    fn instance_config(name: &str, openapi_key: &str) -> InstanceConfig {
+        let defaults = ResourceAlertThreshold::default();
+        InstanceConfig {
+            name: name.to_string(),
+            version: "v4.29.4".to_string(),
+            host: DEFAULT_INSTANCE_HOST.to_string(),
+            port: 0,
+            created_at: String::new(),
+            check_update_enabled: true,
+            resource_alert_cpu_percent: Some(defaults.cpu_percent),
+            resource_alert_memory_bytes: Some(defaults.memory_bytes),
+            resource_alert_disk_bytes: Some(defaults.disk_bytes),
+            resource_alert_enabled: defaults.enabled,
+            auto_restart_enabled: false,
+            auto_restart_max_retries: 3,
+            auto_restart_notify: true,
+            openapi_key: openapi_key.to_string(),
+        }
+    }
+
+    #[test]
+    fn rebuild_keeps_saved_keys_for_surviving_instances() {
+        let existing = HashMap::from([
+            ("keep".to_string(), instance_config("saved", "abk_keep")),
+            ("gone".to_string(), instance_config("removed", "abk_gone")),
+        ]);
+        let recovered = HashMap::from([
+            ("keep".to_string(), instance_config("Rev keep", "")),
+            ("new".to_string(), instance_config("Rev new", "")),
+        ]);
+
+        let merged = merge_recovered_instances(recovered, &existing);
+
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged["keep"].openapi_key, "abk_keep");
+        assert_eq!(merged["keep"].name, "Rev keep");
+        assert_eq!(merged["new"].openapi_key, "");
+        assert!(!merged.contains_key("gone"));
+    }
 }
