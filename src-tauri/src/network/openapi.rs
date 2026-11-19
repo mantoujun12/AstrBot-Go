@@ -31,10 +31,20 @@ const LIST_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ChatStreamEvent {
-    Session { session_id: String },
-    Delta { text: String },
+    Session {
+        session_id: String,
+    },
+    /// `chain` is set for reasoning/tool-call output: `reasoning`,
+    /// `tool_call` or `tool_call_result`; `None` is normal reply text.
+    Delta {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        chain: Option<String>,
+    },
     Done,
-    Error { message: String },
+    Error {
+        message: String,
+    },
 }
 
 /// Provider entry normalized from AstrBot's provider configuration objects.
@@ -138,15 +148,31 @@ struct SseEvent {
     chain_type: Option<String>,
 }
 
+/// Cap on one buffered event. A stalled or malicious endpoint that streams
+/// without ever sending a separator must not grow the buffer without bound.
+const MAX_EVENT_BYTES: usize = 1 << 20;
+
 /// Incremental `text/event-stream` parser. Works on bytes so a UTF-8 sequence
 /// split across chunks is not corrupted.
 #[derive(Default)]
 struct SseParser {
     buffer: Vec<u8>,
+    /// Set once the buffer exceeded `MAX_EVENT_BYTES`; the buffer is dropped
+    /// and the caller aborts the stream.
+    overflowed: bool,
 }
 
-fn find_separator(buffer: &[u8]) -> Option<usize> {
-    buffer.windows(2).position(|window| window == b"\n\n")
+/// Index and length of the first event separator, accepting CRLF frames.
+fn find_separator(buffer: &[u8]) -> Option<(usize, usize)> {
+    (0..buffer.len()).find_map(|index| {
+        if buffer[index..].starts_with(b"\r\n\r\n") {
+            Some((index, 4))
+        } else if buffer[index..].starts_with(b"\n\n") {
+            Some((index, 2))
+        } else {
+            None
+        }
+    })
 }
 
 impl SseParser {
@@ -155,10 +181,12 @@ impl SseParser {
         self.buffer.extend_from_slice(chunk);
         let mut payloads = Vec::new();
 
-        while let Some(index) = find_separator(&self.buffer) {
-            let event: Vec<u8> = self.buffer.drain(..index + 2).collect();
+        while let Some((index, separator_len)) = find_separator(&self.buffer) {
+            let event: Vec<u8> = self.buffer.drain(..index + separator_len).collect();
             let mut data: Vec<u8> = Vec::new();
             for line in event[..index].split(|byte| *byte == b'\n') {
+                // Tolerate a lone CRLF line ending inside the frame.
+                let line = line.strip_suffix(b"\r").unwrap_or(line);
                 // Comment lines such as ": heartbeat" keep the stream alive.
                 if line.first() == Some(&b':') {
                     continue;
@@ -175,21 +203,29 @@ impl SseParser {
             }
         }
 
+        if self.buffer.len() > MAX_EVENT_BYTES {
+            self.buffer.clear();
+            self.overflowed = true;
+        }
+
         payloads
     }
 }
 
 /// Map one SSE `data:` payload onto the pinned stream event. Unknown event
-/// kinds and reasoning/tool-call chain output are not forwarded as deltas.
+/// kinds are not forwarded; chain output (reasoning/tool calls) is forwarded
+/// as deltas tagged with its chain type so the ChatUI can render it.
 fn map_sse_data(raw: &str) -> Option<ChatStreamEvent> {
     let event: SseEvent = serde_json::from_str(raw).ok()?;
     match event.kind.as_str() {
         "session_id" => event
             .session_id
             .map(|session_id| ChatStreamEvent::Session { session_id }),
-        "plain" if event.chain_type.is_none() => {
-            event.data.as_str().map(|text| ChatStreamEvent::Delta {
+        "plain" => {
+            let text = event.data.as_str()?;
+            Some(ChatStreamEvent::Delta {
                 text: text.to_string(),
+                chain: event.chain_type,
             })
         }
         "error" => Some(ChatStreamEvent::Error {
@@ -560,8 +596,11 @@ pub async fn chat_send_message(
                         return Ok(());
                     }
                 }
-                ChatStreamEvent::Delta { text } => {
-                    if on_event.send(ChatStreamEvent::Delta { text }).is_err() {
+                ChatStreamEvent::Delta { text, chain } => {
+                    if on_event
+                        .send(ChatStreamEvent::Delta { text, chain })
+                        .is_err()
+                    {
                         return Ok(());
                     }
                 }
@@ -580,6 +619,13 @@ pub async fn chat_send_message(
                     finished = true;
                 }
             }
+        }
+
+        if parser.overflowed {
+            let _ = on_event.send(ChatStreamEvent::Error {
+                message: locale.openapi_stream_error(),
+            });
+            return Ok(());
         }
 
         if finished {
@@ -634,10 +680,19 @@ mod tests {
         );
         assert_eq!(
             serde_json::to_string(&ChatStreamEvent::Delta {
-                text: "你好".to_string()
+                text: "你好".to_string(),
+                chain: None
             })
             .unwrap_or_default(),
             r#"{"type":"delta","text":"你好"}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&ChatStreamEvent::Delta {
+                text: "思考".to_string(),
+                chain: Some("reasoning".to_string())
+            })
+            .unwrap_or_default(),
+            r#"{"type":"delta","text":"思考","chain":"reasoning"}"#
         );
         assert_eq!(
             serde_json::to_string(&ChatStreamEvent::Done).unwrap_or_default(),
@@ -692,10 +747,16 @@ mod tests {
                     session_id: "s-1".to_string()
                 },
                 ChatStreamEvent::Delta {
-                    text: "你".to_string()
+                    text: "你".to_string(),
+                    chain: None
                 },
                 ChatStreamEvent::Delta {
-                    text: "好".to_string()
+                    text: "思考".to_string(),
+                    chain: Some("reasoning".to_string())
+                },
+                ChatStreamEvent::Delta {
+                    text: "好".to_string(),
+                    chain: None
                 },
                 ChatStreamEvent::Error {
                     message: "boom".to_string()
@@ -703,6 +764,67 @@ mod tests {
                 ChatStreamEvent::Done,
             ]
         );
+    }
+
+    #[test]
+    fn sse_parser_accepts_crlf_frames_at_any_chunk_boundary() {
+        let lf = concat!(
+            r#"data: {"type":"session_id","data":null,"session_id":"s-1"}"#,
+            "\n\n",
+            ": heartbeat\n\n",
+            r#"data: {"type":"plain","data":"你","streaming":true}"#,
+            "\n\n",
+            r#"data: {"type":"plain","data":"思考","chain_type":"reasoning"}"#,
+            "\n\n",
+            r#"data: {"type":"end"}"#,
+            "\n\n",
+        );
+        let crlf = lf.replace("\n\n", "\r\n\r\n");
+
+        let expected = vec![
+            ChatStreamEvent::Session {
+                session_id: "s-1".to_string(),
+            },
+            ChatStreamEvent::Delta {
+                text: "你".to_string(),
+                chain: None,
+            },
+            ChatStreamEvent::Delta {
+                text: "思考".to_string(),
+                chain: Some("reasoning".to_string()),
+            },
+            ChatStreamEvent::Done,
+        ];
+
+        let parse = |stream: &str, split: usize| -> Vec<ChatStreamEvent> {
+            let mut parser = SseParser::default();
+            let (head, tail) = stream.as_bytes().split_at(split);
+            let mut payloads = parser.push(head);
+            payloads.extend(parser.push(tail));
+            assert!(!parser.overflowed);
+            payloads
+                .iter()
+                .filter_map(|data| map_sse_data(data))
+                .collect()
+        };
+
+        assert_eq!(parse(lf, lf.len()), expected);
+        // Every byte boundary, including the middle of a CRLF separator.
+        for split in 0..=crlf.len() {
+            assert_eq!(parse(&crlf, split), expected, "split at {split}");
+        }
+    }
+
+    #[test]
+    fn sse_parser_flags_an_oversized_event_buffer() {
+        let mut parser = SseParser::default();
+        let chunk = vec![b'x'; MAX_EVENT_BYTES];
+        assert!(parser.push(&chunk).is_empty());
+        assert!(!parser.overflowed);
+
+        assert!(parser.push(b"x").is_empty());
+        assert!(parser.overflowed);
+        assert!(parser.buffer.is_empty());
     }
 
     #[test]
