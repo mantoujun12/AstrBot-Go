@@ -372,6 +372,10 @@ pub struct InstanceConfig {
     pub auto_restart_max_retries: u32,
     #[serde(default = "default_auto_restart_notify")]
     pub auto_restart_notify: bool,
+    /// OpenAPI key created in the instance WebUI (Settings > OpenAPI) and
+    /// used by the built-in chat commands.
+    #[serde(default)]
+    pub openapi_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -613,6 +617,36 @@ version = "v4.0.0"
         assert_eq!(decoded.arch_target, metadata.arch_target);
         assert_eq!(decoded.auto_generated, metadata.auto_generated);
         assert_eq!(decoded.note, metadata.note);
+        Ok(())
+    }
+
+    #[test]
+    fn openapi_key_defaults_to_empty_and_round_trips() -> Result<()> {
+        // Manifests saved before this field existed must keep loading.
+        let manifest: AppManifest =
+            serde_json::from_str(r#"{"instances":{"id":{"name":"main","version":"v4.29.4"}}}"#)?;
+        let instance = manifest
+            .instances
+            .get("id")
+            .ok_or_else(|| AppError::other("instance missing"))?;
+        assert_eq!(instance.openapi_key, "");
+
+        let stored: AppManifest = serde_json::from_str(
+            r#"{"instances":{"id":{"name":"main","version":"v4.29.4","openapi_key":"abk_xxx"}}}"#,
+        )?;
+        let key = stored
+            .instances
+            .get("id")
+            .map(|instance| instance.openapi_key.clone())
+            .unwrap_or_default();
+        assert_eq!(key, "abk_xxx");
+
+        let encoded = serde_json::to_string(&stored)?;
+        let decoded: AppManifest = serde_json::from_str(&encoded)?;
+        assert_eq!(
+            decoded.instances.get("id").map(|i| i.openapi_key.clone()),
+            Some("abk_xxx".to_string())
+        );
         Ok(())
     }
 

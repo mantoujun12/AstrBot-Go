@@ -19,7 +19,7 @@ mod utils;
 mod validation;
 mod webview_shortcuts;
 
-pub(crate) use network::{github, network_config, update_check, updater};
+pub(crate) use network::{github, network_config, openapi, update_check, updater};
 pub(crate) use tray::tray_panel;
 
 use std::sync::RwLock;
@@ -290,6 +290,10 @@ pub fn run() {
             // GitHub
             commands::fetch_releases,
             commands::check_instance_updates,
+            // AstrBot OpenAPI chat
+            openapi::chat_send_message,
+            openapi::chat_list_providers,
+            openapi::chat_list_sessions,
             // Launcher updater
             updater::check_launcher_update,
             updater::download_launcher_update,

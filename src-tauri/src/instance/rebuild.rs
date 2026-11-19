@@ -149,6 +149,7 @@ fn scan_instances() -> Result<HashMap<String, InstanceConfig>> {
             auto_restart_enabled: false,
             auto_restart_max_retries: 3,
             auto_restart_notify: true,
+            openapi_key: String::new(),
         };
 
         instances.insert(instance_id, instance);

@@ -52,6 +52,10 @@ pub struct UpdateInstanceRequest {
     pub auto_restart_enabled: Option<bool>,
     pub auto_restart_max_retries: Option<u32>,
     pub auto_restart_notify: Option<bool>,
+    /// `Some` overwrites the stored key (an empty value clears it); the UI
+    /// only sends a value the user typed, since the stored key never comes
+    /// back to the frontend.
+    pub openapi_key: Option<String>,
 }
 
 #[tauri::command]
@@ -85,6 +89,7 @@ pub async fn update_instance(
             request.auto_restart_enabled,
             request.auto_restart_max_retries,
             request.auto_restart_notify,
+            request.openapi_key.as_deref(),
             &app_handle,
         )
         .await;
@@ -107,6 +112,7 @@ pub async fn update_instance(
             request.auto_restart_enabled,
             request.auto_restart_max_retries,
             request.auto_restart_notify,
+            request.openapi_key.as_deref(),
             &context.app_handle,
         )
         .await;

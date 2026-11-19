@@ -754,10 +754,13 @@ const zhCN = {
         "checkUpdate": "检查更新",
         "autoRestart": "异常退出后自动重启",
         "autoRestartMaxRetries": "最大重试次数",
-        "autoRestartNotify": "重启时发送通知"
+        "autoRestartNotify": "重启时发送通知",
+        "openapiKey": "OpenAPI API Key"
       },
       "emptyVersions": "暂无已安装版本",
       "goVersions": "前往版本页",
+      "openapiKeyConfigured": "已配置，输入可更换",
+      "openapiKeyHint": "在 AstrBot WebUI 设置 → OpenAPI 创建 API Key（需勾选 chat 权限，模型列表需 provider 权限），要求 AstrBot ≥ v4.18.0。",
       "validation": {
         "nameRequired": "请输入名称",
         "versionRequired": "请选择版本",

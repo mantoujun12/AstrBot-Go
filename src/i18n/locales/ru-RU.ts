@@ -794,9 +794,12 @@ const ruRU = {
         autoRestart: "Автоматический перезапуск после сбоя",
         autoRestartMaxRetries: "Максимум попыток",
         autoRestartNotify: "Уведомлять о перезапуске",
+        openapiKey: "API-ключ OpenAPI",
       },
       emptyVersions: "Нет установленных версий",
       goVersions: "Перейти к версиям",
+      openapiKeyConfigured: "Задан; введите новый ключ для замены",
+      openapiKeyHint: "Создайте API-ключ в веб-интерфейсе AstrBot: Настройки > OpenAPI — с областью chat (для списка моделей нужна область provider). Требуется AstrBot v4.18.0 или новее.",
       validation: {
         nameRequired: "Введите название",
         versionRequired: "Выберите версию",

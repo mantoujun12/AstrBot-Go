@@ -39,11 +39,13 @@ fn update_instance_config(
     auto_restart_enabled: Option<bool>,
     auto_restart_max_retries: Option<u32>,
     auto_restart_notify: Option<bool>,
+    openapi_key: Option<&str>,
 ) -> Result<()> {
     let id = instance_id.to_string();
     let name_owned = name.map(ToOwned::to_owned);
     let version_owned = version.map(ToOwned::to_owned);
     let host_owned = host.map(normalize_instance_host);
+    let openapi_key_owned = openapi_key.map(ToOwned::to_owned);
 
     with_manifest_mut(move |manifest| {
         let instance = manifest
@@ -74,6 +76,9 @@ fn update_instance_config(
         }
         if let Some(v) = auto_restart_notify {
             instance.auto_restart_notify = v;
+        }
+        if let Some(k) = openapi_key_owned {
+            instance.openapi_key = k.trim().to_string();
         }
         Ok(())
     })
@@ -179,6 +184,7 @@ pub fn create_instance(name: &str, version: &str, port: u16) -> Result<()> {
             auto_restart_enabled: false,
             auto_restart_max_retries: 3,
             auto_restart_notify: true,
+            openapi_key: String::new(),
         };
 
         manifest.instances.insert(key, instance);
@@ -229,6 +235,7 @@ pub async fn update_instance(
     auto_restart_enabled: Option<bool>,
     auto_restart_max_retries: Option<u32>,
     auto_restart_notify: Option<bool>,
+    openapi_key: Option<&str>,
     app_handle: &AppHandle,
 ) -> Result<()> {
     validate_instance_id(instance_id)?;
@@ -362,6 +369,7 @@ pub async fn update_instance(
             auto_restart_enabled,
             auto_restart_max_retries,
             auto_restart_notify,
+            openapi_key,
         )?;
 
         emit_progress(
@@ -384,6 +392,7 @@ pub async fn update_instance(
             auto_restart_enabled,
             auto_restart_max_retries,
             auto_restart_notify,
+            openapi_key,
         )
     }
 }
@@ -455,6 +464,7 @@ pub fn list_instances(
                 auto_restart_enabled: inst.auto_restart_enabled,
                 auto_restart_max_retries: inst.auto_restart_max_retries.max(1),
                 auto_restart_notify: inst.auto_restart_notify,
+                openapi_key_configured: !inst.openapi_key.trim().is_empty(),
                 last_exit_reason,
                 restart_attempts,
                 restarts_completed,

@@ -771,9 +771,12 @@ const enUS = {
         autoRestart: "Auto-restart after abnormal exit",
         autoRestartMaxRetries: "Max retries",
         autoRestartNotify: "Notify on restart",
+        openapiKey: "OpenAPI API Key",
       },
       emptyVersions: "No installed versions",
       goVersions: "Go to Versions",
+      openapiKeyConfigured: "Configured; enter a new key to replace it",
+      openapiKeyHint: "Create an API key in AstrBot WebUI under Settings > OpenAPI with the chat scope (the model list needs the provider scope). Requires AstrBot v4.18.0 or newer.",
       validation: {
         nameRequired: "Enter a name",
         versionRequired: "Select a version",

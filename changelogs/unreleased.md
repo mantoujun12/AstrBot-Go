@@ -2,6 +2,7 @@
 
 ### Added
 
+- Instances have a new OpenAPI API Key setting (created in AstrBot WebUI under Settings > OpenAPI with the chat scope, requires AstrBot >= v4.18.0) that authenticates the launcher's built-in chat with the instance.
 - Show the detected runtime version of each dependency (Python 3.10 / 3.12, Node.js, uv) on the Versions page and split the components section into one card per dependency; an installed runtime whose version cannot be detected shows an "Unknown" badge.
 - Split the Tasks page into History and Scheduled sections; each scheduled task can start, stop, back up or clear the cache of an instance once, on an interval, daily or weekly while the app is running.
 - Manage an instance's personas, scheduled jobs, MCP servers, config files and knowledge bases directly in the launcher, including copying them to other instances.
@@ -11,6 +12,7 @@
 
 ### Added
 
+- 实例设置新增 OpenAPI API Key（在 AstrBot WebUI 设置 → OpenAPI 创建，需勾选 chat 权限，要求 AstrBot ≥ v4.18.0），用于启动器与实例的内置聊天。
 - 版本页现在显示每个依赖的检测版本（Python 3.10 / 3.12、Node.js、uv），并将组件区按依赖拆分为独立卡片；已安装但无法检测版本的运行时显示"未知"标记。
 - 任务页拆分为“历史记录”与“定时任务”两部分：定时任务可按一次性、间隔、每天或每周运行，执行启动、停止、备份或清除实例缓存，仅在应用运行时生效。
 - 在启动器中直接管理实例的人格、定时任务、MCP 服务器、配置文件与知识库，并支持复制到其他实例。

@@ -36,6 +36,7 @@ const checkUpdate = ref(true);
 const autoRestart = ref(false);
 const maxRetriesText = ref("3");
 const autoRestartNotify = ref(true);
+const openapiKey = ref("");
 
 const isEditing = computed(() => props.instance !== null);
 
@@ -90,7 +91,15 @@ function initialize(): void {
   autoRestart.value = target?.auto_restart_enabled ?? false;
   maxRetriesText.value = String(target?.auto_restart_max_retries ?? 3);
   autoRestartNotify.value = target?.auto_restart_notify ?? true;
+  // The stored key never reaches the frontend, so the field starts empty.
+  openapiKey.value = "";
 }
+
+const openapiKeyPlaceholder = computed(() =>
+  props.instance?.openapi_key_configured
+    ? t("instances.form.openapiKeyConfigured")
+    : "abk_...",
+);
 
 function validateName(value: unknown): true | string {
   return typeof value === "string" && value.trim() !== ""
@@ -148,6 +157,8 @@ async function submit(): Promise<void> {
   const target = props.instance;
   if (target) {
     const maxRetries = Number(maxRetriesText.value.trim());
+    const openapiKeyValue =
+      typeof openapiKey.value === "string" ? openapiKey.value.trim() : "";
     const request: UpdateInstanceRequest = {
       name: nameValue,
       version: selectedVersion.value,
@@ -160,6 +171,10 @@ async function submit(): Promise<void> {
         : 3,
       autoRestartNotify: autoRestartNotify.value,
     };
+    // An empty input keeps the stored key; only a typed value overwrites it.
+    if (openapiKeyValue !== "") {
+      request.openapiKey = openapiKeyValue;
+    }
     emit("update", target.id, request);
     return;
   }
@@ -311,6 +326,24 @@ watch(
             hide-details
             :disabled="loading"
           />
+
+          <template v-if="isEditing">
+            <v-text-field
+              v-model="openapiKey"
+              :label="t('instances.form.fields.openapiKey')"
+              :placeholder="openapiKeyPlaceholder"
+              type="password"
+              variant="outlined"
+              density="compact"
+              hide-details
+              autocomplete="off"
+              spellcheck="false"
+              :disabled="loading"
+            />
+            <p class="instance-form__hint">
+              {{ t("instances.form.openapiKeyHint") }}
+            </p>
+          </template>
         </v-form>
       </v-card-text>
       <v-card-actions class="instance-form__actions">
@@ -360,6 +393,13 @@ watch(
   background: rgba(var(--v-theme-on-surface), 0.05);
   color: rgba(var(--v-theme-on-surface), 0.64);
   font-size: 0.85rem;
+}
+
+.instance-form__hint {
+  margin: 2px 0 6px;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .instance-form__actions {

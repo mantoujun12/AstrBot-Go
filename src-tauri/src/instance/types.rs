@@ -20,6 +20,9 @@ pub struct InstanceStatus {
     pub auto_restart_enabled: bool,
     pub auto_restart_max_retries: u32,
     pub auto_restart_notify: bool,
+    /// Whether an OpenAPI key is stored for this instance. The key itself is
+    /// never exposed to the frontend.
+    pub openapi_key_configured: bool,
     /// Recorded reason for the last unexpected exit (empty when unknown).
     pub last_exit_reason: String,
     /// Consecutive crash count against the auto-restart budget.

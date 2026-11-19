@@ -188,6 +188,82 @@ impl Locale {
             Self::JaJp => format!("{hours} 時間 {minutes} 分"),
         }
     }
+
+    /// No OpenAPI key is stored for the instance.
+    pub(crate) fn openapi_key_missing(self) -> String {
+        match self {
+            Self::ZhCn => "未配置 OpenAPI API Key，请在实例设置的 API Key 中填写。".to_string(),
+            Self::EnUs => {
+                "No OpenAPI API key is configured. Add one in the instance's API Key setting."
+                    .to_string()
+            }
+            Self::RuRu => {
+                "API-ключ OpenAPI не задан. Добавьте его в поле «API Key» в настройках экземпляра."
+                    .to_string()
+            }
+            Self::JaJp => {
+                "OpenAPI API キーが未設定です。インスタンス設定の「API キー」に入力してください。"
+                    .to_string()
+            }
+        }
+    }
+
+    /// HTTP 401: the key was rejected by AstrBot.
+    pub(crate) fn openapi_invalid_key(self) -> String {
+        match self {
+            Self::ZhCn => "API Key 无效或已过期，请在 AstrBot WebUI 设置 → OpenAPI 中重新创建。".to_string(),
+            Self::EnUs => "The API key is invalid or expired. Recreate it in AstrBot WebUI Settings > OpenAPI.".to_string(),
+            Self::RuRu => "API-ключ недействителен или истёк. Создайте его заново в веб-интерфейсе AstrBot: Настройки > OpenAPI.".to_string(),
+            Self::JaJp => "API キーが無効または期限切れです。AstrBot WebUI の設定 → OpenAPI で再作成してください。".to_string(),
+        }
+    }
+
+    /// HTTP 403: the key lacks the required scope.
+    pub(crate) fn openapi_insufficient_scope(self, scope: &str) -> String {
+        match self {
+            Self::ZhCn => format!("API Key 缺少 {scope} 权限，请在 AstrBot WebUI 设置 → OpenAPI 勾选后重新创建。"),
+            Self::EnUs => format!("The API key lacks the {scope} scope. Recreate it with that scope in AstrBot WebUI Settings > OpenAPI."),
+            Self::RuRu => format!("У API-ключа нет области {scope}. Создайте его заново с этой областью в веб-интерфейсе AstrBot: Настройки > OpenAPI."),
+            Self::JaJp => format!("API キーに {scope} スコープがありません。AstrBot WebUI の設定 → OpenAPI でスコープを付与して再作成してください。"),
+        }
+    }
+
+    /// The instance port could not be reached or the stream dropped.
+    pub(crate) fn openapi_unreachable(self) -> String {
+        match self {
+            Self::ZhCn => "与实例的连接中断，请确认实例已启动且端口可访问。".to_string(),
+            Self::EnUs => "Lost connection to the instance. Make sure it is running and the port is accessible.".to_string(),
+            Self::RuRu => "Соединение с экземпляром потеряно. Убедитесь, что он запущен и порт доступен.".to_string(),
+            Self::JaJp => "インスタンスとの接続が切断されました。起動しているか、ポートがアクセス可能か確認してください。".to_string(),
+        }
+    }
+
+    /// HTTP 404: the AstrBot version predates the OpenAPI.
+    pub(crate) fn openapi_unsupported_version(self) -> String {
+        match self {
+            Self::ZhCn => "实例不支持 OpenAPI（需要 AstrBot ≥ v4.18.0）。".to_string(),
+            Self::EnUs => {
+                "The instance does not support OpenAPI (requires AstrBot >= v4.18.0).".to_string()
+            }
+            Self::RuRu => {
+                "Экземпляр не поддерживает OpenAPI (требуется AstrBot >= v4.18.0).".to_string()
+            }
+            Self::JaJp => {
+                "インスタンスは OpenAPI をサポートしていません（AstrBot >= v4.18.0 が必要）。"
+                    .to_string()
+            }
+        }
+    }
+
+    /// Generic failure while processing a chat message.
+    pub(crate) fn openapi_stream_error(self) -> String {
+        match self {
+            Self::ZhCn => "AstrBot 处理消息失败。".to_string(),
+            Self::EnUs => "AstrBot failed to process the message.".to_string(),
+            Self::RuRu => "AstrBot не смог обработать сообщение.".to_string(),
+            Self::JaJp => "AstrBot がメッセージを処理できませんでした。".to_string(),
+        }
+    }
 }
 
 #[cfg(test)]
