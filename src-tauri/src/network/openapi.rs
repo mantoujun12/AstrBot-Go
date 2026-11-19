@@ -438,20 +438,35 @@ pub async fn chat_list_providers(
         .collect())
 }
 
+/// Sessions URL with optional pagination; `page_size` is clamped to the range
+/// AstrBot accepts.
+fn sessions_url(host: &str, port: u16, page: Option<u32>, page_size: Option<u32>) -> String {
+    let mut url = format!(
+        "{}/api/v1/chat/sessions?username={CHAT_USERNAME}",
+        dashboard_base_url(host, port)
+    );
+    if let Some(page) = page {
+        url.push_str(&format!("&page={page}"));
+    }
+    if let Some(page_size) = page_size {
+        url.push_str(&format!("&page_size={}", page_size.clamp(1, 100)));
+    }
+    url
+}
+
 #[tauri::command]
 pub async fn chat_list_sessions(
     state: State<'_, AppState>,
     instance_id: String,
+    page: Option<u32>,
+    page_size: Option<u32>,
 ) -> Result<Vec<AstrBotSession>> {
     validate_instance_id(&instance_id)?;
     let locale = current_locale();
     let (host, port, raw_key) = instance_endpoint(&state, &instance_id)?;
     let key = require_key(&raw_key, locale)?;
     let client = build_instance_client(&host)?;
-    let url = format!(
-        "{}/api/v1/chat/sessions?username={CHAT_USERNAME}",
-        dashboard_base_url(&host, port)
-    );
+    let url = sessions_url(&host, port, page, page_size);
 
     let data: SessionsData = get_openapi_data(&client, &url, &key, locale, "chat").await?;
     Ok(data
@@ -467,12 +482,16 @@ pub async fn chat_send_message(
     instance_id: String,
     session_id: Option<String>,
     message: String,
+    // AstrBot resolves a per-request model via provider + model, exactly like
+    // its own WebUI selector; sending only the model can silently no-op.
+    provider: Option<String>,
     model: Option<String>,
     on_event: Channel<ChatStreamEvent>,
 ) -> Result<()> {
     validate_instance_id(&instance_id)?;
     // Blank strings from the webview are treated as "not provided".
     let session_id = session_id.filter(|value| !value.trim().is_empty());
+    let provider = provider.filter(|value| !value.trim().is_empty());
     let model = model.filter(|value| !value.trim().is_empty());
     let locale = current_locale();
     let (host, port, raw_key) = instance_endpoint(&state, &instance_id)?;
@@ -486,6 +505,9 @@ pub async fn chat_send_message(
     });
     if let Some(session_id) = &session_id {
         body["session_id"] = serde_json::json!(session_id);
+    }
+    if let Some(provider) = &provider {
+        body["selected_provider"] = serde_json::json!(provider);
     }
     if let Some(model) = &model {
         body["selected_model"] = serde_json::json!(model);
@@ -890,6 +912,23 @@ mod tests {
             .unwrap_or_default();
         assert!(other.starts_with("HTTP 500"), "actual: {other}");
         assert!(classify_status(reqwest::StatusCode::OK).is_none());
+    }
+
+    #[test]
+    fn sessions_url_appends_and_clamps_pagination() {
+        let base = "http://127.0.0.1:6185/api/v1/chat/sessions?username=astrbot-go";
+        assert_eq!(sessions_url("127.0.0.1", 6185, None, None), base);
+        assert_eq!(
+            sessions_url("127.0.0.1", 6185, Some(2), Some(20)),
+            format!("{base}&page=2&page_size=20")
+        );
+        for (input, clamped) in [(0u32, 1u32), (1, 1), (100, 100), (500, 100)] {
+            assert_eq!(
+                sessions_url("127.0.0.1", 6185, None, Some(input)),
+                format!("{base}&page_size={clamped}"),
+                "input: {input}"
+            );
+        }
     }
 
     #[test]
