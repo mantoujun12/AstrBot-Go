@@ -1,0 +1,2600 @@
+<!-- Ported from AstrBot dashboard (MIT, CodedThemes); see src/chatui/LICENSE. -->
+<template>
+  <div
+    v-if="props.active"
+    class="chat-ui"
+    :style="{
+      '--astrbot-chat-sidebar-width': `${isMobile ? 0 : isSidebarCollapsed ? 56 : 245}px`,
+      '--astrbot-workbench-preferred-width': chatHeader.workbenchWidth ? `${chatHeader.workbenchWidth}px` : undefined,
+    }"
+    :class="{ 'is-dark': isDark, 'sidebar-collapsed': isSidebarCollapsed }"
+  >
+    <v-navigation-drawer
+      class="chat-sidebar"
+      :class="{ collapsed: isSidebarCollapsed, 'sidebar-page-navigation': sidebarNavigation, 'chat-sidebar--paired': pairedNavigation }"
+      :model-value="isMobile ? mobileDrawer.open : true"
+      @update:model-value="isMobile && mobileDrawer.SET($event)"
+      :permanent="!isMobile"
+      :temporary="isMobile"
+      :mobile-breakpoint="0"
+      :rail="isSidebarCollapsed"
+      :width="245"
+      :order="1"
+      :rail-width="56"
+      location="left"
+      floating
+    >
+      <div class="sidebar-top">
+        <div
+          class="chat-sidebar-brand"
+          :class="{ collapsed: isSidebarCollapsed }"
+          data-tauri-drag-region
+        >
+          <div
+            v-if="!isSidebarCollapsed"
+            class="chat-sidebar-brand-title Outfit"
+          >
+            <ChatUILogo v-if="!pairedNavigation" class="chat-sidebar-brand-logo" />
+            <span class="chat-sidebar-brand-copy">
+              <span class="chat-sidebar-brand-name">{{ pairedNavigation ? t("core.navigation.chat") : "AstrBot" }}</span>
+            </span>
+          </div>
+          <button
+            v-if="isSidebarCollapsed"
+            class="chat-sidebar-brand-toggle chat-sidebar-rail-btn"
+            type="button"
+            :aria-label="t('core.navigation.expandSidebar')"
+            @click.stop="toggleChatSidebar"
+          >
+            <span class="chat-sidebar-rail-icon-stack">
+              <ChatUILogo
+                v-if="!pairedNavigation"
+                class="chat-sidebar-brand-logo chat-sidebar-brand-logo--collapsed"
+              />
+              <PanelLeft :size="20" class="sidebar-panel-toggle-icon" />
+            </span>
+          </button>
+          <v-btn
+            v-else
+            class="chat-sidebar-brand-toggle"
+            icon
+            rounded="sm"
+            variant="text"
+            :ripple="false"
+            :aria-label="t('core.navigation.collapseSidebar')"
+            @click.stop="toggleChatSidebar"
+          >
+            <PanelLeft :size="20" class="sidebar-panel-toggle-icon" />
+          </v-btn>
+        </div>
+
+        <button
+          v-if="isSidebarCollapsed && CHATUI_FEATURES.providerWorkspace"
+          class="new-chat-btn sidebar-provider-btn icon-only chat-sidebar-rail-btn"
+          :class="{ 'sidebar-workspace-btn--active': isProviderWorkspace }"
+          type="button"
+          :title="tm('actions.providerConfig')"
+          @click="openProviderWorkspace()"
+        >
+          <Box :size="18" class="sidebar-action-icon" />
+        </button>
+        <v-btn
+          v-else-if="CHATUI_FEATURES.providerWorkspace"
+          class="new-chat-btn sidebar-provider-btn"
+          :class="{ 'sidebar-workspace-btn--active': isProviderWorkspace }"
+          variant="text"
+          @click="openProviderWorkspace()"
+        >
+          <Box :size="18" class="sidebar-action-icon mr-2" />
+          <span>{{ tm("actions.providerConfig") }}</span>
+        </v-btn>
+
+        <button
+          v-if="isSidebarCollapsed"
+          class="new-chat-btn icon-only chat-sidebar-rail-btn"
+          type="button"
+          :title="tm('actions.newChat')"
+          @click="startNewChat"
+        >
+          <SquarePen :size="18" class="sidebar-action-icon" />
+        </button>
+        <v-btn v-else class="new-chat-btn" variant="text" @click="startNewChat">
+          <SquarePen :size="18" class="sidebar-action-icon mr-2" />
+          <span>{{ tm("actions.newChat") }}</span>
+        </v-btn>
+      </div>
+
+      <div
+        v-if="!isSidebarCollapsed"
+        ref="sidebarContent"
+        class="sidebar-content"
+        @scroll.passive="loadMoreSessions"
+      >
+        <section class="sidebar-section session-list">
+          <div class="sidebar-section-header">
+            <button
+              type="button"
+              class="session-section-toggle"
+              :aria-expanded="sessionsExpanded"
+              @click="sessionsExpanded = !sessionsExpanded"
+            >
+              <span>{{ tm("conversation.title") }}</span>
+              <ChevronDown
+                v-if="sessionsExpanded"
+                class="expanded-chevron"
+                :size="16"
+                aria-hidden="true"
+              />
+              <ChevronRight v-else :size="16" aria-hidden="true" />
+            </button>
+          </div>
+          <div
+            v-for="session in sidebarSessions"
+            v-show="sessionsExpanded"
+            :key="session.session_id"
+            class="session-item"
+            :class="{
+              active:
+                !isProviderWorkspace && currSessionId === session.session_id,
+              running: isSessionRunning(session.session_id),
+            }"
+            role="button"
+            tabindex="0"
+            @click="selectSession(session.session_id)"
+            @keydown.enter="selectSession(session.session_id)"
+            @keydown.space.prevent="selectSession(session.session_id)"
+          >
+            <span class="session-title">{{ sessionTitle(session) }}</span>
+            <div
+              v-if="CHATUI_FEATURES.sessionWrites"
+              class="session-actions"
+              @click.stop
+            >
+              <v-btn
+                icon
+                size="x-small"
+                variant="text"
+                class="session-action-btn"
+                :title="tm('conversation.editDisplayName')"
+                @click="editSidebarSessionTitle(session)"
+              >
+                <Pencil :size="15" />
+              </v-btn>
+              <v-btn
+                icon
+                size="x-small"
+                variant="text"
+                class="session-action-btn"
+                :title="tm('actions.deleteChat')"
+                @click="deleteSidebarSession(session)"
+              >
+                <Trash2 :size="15" />
+              </v-btn>
+            </div>
+            <v-progress-circular
+              v-if="isSessionRunning(session.session_id)"
+              class="session-progress"
+              indeterminate
+              size="16"
+              width="2"
+            />
+          </div>
+          <v-progress-linear
+            v-if="sessionsExpanded && sessionsPagination.loading"
+            color="primary"
+            height="2"
+            indeterminate
+            :aria-label="tm('conversation.loading')"
+          />
+          <ChatLoadError
+            v-if="sessionsExpanded && sessionsPagination.error"
+            :message="tm('conversation.loadFailed')"
+            :loading="sessionsPagination.loading"
+            @retry="getSessions(sessionsPagination.append)"
+          />
+        </section>
+      </div>
+
+      <div class="sidebar-footer">
+        <v-btn
+          class="settings-btn"
+          :class="{ 'icon-only': isSidebarCollapsed }"
+          variant="text"
+          :icon="isSidebarCollapsed"
+          :aria-label="t('core.common.settings')"
+          @click="settingsOpen = true"
+        >
+          <Settings
+            :size="20"
+            :class="['sidebar-action-icon', { 'mr-2': !isSidebarCollapsed }]"
+          />
+          <span v-if="!isSidebarCollapsed">{{
+            t("core.common.settings")
+          }}</span>
+        </v-btn>
+      </div>
+    </v-navigation-drawer>
+
+    <ChatSettingsDialog
+      v-model="settingsOpen"
+      v-model:enable-streaming="enableStreaming"
+      v-model:enable-reasoning="enableReasoning"
+      v-model:send-shortcut="sendShortcut"
+      v-model:transport-mode="transportMode"
+      v-model:stt-provider="selectedSttProvider"
+      :stt-providers="sttProviders"
+      @configure-stt="openProviderWorkspace('speech_to_text')"
+    />
+
+    <main
+      class="chat-main"
+      :class="{
+        'empty-chat': isEmptyChat,
+        'has-side-panel': threadPanelOpen,
+      }"
+    >
+      <div
+        class="conversation-stack"
+        :class="{ 'is-empty': isEmptyChat }"
+      >
+        <v-progress-linear
+          v-if="activeSessionPagination?.loading"
+          class="history-loading"
+          color="primary"
+          height="2"
+          indeterminate
+          absolute
+          location="top"
+          :aria-label="tm('history.loading')"
+        />
+        <section
+          ref="messagesContainer"
+          class="messages-panel"
+          :class="{ 'history-anchor-locked': suppressAutoScroll }"
+          tabindex="0"
+          @scroll="handleMessagesScroll"
+          @wheel.passive="handleMessagesInteraction"
+          @touchstart.passive="handleMessagesInteraction"
+          @touchmove.passive="handleMessagesInteraction"
+          @pointerdown="handleMessagesInteraction"
+          @keydown="handleMessagesInteraction"
+        >
+          <div v-if="loadingMessages" class="center-state">
+            <v-progress-circular indeterminate size="32" width="3" />
+          </div>
+
+          <div
+            v-else-if="!activeMessages.length && activeSessionPagination?.error"
+            class="welcome-state"
+          >
+            <ChatLoadError
+              :message="tm('history.loadFailed')"
+              :loading="loadingMessages"
+              @retry="retryCurrentSessionLoad"
+            />
+          </div>
+
+          <div v-else-if="!activeMessages.length" class="welcome-state">
+            <div class="welcome-title">{{ tm("welcome.title") }}</div>
+          </div>
+
+          <div
+            v-if="!loadingMessages && activeMessages.length"
+            ref="messagesContent"
+            class="messages-list-shell"
+          >
+            <ChatLoadError
+              v-if="activeSessionPagination?.error"
+              class="history-load-error"
+              :message="tm('history.loadEarlierFailed')"
+              :loading="activeSessionPagination.loading"
+              @retry="retryCurrentSessionLoad"
+            />
+            <ChatMessageList
+              v-model:edit-draft="messageEditDraft"
+              :messages="activeMessages"
+              :is-dark="isDark"
+              :is-message-streaming="isMessageStreaming"
+              :enable-edit="
+                !Boolean(currSessionId && isSessionRunning(currSessionId))
+              "
+              enable-regenerate
+              :enable-thread-selection="false"
+              :manage-refs-sidebar="false"
+              :editing-message-id="editingMessage?.id || null"
+              :saving-edit="savingMessageEdit"
+              @open-edit="openMessageEdit"
+              @cancel-edit="cancelMessageEdit"
+              @save-edit="saveMessageEdit"
+              @regenerate="handleRegenerateMessage"
+              @regenerate-with-model="handleRegenerateMessage"
+              @select-bot-text="handleBotTextSelection"
+              @open-thread="openThreadPanel"
+              @button-click="handleButtonClick"
+              @configure-models="openProviderWorkspace()"
+            />
+          </div>
+        </section>
+
+        <section ref="composerShell" class="composer-shell">
+          <button
+            v-if="isAwayFromBottom && !shouldStickToBottom"
+            class="scroll-to-bottom"
+            type="button"
+            :aria-label="tm('actions.scrollToBottom')"
+            :title="tm('actions.scrollToBottom')"
+            @click="scrollToBottom(true)"
+          >
+            <span
+              v-if="currSessionId && isSessionRunning(currSessionId)"
+              class="scroll-running-dots"
+              aria-hidden="true"
+            >
+              <span v-for="dot in 3" :key="dot" />
+            </span>
+            <ArrowDown
+              v-else
+              :size="20"
+              :stroke-width="1.75"
+              aria-hidden="true"
+            />
+          </button>
+          <ChatInput
+            ref="inputRef"
+            v-model:prompt="draft"
+            :staged-images-url="stagedImagesUrl"
+            :staged-audio-url="stagedAudioUrl"
+            :staged-files="stagedNonImageFiles"
+            :disabled="sending"
+            :is-recording="isRecording"
+            :recording-mode="recordingMode"
+            :voice-busy="voiceBusy"
+            :audio-levels="audioLevels"
+            :is-running="
+              Boolean(currSessionId && isSessionRunning(currSessionId))
+            "
+            :token-usage="tokenUsageIndicator"
+            :session-id="currSessionId || null"
+            :current-session="currentSession"
+            :reply-to="chatInputReplyTarget"
+            :send-shortcut="sendShortcut"
+            :show-provider-selector="false"
+            :failed-uploads="failedUploadViews"
+            :active-uploads="activeUploadViews"
+            @send="sendCurrentMessage"
+            @stop="stopCurrentSession"
+            @remove-image="removeImage"
+            @remove-audio="removeAudio"
+            @remove-file="removeFile"
+            @retry-failed-upload="retryFailedUpload"
+            @discard-failed-upload="discardFailedUpload"
+            @cancel-active-upload="cancelActiveUpload"
+            @start-recording="startRecording"
+            @stop-recording="stopRecording"
+            @cancel-recording="cancelRecording"
+            @paste-image="handlePaste"
+            @file-select="handleFilesSelected"
+            @clear-reply="replyTarget = null"
+          />
+        </section>
+      </div>
+    </main>
+
+    <div
+      v-if="threadSelection.visible"
+      class="thread-selection-action"
+      :style="{
+        left: `${threadSelection.left}px`,
+        top: `${threadSelection.top}px`,
+      }"
+    >
+      <button
+        class="thread-selection-button"
+        type="button"
+        :disabled="threadSelection.message?.can_fork === false"
+        :title="
+          threadSelection.message?.can_fork === false
+            ? tm(
+                `history.${
+                  threadSelection.message?.fork_unavailable_reason ||
+                  'context_unavailable'
+                }`,
+              )
+            : tm('thread.askInThread')
+        "
+        :aria-label="
+          threadSelection.message?.can_fork === false
+            ? tm(
+                `history.${
+                  threadSelection.message?.fork_unavailable_reason ||
+                  'context_unavailable'
+                }`,
+              )
+            : tm('thread.askInThread')
+        "
+        @click="createThreadFromSelection"
+      >
+        {{ tm("thread.askInThread") }}
+      </button>
+    </div>
+
+    <v-dialog v-model="sessionTitleDialogOpen" max-width="420">
+      <v-card>
+        <v-card-title class="text-h3 pa-4 pb-0 pl-6">
+          {{ tm("conversation.editDisplayName") }}
+        </v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="sessionTitleDraft"
+            :label="tm('conversation.displayName')"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            autofocus
+            @keydown.enter="saveSessionTitleDialog"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="sessionTitleDialogOpen = false">
+            {{ t("core.common.cancel") }}
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="tonal"
+            :loading="savingSessionTitle"
+            @click="saveSessionTitleDialog"
+          >
+            {{ t("core.common.save") }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    <ThreadPanel
+      v-model="threadPanelOpen"
+      :thread="activeThread"
+      :is-dark="isDark"
+      :deleting="deletingThread"
+      :get-provider-selection="getSelectedProviderSelection"
+      @delete="deleteThread"
+      @configure-models="openProviderWorkspace()"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import {
+  computed,
+  markRaw,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  onUnmounted,
+  provide,
+  reactive,
+  ref,
+  watch,
+} from "vue";
+import { useDisplay } from "vuetify";
+import { isAxiosError } from "axios";
+import {
+  ArrowDown,
+  Box,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  PanelLeft,
+  PanelRightOpen,
+  Pencil,
+  Settings,
+  SquarePen,
+  Trash2,
+} from "@lucide/vue";
+import { chatApi, providerApi } from "@/api/v1";
+import { CHATUI_FEATURES } from "@/features";
+import ChatSettingsDialog from "@/components/chat/ChatSettingsDialog.vue";
+import ChatToolbarContext from "@/components/chat/ChatToolbarContext.vue";
+import ChatInput from "@/components/chat/ChatInput.vue";
+import ChatMessageList from "@/components/chat/ChatMessageList.vue";
+import ChatUILogo from "@/components/chat/ChatUILogo.vue";
+import type { RegenerateModelSelection } from "@/components/chat/RegenerateMenu.vue";
+import ChatLoadError from "@/components/chat/ChatLoadError.vue";
+import ThreadPanel from "@/components/chat/ThreadPanel.vue";
+import { chatPreferences } from "@/utils/chatPreferences";
+// shortcut: the refs sidebar sits in message_list_comps and returns with
+// feat/chatui-render; the plain-text list emits no openRefs yet.
+import { useSessions, type Session } from "@/composables/useSessions";
+import {
+  useMessages,
+  type ChatRecord,
+  type ChatThread,
+  type MessagePart,
+  type TransportMode,
+} from "@/composables/useMessages";
+import { useMediaHandling } from "@/composables/useMediaHandling";
+import { useChatVoice } from "@/composables/useChatVoice";
+import { useProviderModelSelection } from "@/composables/useProviderModelSelection";
+import { useChatHeaderStore } from "@/stores/chatHeader";
+import { useHeaderContextStore } from "@/stores/headerContext";
+import { useMobileDrawerStore } from "@/stores/mobileDrawer";
+import { useCustomizerStore } from "@/stores/customizer";
+import { useI18n, useModuleI18n } from "@/i18n/composables";
+import { askForConfirmation, useConfirmDialog } from "@/utils/confirmDialog";
+import {
+  contextLimit,
+  formatTokenCount,
+  type ProviderModelMetadata,
+  type ProviderMetadataSource,
+} from "@/utils/providerMetadata";
+import { useToast } from "@/utils/toast";
+import { readChatDraft, writeChatDraft } from "@/utils/chatDraftStorage";
+
+const props = withDefaults(
+  defineProps<{ chatboxMode?: boolean; active?: boolean }>(),
+  {
+    chatboxMode: false,
+    active: true,
+  },
+);
+
+const chatHeader = useChatHeaderStore();
+const headerContext = useHeaderContextStore();
+const mobileDrawer = useMobileDrawerStore();
+
+/* Project the chat toolbar context (model selector + session title) into the
+   top toolbar only while the chat page is actually visible. */
+watch(
+  () => props.active,
+  (active) =>
+    headerContext.SET_COMPONENT(active ? markRaw(ChatToolbarContext) : null),
+  { immediate: true },
+);
+onUnmounted(() => headerContext.SET_COMPONENT(null));
+const customizer = useCustomizerStore();
+const sidebarNavigation = computed(() => customizer.chatNavigationInSidebar && !props.chatboxMode);
+const { t } = useI18n();
+const { tm } = useModuleI18n("features/chat");
+const confirmDialog = useConfirmDialog();
+const toast = useToast();
+const {
+  sessions,
+  sessionsPagination,
+  currSessionId,
+  getSessions,
+  newChat,
+  deleteSession,
+  updateSessionTitle,
+} = useSessions(props.chatboxMode);
+
+const {
+  stagedFiles,
+  stagedImagesUrl,
+  stagedAudioUrl,
+  stagedNonImageFiles,
+  failedUploadViews,
+  activeUploadViews,
+  processAndUploadImage,
+  processAndUploadFile,
+  handlePaste,
+  removeImage,
+  removeAudio,
+  removeFile,
+  retryFailedUpload,
+  discardFailedUpload,
+  cancelActiveUpload,
+  clearStaged,
+  cleanupMediaCache,
+} = useMediaHandling();
+
+type WorkspaceView = "chat" | "providers";
+
+interface TokenProviderConfig extends ProviderMetadataSource {
+  id: string;
+  enable?: boolean;
+}
+
+const activeWorkspace = ref<WorkspaceView>("chat");
+const sessionTitleDialogOpen = ref(false);
+const sessionTitleDraft = ref("");
+const editingSessionTitleId = ref("");
+const savingSessionTitle = ref(false);
+const messageEditDraft = ref("");
+const editingMessage = ref<ChatRecord | null>(null);
+const savingMessageEdit = ref(false);
+const loadingSessions = ref(false);
+const draft = ref(readChatDraft(currSessionId.value));
+const tokenProviderConfigs = ref<TokenProviderConfig[]>([]);
+const tokenModelMetadata = ref<Record<string, ProviderModelMetadata>>({});
+const selectedTokenProviderId = ref("");
+const messagesContainer = ref<HTMLElement | null>(null);
+const sidebarContent = ref<HTMLElement | null>(null);
+const sessionsExpanded = ref(chatPreferences().global.sessionsExpanded !== false);
+
+watch(sessionsExpanded, (expanded) => {
+  chatPreferences((preferences) => {
+    preferences.global.sessionsExpanded = expanded;
+  });
+});
+
+const messagesContent = ref<HTMLElement | null>(null);
+const composerShell = ref<HTMLElement | null>(null);
+const inputRef = ref<InstanceType<typeof ChatInput> | null>(null);
+const shouldStickToBottom = ref(true);
+const autoScrollPaused = ref(false);
+const suppressAutoScroll = ref(false);
+const LOAD_EARLIER_SCROLL_THRESHOLD = 120;
+const isAwayFromBottom = ref(false);
+let lastMessagesScrollTop = 0;
+let lastMessagesScrollHeight = 0;
+let lastMessagesClientHeight = 0;
+let touchScrollY = 0;
+let scrollIntent = 0;
+let autoScrollFrame: number | null = null;
+const replyTarget = ref<ChatRecord | null>(null);
+const threadPanelOpen = ref(false);
+const activeThread = ref<ChatThread | null>(null);
+const deletingThread = ref(false);
+const threadSelection = reactive<{
+  visible: boolean;
+  left: number;
+  top: number;
+  message: ChatRecord | null;
+  selectedText: string;
+}>({
+  visible: false,
+  left: 0,
+  top: 0,
+  message: null,
+  selectedText: "",
+});
+const settingsOpen = ref(false);
+const enableStreaming = ref(true);
+const enableReasoning = ref(true);
+const sendShortcut = ref<"enter" | "shift_enter">("enter");
+const DRAFT_SAVE_DELAY_MS = 300;
+let activeDraftSessionId = currSessionId.value;
+let draftSaveTimer: number | null = null;
+let chatResizeObserver: ResizeObserver | null = null;
+let chatMutationObserver: MutationObserver | null = null;
+const {
+  mode: recordingMode,
+  busy: voiceBusy,
+  levels: audioLevels,
+  isRecording,
+  sttProviders,
+  selectedSttProvider,
+  loadProviders: loadSttProviders,
+  start: startRecording,
+  finish: stopRecording,
+  cancel: cancelRecording,
+} = useChatVoice({
+  draft,
+  stagedFiles,
+  contextKey: () =>
+    `${currSessionId.value}:${activeWorkspace.value}:${props.active}`,
+  send: sendCurrentMessage,
+  configureStt: () => { void openProviderWorkspace("speech_to_text"); },
+});
+watch(settingsOpen, (open) => {
+  if (open) void loadSttProviders();
+});
+const { smAndDown: isMobile } = useDisplay();
+
+const pairedNavigation = computed(() => sidebarNavigation.value && !isMobile.value);
+
+const isSidebarCollapsed = computed(
+  () => !isMobile.value && customizer.chatSidebarCollapsed,
+);
+const isProviderWorkspace = computed(
+  () => activeWorkspace.value === "providers",
+);
+
+const providerWorkspaceType = computed(() => "chat_completion" as const);
+
+function toggleChatSidebar() {
+  if (isMobile.value) {
+    mobileDrawer.SET(false);
+    return;
+  }
+  customizer.SET_CHAT_SIDEBAR_COLLAPSED(!customizer.chatSidebarCollapsed);
+}
+
+const {
+  loadingMessages,
+  sending,
+  loadedSessions,
+  sessionDetails,
+  sessionProjects,
+  activeMessages,
+  paginationBySession,
+  isSessionRunning,
+  isMessageStreaming,
+  isUserMessage,
+  messageParts,
+  loadSessionMessages,
+  loadEarlierMessages,
+  createLocalExchange,
+  sendMessageStream,
+  sendButtonInteraction,
+  editMessage,
+  continueEditedMessage,
+  regenerateMessage,
+  stopSession,
+} = useMessages({
+  currentSessionId: currSessionId,
+  onSessionsChanged: getSessions,
+  onSessionBound: (sessionId) => {
+    if (sessionId && sessionId !== currSessionId.value) {
+      currSessionId.value = sessionId;
+    }
+  },
+  onStreamUpdate: (sessionId) => {
+    if (sessionId === currSessionId.value && shouldStickToBottom.value) {
+      scrollToBottom();
+    }
+  },
+});
+
+function handleButtonClick(payload: {
+  message: ChatRecord;
+  callbackData: string;
+}) {
+  if (!currSessionId.value) return;
+  sendButtonInteraction({
+    sessionId: currSessionId.value,
+    sourceMessageId: payload.message.id,
+    callbackData: payload.callbackData,
+  });
+}
+
+const activeSessionPagination = computed(() =>
+  currSessionId.value ? paginationBySession[currSessionId.value] : undefined,
+);
+
+const transportMode = ref<TransportMode>(
+  chatPreferences().global.transportMode === "websocket"
+    ? "websocket"
+    : "sse",
+);
+
+watch(transportMode, (mode) => {
+  chatPreferences((preferences) => { preferences.global.transportMode = mode; });
+});
+
+watch(draft, (value) => {
+  if (draftSaveTimer !== null) window.clearTimeout(draftSaveTimer);
+  const sessionId = activeDraftSessionId;
+  draftSaveTimer = window.setTimeout(() => {
+    writeChatDraft(sessionId, value);
+    draftSaveTimer = null;
+  }, DRAFT_SAVE_DELAY_MS);
+});
+
+watch(currSessionId, (sessionId) => {
+  flushDraft();
+  activeDraftSessionId = sessionId;
+  draft.value = readChatDraft(sessionId);
+});
+
+const isDark = computed(() => customizer.uiTheme === "PurpleThemeDark");
+const canSend = computed(
+  () =>
+    Boolean(draft.value.trim() || stagedFiles.value.length) && !sending.value,
+);
+const currentSession = computed(
+  () =>
+    sessions.value.find(
+      (session) => session.session_id === currSessionId.value,
+    ) ||
+    sessionDetails[currSessionId.value] ||
+    null,
+);
+const sidebarSessions = computed(() => {
+  const current = currentSession.value;
+  if (
+    current &&
+    !sessions.value.some((session) => session.session_id === current.session_id)
+  ) {
+    return [current, ...sessions.value];
+  }
+  return sessions.value;
+});
+const currentSessionTitle = computed(() =>
+  currentSession.value ? sessionTitle(currentSession.value) : "",
+);
+const isEmptyChat = computed(
+  () =>
+    !isProviderWorkspace.value &&
+    !loadingMessages.value &&
+    !activeMessages.value.length,
+);
+const chatHeaderTitle = computed(() => currentSessionTitle.value);
+const chatHeaderSubtitle = computed(() => "");
+const chatInputReplyTarget = computed(() =>
+  replyTarget.value?.id == null
+    ? null
+    : {
+        messageId: replyTarget.value.id,
+        selectedText: replyPreview(replyTarget.value.id, ""),
+      },
+);
+const currentTokenProvider = computed(() => {
+  const selectedProvider = tokenProviderConfigs.value.find(
+    (provider) => provider.id === selectedTokenProviderId.value,
+  );
+  return selectedProvider || tokenProviderConfigs.value[0] || null;
+});
+const currentTokenMetadata = computed(() => {
+  const model = currentTokenProvider.value?.model;
+  return model ? tokenModelMetadata.value[model] || null : null;
+});
+const latestContextTokens = computed(() => {
+  for (let index = activeMessages.value.length - 1; index >= 0; index -= 1) {
+    const message = activeMessages.value[index];
+    if (isUserMessage(message)) continue;
+    const stats = message.content?.agentStats;
+    if (!stats) continue;
+    if (stats.current_context_tokens != null) {
+      return readTokenCount(stats.current_context_tokens);
+    }
+    const usage = stats.token_usage;
+    if (!usage) continue;
+    return (
+      readTokenCount(usage.input_other) +
+      readTokenCount(usage.input_cached) +
+      readTokenCount(usage.output)
+    );
+  }
+  return 0;
+});
+const tokenUsageIndicator = computed(() => {
+  const used = latestContextTokens.value;
+  const limit = contextLimit(
+    currentTokenProvider.value,
+    currentTokenMetadata.value,
+  );
+  if (used <= 0 || limit <= 0) return null;
+
+  const percent = (used / limit) * 100;
+  return {
+    used,
+    limit,
+    percent: Math.min(100, Math.max(0, percent)),
+    tooltip: tm("tokenUsage.tooltip", {
+      used: formatTokenCount(used),
+      limit: formatTokenCount(limit),
+      percent: formatUsagePercent(percent),
+    }),
+  };
+});
+
+function getSelectedProviderSelection() {
+  const inputSelection = inputRef.value?.getCurrentSelection();
+  if (
+    currentProviderId.value &&
+    inputSelection?.providerId === currentProviderId.value
+  ) {
+    selectedTokenProviderId.value = inputSelection.providerId;
+    return inputSelection;
+  }
+  selectedTokenProviderId.value = currentProviderId.value;
+  return {
+    providerId: currentProviderId.value,
+    modelName: currentModelName.value,
+  };
+}
+
+const {
+  selectedProviderId: currentProviderId,
+  selectedModelName: currentModelName,
+  setSelection: setProviderSelection,
+} = useProviderModelSelection();
+
+function readSessionProviderSelection(sessionId: string) {
+  const selection = chatPreferences().sessions[sessionId]?.provider;
+  return selection?.providerId ? selection : null;
+}
+
+function writeSessionProviderSelection(
+  sessionId: string,
+  selection: { providerId?: string; modelName?: string } | null,
+) {
+  if (!sessionId) return;
+  chatPreferences((preferences) => {
+    const session = (preferences.sessions[sessionId] ||= {});
+    if (selection?.providerId) session.provider = { providerId: selection.providerId, modelName: selection.modelName || "" };
+    else delete session.provider;
+  });
+}
+
+// Remember the model picked by the user for the active session.
+watch([currentProviderId, currentModelName], ([providerId, modelName]) => {
+  writeSessionProviderSelection(currSessionId.value, {
+    providerId,
+    modelName,
+  });
+});
+
+provide("isDark", isDark);
+
+watch(
+  [chatHeaderTitle, chatHeaderSubtitle],
+  ([title, subtitle]) => {
+    chatHeader.SET_CONTEXT({ title, subtitle });
+  },
+  { immediate: true },
+);
+
+watch(
+  () => chatHeader.workspaceFilesOpen,
+  (open) => {
+    if (!open) return;
+    threadSelection.visible = false;
+    threadPanelOpen.value = false;
+    activeThread.value = null;
+  },
+);
+
+onMounted(async () => {
+  window.addEventListener("beforeunload", flushDraft);
+  if (typeof ResizeObserver !== "undefined") {
+    chatResizeObserver = new ResizeObserver((entries) => {
+      if (entries.some((entry) => entry.target === sidebarContent.value)) {
+        loadMoreSessions();
+      }
+      const container = messagesContainer.value;
+      if (!container) return;
+      let composerResized = false;
+      let messagesResized = false;
+      for (const entry of entries) {
+        if (entry.target === composerShell.value) {
+          composerResized = true;
+          const height = Math.ceil(entry.target.getBoundingClientRect().height);
+          container.style.setProperty("--chat-composer-height", `${height}px`);
+        }
+        if (entry.target === messagesContent.value) {
+          messagesResized = true;
+        }
+      }
+      if (!composerResized && !messagesResized) return;
+
+      if (shouldStickToBottom.value && !autoScrollPaused.value) {
+        scrollToBottom();
+      } else {
+        isAwayFromBottom.value =
+          container.scrollHeight -
+            container.scrollTop -
+            container.clientHeight >
+          2;
+      }
+    });
+    if (composerShell.value) chatResizeObserver.observe(composerShell.value);
+    if (sidebarContent.value) chatResizeObserver.observe(sidebarContent.value);
+    if (messagesContent.value)
+      chatResizeObserver.observe(messagesContent.value);
+  }
+  if (typeof MutationObserver !== "undefined") {
+    chatMutationObserver = new MutationObserver(() => {
+      if (
+        !suppressAutoScroll.value &&
+        shouldStickToBottom.value &&
+        !autoScrollPaused.value
+      ) {
+        scrollToBottom();
+      }
+    });
+    if (messagesContent.value) {
+      chatMutationObserver.observe(messagesContent.value, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    }
+  }
+
+  loadingSessions.value = true;
+  try {
+    await Promise.all([getSessions(), loadTokenProviders()]);
+  } finally {
+    loadingSessions.value = false;
+  }
+});
+
+onBeforeUnmount(() => {
+  flushDraft();
+  window.removeEventListener("beforeunload", flushDraft);
+  chatResizeObserver?.disconnect();
+  chatMutationObserver?.disconnect();
+  if (autoScrollFrame !== null) {
+    window.cancelAnimationFrame(autoScrollFrame);
+    autoScrollFrame = null;
+  }
+  chatHeader.CLEAR_CONTEXT();
+  cleanupMediaCache();
+});
+
+watch(
+  [composerShell, messagesContent, sidebarContent],
+  (elements, previousElements) => {
+    if (!chatResizeObserver) return;
+    for (const element of previousElements) {
+      if (element) chatResizeObserver.unobserve(element);
+    }
+    for (const element of elements) {
+      if (element) chatResizeObserver.observe(element);
+    }
+  },
+  { flush: "post" },
+);
+
+watch(
+  [() => sessionsPagination.loading, () => mobileDrawer.open, sessionsExpanded],
+  () => loadMoreSessions(),
+  { flush: "post" },
+);
+
+watch(
+  messagesContent,
+  (element, previousElement) => {
+    if (!chatMutationObserver) return;
+    if (previousElement) chatMutationObserver.disconnect();
+    if (element) {
+      chatMutationObserver.observe(element, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    }
+  },
+  { flush: "post" },
+);
+
+watch(activeMessages, () => {
+  if (!suppressAutoScroll.value && shouldStickToBottom.value) {
+    scrollToBottom();
+  }
+});
+
+function closeSecondaryPanels() {
+  threadSelection.visible = false;
+  threadPanelOpen.value = false;
+  activeThread.value = null;
+  chatHeader.SET_WORKSPACE_FILES_OPEN(false);
+}
+
+function showChatWorkspace() {
+  activeWorkspace.value = "chat";
+}
+
+async function openProviderWorkspace(type = "chat_completion") {
+  // shortcut: the provider workspace has no commands behind it in v1; the
+  // sidebar entry is hidden and this only stays for the thread panel link.
+  void type;
+  closeSecondaryPanels();
+  settingsOpen.value = false;
+}
+
+function sessionTitle(session: Session) {
+  return session.display_name?.trim() || tm("conversation.newConversation");
+}
+
+function syncSelectedTokenProvider() {
+  if (typeof window === "undefined") return;
+  selectedTokenProviderId.value =
+    chatPreferences().global.provider?.providerId || "";
+}
+
+async function loadTokenProviders() {
+  syncSelectedTokenProvider();
+  try {
+    const response = await providerApi.listByProviderType("chat_completion");
+    if (response.data.status === "ok") {
+      tokenModelMetadata.value = ((response.data as any).model_metadata ||
+        {}) as Record<string, ProviderModelMetadata>;
+      tokenProviderConfigs.value = (
+        (response.data.data || []) as unknown as TokenProviderConfig[]
+      ).filter((provider) => provider.enable !== false);
+    }
+  } catch (error) {
+    console.error("Failed to load provider context metadata:", error);
+  }
+}
+
+function readTokenCount(value: unknown) {
+  const count = Number(value || 0);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+function formatUsagePercent(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0";
+  if (value >= 10) return String(Math.round(value));
+  if (value >= 1) return String(Math.round(value * 10) / 10);
+  return String(Math.round(value * 100) / 100);
+}
+
+async function startNewChat() {
+  showChatWorkspace();
+  replyTarget.value = null;
+  newChat();
+  await focusChatInput();
+}
+
+function openSessionTitleDialog(sessionId: string, title: string) {
+  editingSessionTitleId.value = sessionId;
+  sessionTitleDraft.value = title;
+  sessionTitleDialogOpen.value = true;
+}
+
+async function saveSessionTitleDialog() {
+  if (!editingSessionTitleId.value) return;
+
+  savingSessionTitle.value = true;
+  try {
+    const sessionId = editingSessionTitleId.value;
+    const displayName = sessionTitleDraft.value.trim();
+    await chatApi.updateSession(sessionId, {
+      display_name: displayName,
+    });
+    updateSessionTitle(sessionId, displayName);
+    if (sessionDetails[sessionId]) {
+      sessionDetails[sessionId].display_name = displayName;
+    }
+    await getSessions();
+    sessionTitleDialogOpen.value = false;
+  } finally {
+    savingSessionTitle.value = false;
+  }
+}
+
+function editSidebarSessionTitle(session: Session) {
+  openSessionTitleDialog(session.session_id, session.display_name || "");
+}
+
+async function deleteSidebarSession(session: Session) {
+  const title = sessionTitle(session);
+  const message = tm("conversation.confirmDelete", { name: title });
+  if (!(await askForConfirmation(message, confirmDialog))) return;
+
+  await deleteSession(session.session_id);
+}
+
+async function selectSession(sessionId: string) {
+  showChatWorkspace();
+  currSessionId.value = sessionId;
+  replyTarget.value = null;
+  const messagesReady = loadedSessions[sessionId]
+    ? Promise.resolve()
+    : loadSessionMessages(sessionId);
+  await messagesReady;
+  if (currSessionId.value !== sessionId) return;
+  const storedSelection = readSessionProviderSelection(sessionId);
+  setProviderSelection(
+    storedSelection?.providerId || "",
+    storedSelection?.modelName || "",
+  );
+  scrollToBottom(true);
+  await focusChatInput();
+}
+
+async function sendCurrentMessage(viewText?: string) {
+  if (viewText === undefined && !canSend.value) return;
+
+  const draftSessionId = activeDraftSessionId;
+  const draftText = viewText ?? draft.value;
+  const text = draftText.trim();
+  const outgoingParts = viewText === undefined ? buildOutgoingParts(text) : [{ type: "plain", text }];
+  sending.value = true;
+  try {
+    // A chat without a session id is created server-side on the first send;
+    // the stream's first event binds the assigned id.
+    const sessionId = currSessionId.value;
+    await nextTick();
+
+    const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    const selection = getSelectedProviderSelection();
+    writeSessionProviderSelection(sessionId, selection);
+    const { userRecord, botRecord } = createLocalExchange({
+      sessionId,
+      messageId,
+      parts: outgoingParts,
+    });
+    updateTitleFromText(sessionId, text);
+
+    if (viewText === undefined) {
+      if (draftSaveTimer !== null) {
+        window.clearTimeout(draftSaveTimer);
+        draftSaveTimer = null;
+      }
+      writeChatDraft(draftSessionId, "");
+      writeChatDraft(activeDraftSessionId, "");
+      draft.value = "";
+      replyTarget.value = null;
+      clearStaged({ revokeUrls: false });
+    }
+    scrollToBottom(true);
+
+    sendMessageStream({
+      sessionId,
+      messageId,
+      parts: outgoingParts,
+      transport: transportMode.value,
+      enableStreaming: enableStreaming.value,
+      enableReasoning: enableReasoning.value,
+      selectedProvider: selection?.providerId || "",
+      selectedModel: selection?.modelName || "",
+      userRecord,
+      botRecord,
+    });
+  } catch (error) {
+    console.error("Failed to send message:", error);
+    if (viewText !== undefined) throw error;
+  } finally {
+    sending.value = false;
+    await focusChatInput();
+  }
+}
+
+function flushDraft() {
+  if (draftSaveTimer !== null) {
+    window.clearTimeout(draftSaveTimer);
+    draftSaveTimer = null;
+  }
+  writeChatDraft(activeDraftSessionId, draft.value);
+}
+
+function buildOutgoingParts(text: string): MessagePart[] {
+  const parts: MessagePart[] = [];
+  if (replyTarget.value?.id != null) {
+    parts.push({
+      type: "reply",
+      message_id: replyTarget.value.id,
+      selected_text: "",
+    });
+  }
+  if (text) {
+    parts.push({ type: "plain", text });
+  }
+  stagedFiles.value.forEach((file) => {
+    parts.push({
+      type: file.type,
+      attachment_id: file.attachment_id,
+      filename: file.filename,
+      embedded_url: file.url,
+    });
+  });
+  return parts;
+}
+
+function updateTitleFromText(sessionId: string, text: string) {
+  const session = sessions.value.find((item) => item.session_id === sessionId);
+  if (!session || session.display_name || !text) {
+    return;
+  }
+  updateSessionTitle(sessionId, text.slice(0, 40));
+}
+
+function replyPreview(messageId?: string | number, fallback?: string) {
+  if (fallback) return truncate(fallback, 80);
+  const found = activeMessages.value.find(
+    (message) => String(message.id) === String(messageId),
+  );
+  const text = found ? plainTextFromMessage(found) : "";
+  return text ? truncate(text, 80) : tm("reply.replyTo");
+}
+
+function plainTextFromMessage(message: ChatRecord) {
+  return messageParts(message)
+    .filter((part) => part.type === "plain" && part.text)
+    .map((part) => part.text)
+    .join("\n");
+}
+
+function truncate(value: string, max: number) {
+  return value.length > max ? `${value.slice(0, max)}...` : value;
+}
+
+function scrollToMessage(messageId?: string | number) {
+  if (!messageId) return;
+  const index = activeMessages.value.findIndex(
+    (message) => String(message.id) === String(messageId),
+  );
+  if (index < 0) return;
+  shouldStickToBottom.value = false;
+  const rows = messagesContainer.value?.querySelectorAll(".message-row");
+  rows?.[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function openMessageEdit(message: ChatRecord) {
+  if (message.can_edit === false) return;
+  messageEditDraft.value = plainTextFromMessage(message);
+  editingMessage.value = message;
+  nextTick(() => scrollToMessage(message.id));
+}
+
+function cancelMessageEdit() {
+  editingMessage.value = null;
+  messageEditDraft.value = "";
+}
+
+async function saveMessageEdit() {
+  if (!currSessionId.value || !editingMessage.value) return;
+  const sessionId = currSessionId.value;
+  const target = editingMessage.value;
+  savingMessageEdit.value = true;
+  try {
+    const result = await editMessage(sessionId, target, messageEditDraft.value);
+    if (
+      currSessionId.value !== sessionId ||
+      !activeMessages.value.includes(target)
+    ) {
+      cancelMessageEdit();
+      return;
+    }
+    cancelMessageEdit();
+
+    if (result.needsRegenerate && result.truncatedAfterMessage) {
+      const selection = getSelectedProviderSelection();
+      continueEditedMessage({
+        sessionId,
+        sourceRecord: target,
+        enableStreaming: enableStreaming.value,
+        enableReasoning: enableReasoning.value,
+        selectedProvider: selection?.providerId || "",
+        selectedModel: selection?.modelName || "",
+      });
+      scrollToBottom(true);
+    } else if (result.needsRegenerate) {
+      const index = activeMessages.value.findIndex(
+        (message) => String(message.id) === String(target.id),
+      );
+      const nextBot = activeMessages.value
+        .slice(index + 1)
+        .find((message) => !isUserMessage(message));
+      if (nextBot) {
+        await handleRegenerateMessage(nextBot);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to edit message:", error);
+  } finally {
+    savingMessageEdit.value = false;
+  }
+}
+
+async function handleRegenerateMessage(
+  message: ChatRecord,
+  selection?: RegenerateModelSelection,
+) {
+  if (
+    !currSessionId.value ||
+    isUserMessage(message) ||
+    message.can_retry === false
+  )
+    return;
+  message.threads = [];
+  const effectiveSelection = selection ?? getSelectedProviderSelection();
+  writeSessionProviderSelection(currSessionId.value, effectiveSelection);
+  await regenerateMessage(
+    currSessionId.value,
+    message,
+    effectiveSelection?.providerId || "",
+    effectiveSelection?.modelName || "",
+    enableStreaming.value,
+    enableReasoning.value,
+  );
+}
+
+function handleBotTextSelection(event: MouseEvent, message: ChatRecord) {
+  if (message.id == null || String(message.id).startsWith("local-")) return;
+  const container = event.currentTarget as HTMLElement | null;
+  window.setTimeout(() => {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim() || "";
+    if (!selection || !selectedText) {
+      threadSelection.visible = false;
+      return;
+    }
+    if (
+      !container ||
+      !container.contains(selection.anchorNode) ||
+      !container.contains(selection.focusNode)
+    ) {
+      threadSelection.visible = false;
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    threadSelection.message = message;
+    threadSelection.selectedText = selectedText;
+    threadSelection.left = Math.min(
+      window.innerWidth - 180,
+      Math.max(12, rect.left + rect.width / 2 - 70),
+    );
+    threadSelection.top = Math.max(12, rect.top - 42);
+    threadSelection.visible = true;
+  }, 0);
+}
+
+async function createThreadFromSelection() {
+  const message = threadSelection.message;
+  if (
+    !currSessionId.value ||
+    !message?.id ||
+    !threadSelection.selectedText ||
+    message.can_fork === false
+  )
+    return;
+  try {
+    const response = await chatApi.createThread({
+      session_id: currSessionId.value,
+      parent_message_id: message.id,
+      selected_text: threadSelection.selectedText,
+    });
+    if (response.data?.status !== "ok") {
+      toast.error(response.data?.message || tm("thread.createFailed"));
+      return;
+    }
+    const thread = response.data?.data as ChatThread | undefined;
+    if (!thread) {
+      toast.error(tm("thread.createFailed"));
+      return;
+    }
+    message.threads = message.threads || [];
+    if (!message.threads.some((item) => item.thread_id === thread.thread_id)) {
+      message.threads.push(thread);
+    }
+    openThreadPanel(thread);
+    window.getSelection()?.removeAllRanges();
+  } catch (error) {
+    toast.error(
+      isAxiosError(error)
+        ? error.response?.data?.message || error.message
+        : tm("thread.createFailed"),
+    );
+    console.error("Failed to create thread:", error);
+  } finally {
+    threadSelection.visible = false;
+  }
+}
+
+function openThreadPanel(thread: ChatThread) {
+  chatHeader.SET_WORKSPACE_FILES_OPEN(false);
+  activeThread.value = thread;
+  threadPanelOpen.value = true;
+}
+
+async function loadEarlierWithAnchor() {
+  const sessionId = currSessionId.value;
+  if (!sessionId || activeSessionPagination.value?.loading) return;
+  const container = messagesContainer.value;
+  const firstMessage = activeMessages.value[0];
+  const firstId = firstMessage?.id == null ? "" : String(firstMessage.id);
+  const beforeScrollTop = Math.max(0, container?.scrollTop || 0);
+  const beforeTop = firstId
+    ? container
+        ?.querySelector<HTMLElement>(
+          `[data-message-id="${CSS.escape(firstId)}"]`,
+        )
+        ?.getBoundingClientRect().top
+    : undefined;
+  suppressAutoScroll.value = true;
+  try {
+    await loadEarlierMessages(sessionId);
+    if (currSessionId.value !== sessionId) return;
+    await nextTick();
+    if (beforeTop == null || !container || !firstId) return;
+    const row = container.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(firstId)}"]`,
+    );
+    if (row) {
+      const currentScrollTop = Math.max(0, container.scrollTop);
+      const userScrollDelta = currentScrollTop - beforeScrollTop;
+      container.scrollTop +=
+        row.getBoundingClientRect().top - beforeTop + userScrollDelta;
+      lastMessagesScrollTop = Math.max(0, container.scrollTop);
+      lastMessagesScrollHeight = container.scrollHeight;
+      lastMessagesClientHeight = container.clientHeight;
+    }
+  } finally {
+    suppressAutoScroll.value = false;
+  }
+}
+
+async function retryCurrentSessionLoad() {
+  const sessionId = currSessionId.value;
+  if (!sessionId || activeSessionPagination.value?.loading) return;
+  if (activeMessages.value.length && activeSessionPagination.value?.has_more) {
+    await loadEarlierWithAnchor();
+    return;
+  }
+  await loadSessionMessages(sessionId, true, true);
+}
+
+async function deleteThread(thread: ChatThread) {
+  if (deletingThread.value) return;
+  if (!(await askForConfirmation(tm("thread.confirmDelete"), confirmDialog)))
+    return;
+  deletingThread.value = true;
+  try {
+    await chatApi.deleteThread(thread.thread_id);
+    removeThreadFromMessages(thread.thread_id);
+    if (activeThread.value?.thread_id === thread.thread_id) {
+      threadPanelOpen.value = false;
+      activeThread.value = null;
+    }
+  } catch (error) {
+    console.error("Failed to delete thread:", error);
+  } finally {
+    deletingThread.value = false;
+  }
+}
+
+function removeThreadFromMessages(threadId: string) {
+  for (const message of activeMessages.value) {
+    if (!message.threads?.length) continue;
+    message.threads = message.threads.filter(
+      (thread) => thread.thread_id !== threadId,
+    );
+  }
+}
+
+async function handleFilesSelected(files: FileList | File[]) {
+  const selectedFiles = Array.from(files || []);
+  for (const file of selectedFiles) {
+    if (file.type.startsWith("image/")) {
+      await processAndUploadImage(file);
+    } else {
+      await processAndUploadFile(file);
+    }
+  }
+}
+
+function handleMessagesInteraction(
+  event: WheelEvent | TouchEvent | PointerEvent | KeyboardEvent,
+) {
+  if (event instanceof WheelEvent) {
+    if (event.ctrlKey || event.deltaY === 0) return;
+    autoScrollPaused.value = true;
+    scrollIntent = Math.sign(event.deltaY);
+  } else if (event.type === "touchstart" || event.type === "touchmove") {
+    const touch = (event as TouchEvent).touches[0];
+    if (!touch) return;
+    if (event.type === "touchstart") {
+      touchScrollY = touch.clientY;
+      return;
+    }
+    autoScrollPaused.value = true;
+    scrollIntent = Math.sign(touchScrollY - touch.clientY);
+    touchScrollY = touch.clientY;
+  } else if (event instanceof KeyboardEvent) {
+    const target = event.target as HTMLElement;
+    if (
+      target.closest("input, textarea, select, [contenteditable], button, a")
+    ) {
+      return;
+    }
+    if (
+      ["ArrowUp", "PageUp", "Home"].includes(event.key) ||
+      (event.key === " " && event.shiftKey)
+    ) {
+      scrollIntent = -1;
+    } else if (["ArrowDown", "PageDown", "End", " "].includes(event.key)) {
+      scrollIntent = 1;
+    } else {
+      return;
+    }
+    autoScrollPaused.value = true;
+  } else {
+    autoScrollPaused.value = true;
+    scrollIntent = 0;
+    shouldStickToBottom.value = false;
+  }
+  if (scrollIntent < 0) shouldStickToBottom.value = false;
+}
+
+function handleMessagesScroll() {
+  threadSelection.visible = false;
+  const container = messagesContainer.value;
+  if (!container) return;
+  const maxScrollTop = Math.max(
+    0,
+    container.scrollHeight - container.clientHeight,
+  );
+  const scrollTop = Math.max(0, container.scrollTop);
+  const previousTop = Math.min(lastMessagesScrollTop, maxScrollTop);
+  const contentGrew = container.scrollHeight > lastMessagesScrollHeight + 1;
+  const wasAtBottom =
+    lastMessagesScrollHeight > 0 &&
+    lastMessagesScrollHeight -
+      lastMessagesScrollTop -
+      lastMessagesClientHeight <=
+      2;
+  isAwayFromBottom.value = maxScrollTop - scrollTop > 2;
+
+  // A growing message list can emit a scroll event before the browser has
+  // adjusted scrollTop. Keep following when we were already at the bottom;
+  // only explicit user interaction should pause auto-scroll.
+  const causedByContentGrowth =
+    contentGrew &&
+    wasAtBottom &&
+    !autoScrollPaused.value &&
+    scrollIntent >= 0 &&
+    scrollTop >= previousTop;
+
+  if (causedByContentGrowth) {
+    shouldStickToBottom.value = true;
+    isAwayFromBottom.value = false;
+    scrollToBottom();
+  } else if (isAwayFromBottom.value || scrollTop < previousTop) {
+    autoScrollPaused.value = true;
+    shouldStickToBottom.value = false;
+  } else if (
+    scrollTop > previousTop &&
+    !isAwayFromBottom.value &&
+    scrollIntent >= 0
+  ) {
+    autoScrollPaused.value = false;
+    shouldStickToBottom.value = true;
+  }
+  lastMessagesScrollTop = scrollTop;
+  lastMessagesScrollHeight = container.scrollHeight;
+  lastMessagesClientHeight = container.clientHeight;
+  maybeLoadEarlierOnScroll(container);
+}
+
+function loadMoreSessions() {
+  const container = sidebarContent.value;
+  if (
+    !sessionsExpanded.value ||
+    !container ||
+    container.clientHeight === 0 ||
+    (isMobile.value && !mobileDrawer.open) ||
+    !sessionsPagination.hasMore ||
+    sessionsPagination.loading ||
+    sessionsPagination.error
+  )
+    return;
+  if (
+    container.scrollHeight - container.scrollTop - container.clientHeight > 120
+  )
+    return;
+  void getSessions(true);
+}
+
+function maybeLoadEarlierOnScroll(container: HTMLElement) {
+  const sessionId = currSessionId.value;
+  const pagination = activeSessionPagination.value;
+  if (!sessionId || !pagination) return;
+  if (!pagination.has_more || pagination.loading || pagination.error) return;
+  if (container.scrollHeight <= container.clientHeight) return;
+  if (container.scrollTop > LOAD_EARLIER_SCROLL_THRESHOLD) return;
+  void loadEarlierWithAnchor();
+}
+
+function scrollToBottom(resumeFollowing = false) {
+  if (resumeFollowing) {
+    autoScrollPaused.value = false;
+    shouldStickToBottom.value = true;
+    scrollIntent = 0;
+  }
+  // Coalesce stream, mutation, and resize notifications into one scroll per frame.
+  if (autoScrollFrame !== null) return;
+  autoScrollFrame = window.requestAnimationFrame(() => {
+    autoScrollFrame = null;
+    const container = messagesContainer.value;
+    // Recheck after rendering so queued stream updates cannot override user intent.
+    if (
+      !container ||
+      suppressAutoScroll.value ||
+      autoScrollPaused.value ||
+      !shouldStickToBottom.value
+    )
+      return;
+    container.scrollTop = container.scrollHeight;
+    lastMessagesScrollTop = Math.max(0, container.scrollTop);
+    lastMessagesScrollHeight = container.scrollHeight;
+    lastMessagesClientHeight = container.clientHeight;
+    isAwayFromBottom.value = false;
+  });
+}
+
+async function focusChatInput() {
+  await nextTick();
+  window.requestAnimationFrame(() => {
+    inputRef.value?.focusInput();
+  });
+}
+
+async function stopCurrentSession() {
+  if (!currSessionId.value) return;
+  try {
+    await stopSession(currSessionId.value);
+  } catch (error) {
+    console.error("Failed to stop session:", error);
+  }
+}
+</script>
+
+<style scoped>
+.chat-ui {
+  /* Side panels live inside .chat-main, which already starts below the 40px
+     window toolbar. Keep them flush with the content area's top edge. */
+  --chat-panel-top-offset: 0px;
+  --chat-session-active-bg: rgba(var(--v-theme-on-surface), 0.05);
+  --chat-page-bg: #fdfcfc;
+  --chat-border: #f2f2f2;
+  --chat-muted: rgba(var(--v-theme-on-surface), 0.62);
+  --chat-section-label: rgba(var(--v-theme-on-surface), 0.48);
+  --chat-content-width: 76%;
+  --chat-content-max-width: 760px;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  /* The chrome shows through the card's inset gap; the card itself paints
+     --chat-page-bg, so both themes read as one surface around the frame. */
+  background: var(--astrbot-chrome-bg, var(--chat-page-bg));
+  color: rgb(var(--v-theme-on-surface));
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Open Sans",
+    "Helvetica Neue",
+    sans-serif;
+}
+
+.chat-ui.is-dark {
+  --chat-session-active-bg: rgba(255, 255, 255, 0.08);
+  --chat-page-bg: rgb(var(--v-theme-background));
+  --chat-border: rgba(255, 255, 255, 0.1);
+  --chat-section-label: rgba(255, 255, 255, 0.5);
+}
+
+.chat-ui.is-dark .chat-sidebar {
+  border-right-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Match the shell's dynamic viewport sizing so the drawer's bottom (session list
+   tail and the Settings footer) stays above the mobile browsers' toolbar area. */
+.chat-sidebar {
+  top: 0 !important;
+  height: 100dvh !important;
+  background: var(--astrbot-chrome-bg, rgb(var(--v-theme-surface)));
+  border-right: 0;
+  user-select: none;
+}
+
+.chat-sidebar--paired {
+  border-radius: 16px 0 0 16px;
+  animation: paired-sidebar-enter 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.chat-sidebar--paired .chat-sidebar-rail-icon-stack .sidebar-panel-toggle-icon {
+  opacity: 1;
+  visibility: visible;
+}
+@keyframes paired-sidebar-enter {
+  from { opacity: 0; clip-path: inset(0 0 0 100%); }
+  to { opacity: 1; clip-path: inset(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-sidebar--paired { animation: none; }
+}
+
+.chat-sidebar.collapsed {
+  background: var(--astrbot-chrome-bg, rgb(var(--v-theme-surface)));
+  border-right: 0;
+}
+
+.chat-sidebar :deep(.v-navigation-drawer__content) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* The header draws across the whole width, above the full-height chat sidebar. */
+:global(.chat-sidebar .v-navigation-drawer__content) {
+  /* Seat the brand's top edge at the content area's top edge, fully below the toolbar. */
+  padding-top: calc(var(--astrbot-toolbar-height, 42px) - 10px);
+  box-sizing: border-box;
+}
+
+/* Off macOS the chat sidebar owns the top-left corner, so the brand sits in the
+   toolbar band itself instead of clearing it. */
+:global(html:not([data-astrbot-desktop-platform='macos']) .chat-sidebar .v-navigation-drawer__content) {
+  padding-top: 4px;
+}
+
+:global(html:not([data-astrbot-desktop-platform='macos']) .chat-sidebar .chat-sidebar-brand) {
+  min-height: var(--astrbot-toolbar-height, 42px);
+}
+
+/* On macOS the chat sidebar stays transparent; the shared tint is painted behind it. */
+:global(html[data-astrbot-desktop-platform='macos'] .chat-sidebar) {
+  background: transparent !important;
+}
+
+/* A temporary (mobile) drawer floats above the page, so the vibrancy
+   transparency would let content bleed through; keep it opaque instead. */
+:global(html[data-astrbot-desktop-platform='macos'] .chat-sidebar.v-navigation-drawer--temporary) {
+  background: var(--astrbot-chrome-bg, rgb(var(--v-theme-surface))) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16) !important;
+  z-index: 1007 !important;
+}
+
+/* Off macOS the chat sidebar is opaque and owns the top-left corner: it must paint
+   above the header's left zone so the brand stays visible in the toolbar band. */
+:global(html:not([data-astrbot-desktop-platform='macos']) .chat-sidebar) {
+  z-index: 1007 !important;
+}
+
+/* The dark chat sidebar uses its own palette; match the corner notch to it. */
+:global(html:not([data-astrbot-desktop-platform='macos']) .v-application.v-theme--PurpleThemeDark .v-main.chat-main) {
+  background-image: linear-gradient(
+    to right,
+    var(--astrbot-chrome-bg, #242424) 0 calc(var(--v-layout-left) + 12px),
+    transparent calc(var(--v-layout-left) + 12px) 100%
+  ) !important;
+}
+
+/* The chat header is in-flow, so the old absolute-header top offset is dead space;
+   drop it so the sub-header sits directly under the toolbar band. */
+:global(.chat-main) {
+  padding-top: 0 !important;
+}
+
+.sidebar-page-navigation .sidebar-top > :not(.chat-sidebar-brand),
+.sidebar-page-navigation .sidebar-content {
+  animation: sidebar-page-forward 180ms ease-out;
+}
+
+@keyframes sidebar-page-forward {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-page-navigation .sidebar-top > :not(.chat-sidebar-brand),
+  .sidebar-page-navigation .sidebar-content {
+    animation: none;
+  }
+}
+
+.sidebar-top {
+  padding: 0 16px 2px;
+}
+
+.chat-sidebar.collapsed .sidebar-top {
+  width: 56px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 0 2px;
+}
+
+.chat-sidebar-brand {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 10px 2px;
+}
+
+/* Force the brand onto its own compositing layer: on the macOS vibrancy window
+   the inline SVG logo can fail to paint after a webview reload. */
+.chat-sidebar-brand .chat-sidebar-brand-logo {
+  transform: translateZ(0);
+}
+
+.chat-sidebar-brand.collapsed {
+  width: 36px;
+  justify-content: center;
+  padding: 0 0 2px;
+}
+
+.chat-sidebar-brand-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  /* The ChatUI brand has a 2px logo optical correction below, so its layout
+     gap is 6px to match the dashboard brand's resulting visual spacing. */
+  gap: 6px;
+  color: rgb(var(--v-theme-on-surface));
+  line-height: 1.05;
+}
+
+.chat-sidebar-brand-logo {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  display: block;
+}
+
+.chat-sidebar-brand-title .chat-sidebar-brand-logo {
+  transform: translateX(-2px);
+}
+
+.chat-sidebar-brand-copy {
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.chat-sidebar-brand-name {
+  font-size: 18px;
+  /* Upstream serves a single 400-weight font (faux bold); our bundled
+     variable font renders true weights, so 700 matches their look. */
+  font-weight: 500;
+}
+
+.chat-sidebar-brand-toggle {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--chat-muted);
+}
+
+.chat-sidebar-brand-toggle :deep(.v-btn__overlay) {
+  opacity: 0 !important;
+}
+
+.chat-sidebar-rail-btn {
+  border: 0;
+  border-radius: var(--astrbot-radius-navigation);
+  background: transparent;
+  color: rgb(var(--v-theme-on-surface));
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.chat-sidebar-brand-toggle:hover {
+  background: transparent !important;
+  color: rgba(var(--v-theme-on-surface), 0.9);
+}
+
+.chat-sidebar-rail-icon-stack {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+}
+
+.chat-sidebar-rail-icon-stack > * {
+  grid-area: 1 / 1;
+}
+
+.chat-sidebar-brand-logo--collapsed {
+  width: 20px;
+  height: 20px;
+  transition:
+    opacity 0.14s ease,
+    visibility 0.14s ease;
+  opacity: 1;
+  visibility: visible;
+}
+
+.chat-sidebar-rail-icon-stack .sidebar-panel-toggle-icon {
+  transition:
+    opacity 0.14s ease,
+    visibility 0.14s ease;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.chat-sidebar-brand-toggle:hover .chat-sidebar-brand-logo--collapsed,
+.chat-sidebar-brand-toggle:focus-visible .chat-sidebar-brand-logo--collapsed {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.chat-sidebar-brand-toggle:hover .sidebar-panel-toggle-icon,
+.chat-sidebar-brand-toggle:focus-visible .sidebar-panel-toggle-icon {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sidebar-panel-toggle-icon {
+  flex: 0 0 auto;
+}
+
+.new-chat-btn,
+.settings-btn {
+  color: rgb(var(--v-theme-on-surface));
+  border-radius: var(--astrbot-radius-navigation);
+}
+
+.sidebar-action-icon {
+  color: currentcolor;
+  flex: 0 0 auto;
+  stroke-width: 2;
+}
+
+.new-chat-btn:not(.icon-only) .sidebar-action-icon {
+  margin-right: 12px !important;
+}
+
+.new-chat-btn,
+.settings-btn {
+  width: 100%;
+  min-height: 36px;
+  height: 36px;
+  justify-content: flex-start;
+  border-radius: var(--astrbot-radius-navigation);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sidebar-back-btn {
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+
+.sidebar-provider-btn {
+  margin-bottom: 2px;
+}
+
+.new-chat-btn:not(.icon-only),
+.settings-btn:not(.icon-only) {
+  padding-inline: 10px;
+}
+
+.new-chat-btn.icon-only,
+.settings-btn.icon-only {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  margin-inline: auto;
+  padding: 0 !important;
+  justify-content: center;
+}
+
+.chat-sidebar.collapsed .new-chat-btn.icon-only :deep(.v-btn__content),
+.chat-sidebar.collapsed .settings-btn.icon-only :deep(.v-btn__content) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.new-chat-btn :deep(.v-btn__content),
+.settings-btn :deep(.v-btn__content) {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.chat-sidebar.collapsed .sidebar-footer {
+  display: flex;
+  justify-content: center;
+}
+
+.new-chat-btn:hover,
+.settings-btn:hover {
+  background: var(--chat-session-active-bg);
+}
+
+.sidebar-workspace-btn--active {
+  background: var(--chat-session-active-bg);
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sidebar-section {
+  flex: 0 0 auto;
+}
+
+.sidebar-section-header {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--chat-section-label);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.session-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.session-section-toggle:hover {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.session-section-toggle .expanded-chevron {
+  opacity: 0;
+}
+
+.session-section-toggle:hover .expanded-chevron,
+.session-section-toggle:focus-visible .expanded-chevron {
+  opacity: 1;
+}
+
+.session-list {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-item {
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  border-radius: var(--astrbot-radius-navigation);
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  position: relative;
+  box-sizing: border-box;
+  cursor: pointer;
+  text-align: left;
+}
+
+.session-item:hover {
+  background: var(--chat-session-active-bg);
+}
+
+/* Active session stays clearly highlighted (subtle in light mode otherwise). */
+.session-item.active {
+  background: rgba(var(--v-theme-primary), 0.22);
+}
+
+.session-item.running {
+  padding-right: 27px;
+}
+
+.session-item:hover,
+.session-item:focus-within {
+  padding-right: 56px;
+}
+
+.session-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.session-progress {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-shrink: 0;
+  transition:
+    opacity 0.14s ease,
+    visibility 0.14s ease;
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  visibility: hidden;
+}
+
+.session-item:hover .session-actions,
+.session-item:focus-within .session-actions {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.session-item:hover .session-progress,
+.session-item:focus-within .session-progress {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.session-action-btn {
+  color: var(--chat-muted);
+}
+
+.session-action-btn:hover {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 10px 16px 14px;
+}
+
+.chat-sidebar.collapsed .sidebar-footer {
+  width: 56px;
+  box-sizing: border-box;
+  padding-inline: 10px;
+}
+
+.chat-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-sizing: border-box;
+  /* Upstream's .page-wrapper card frame: the content is a rounded card inset
+     by 6px from the chrome, one toolbar-height below the top edge. The
+     floating drawer is out of the flex flow, so the left offset is explicit. */
+  --astrbot-content-gap: 6px;
+  margin-top: var(--astrbot-toolbar-height, 50px);
+  margin-right: var(--astrbot-content-gap);
+  margin-bottom: var(--astrbot-content-gap);
+  margin-left: var(--astrbot-chat-sidebar-width, 0px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--chat-page-bg);
+}
+
+.provider-workspace-shell {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.provider-workspace-page {
+  height: 100%;
+  min-height: 0;
+}
+
+.conversation-stack {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 全区域拖拽上传遮罩 */
+.chat-drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(var(--v-theme-primary), 0.12);
+  border: 2px dashed rgba(var(--v-theme-primary), 0.45);
+  border-radius: 16px;
+}
+
+.chat-drop-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-drop-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: rgb(var(--v-theme-primary));
+}
+
+.drop-fade-enter-active,
+.drop-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.drop-fade-enter-from,
+.drop-fade-leave-to {
+  opacity: 0;
+}
+
+.conversation-stack.is-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+}
+.workbench-launcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--astrbot-radius-control);
+  color: rgb(var(--v-theme-on-surface));
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.workbench-launcher:hover {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.messages-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  overflow-anchor: auto;
+  padding: 24px 0 calc(var(--chat-composer-height, 82px) + 34px);
+  scroll-padding-bottom: calc(var(--chat-composer-height, 82px) + 34px);
+}
+
+.messages-panel.history-anchor-locked {
+  overflow-anchor: none;
+}
+
+.history-loading {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.conversation-stack.is-empty .messages-panel {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+  padding: 0;
+  scroll-padding-bottom: 0;
+}
+
+.messages-list-shell {
+  width: var(--chat-content-width);
+  max-width: var(--chat-content-max-width);
+  margin: 0 auto;
+}
+
+.center-state,
+.welcome-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.history-load-error {
+  margin: 0 auto 12px;
+}
+
+.conversation-stack.is-empty .welcome-state {
+  height: auto;
+}
+
+.welcome-title {
+  font-family: "Outfit", "Noto Sans", sans-serif;
+  font-size: 28px;
+  /* Faux-bold parity with upstream's 400-weight font; see brand-name note. */
+  font-weight: 700;
+}
+
+.welcome-subtitle {
+  margin-top: 8px;
+  color: var(--chat-muted);
+  font-size: 16px;
+}
+
+.thread-selection-action {
+  position: fixed;
+  z-index: 1200;
+  pointer-events: auto;
+}
+
+.thread-selection-button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  border-radius: 999px;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.composer-shell {
+  position: relative;
+  z-index: 3;
+  isolation: isolate;
+  background: transparent;
+  padding: 0 0 18px;
+}
+
+.scroll-to-bottom {
+  position: absolute;
+  top: -48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 50%;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.scroll-to-bottom:hover {
+  background: rgb(var(--v-theme-surface-variant));
+}
+
+.scroll-running-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.scroll-running-dots span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: scroll-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.scroll-running-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.scroll-running-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes scroll-dot-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-running-dots span {
+    animation: none;
+  }
+}
+
+.conversation-stack:not(.is-empty) .composer-shell {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.conversation-stack:not(.is-empty) .composer-shell::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 32px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  background: var(--chat-page-bg);
+}
+
+.composer-shell :deep(.input-area),
+.project-composer-shell :deep(.input-area) {
+  padding-top: 0;
+  padding-inline: 0;
+  border-top: 0;
+}
+
+.conversation-stack:not(.is-empty) .composer-shell :deep(.input-area) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  background: transparent;
+}
+
+.conversation-stack:not(.is-empty) .composer-shell :deep(.input-container) {
+  pointer-events: auto;
+}
+
+.conversation-stack.is-empty .composer-shell {
+  padding-bottom: 0;
+}
+
+kbd {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  font: inherit;
+}
+
+:deep(.paragraph-node) {
+  margin: 0.5rem 0;
+}
+
+:deep(.list-node) {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (min-width: 761px) {
+  .chat-main.has-side-panel {
+    --chat-content-width: calc(100% - 40px);
+  }
+
+  .messages-list-shell,
+  .composer-shell :deep(.input-container) {
+    transition:
+      width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      max-width 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .messages-list-shell,
+  .composer-shell :deep(.input-container) {
+    transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .messages-panel {
+    padding: 18px 0 calc(var(--chat-composer-height, 72px) + 20px);
+    scroll-padding-bottom: calc(var(--chat-composer-height, 72px) + 20px);
+  }
+
+  .conversation-stack.is-empty .messages-panel {
+    padding: 0;
+    scroll-padding-bottom: 0;
+  }
+
+  .messages-list-shell {
+    width: calc(100% - 20px);
+    max-width: 100%;
+  }
+
+  .composer-shell,
+  .project-composer-shell {
+    padding: 0;
+  }
+}
+</style>

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import EmptyState from "../components/common/EmptyState.vue";
+import ChatUIHost from "../chatui";
 import {
   getChatWindowTarget,
   listenChatTargetChanged,
@@ -118,9 +119,11 @@ onBeforeUnmount(() => {
       >
         {{ instanceAlert }}
       </v-alert>
-      <div v-else class="chat-view__ready">
-        <p class="chat-view__ready-text">{{ t("chat.ready") }}</p>
-      </div>
+      <ChatUIHost
+        v-else
+        class="chat-view__ui"
+        :instance-id="instanceId"
+      />
     </template>
   </div>
 </template>
@@ -136,18 +139,11 @@ onBeforeUnmount(() => {
   margin: 16px;
 }
 
+.chat-view__ui {
+  height: 100%;
+}
+
 .chat-view__messages {
   height: 100%;
-}
-
-.chat-view__ready {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.chat-view__ready-text {
-  color: rgba(var(--v-theme-on-surface), 0.6);
 }
 </style>
