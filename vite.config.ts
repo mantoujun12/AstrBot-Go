@@ -3,8 +3,15 @@ import { codecovVitePlugin } from "@codecov/vite-plugin";
 import vue from "@vitejs/plugin-vue";
 import vuetify from "vite-plugin-vuetify";
 // @ts-expect-error type error without @types/node package
+import { fileURLToPath } from "node:url";
+// @ts-expect-error type error without @types/node package
 import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;
+
+// The chatui island mirrors the upstream dashboard's `@/` import paths.
+const chatuiAlias = {
+  "@": fileURLToPath(new URL("./src/chatui", import.meta.url)),
+};
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
@@ -19,6 +26,10 @@ export default defineConfig(() => ({
       uploadToken: process.env.CODECOV_TOKEN,
     }),
   ],
+
+  resolve: {
+    alias: chatuiAlias,
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

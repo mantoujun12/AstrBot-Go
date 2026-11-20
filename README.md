@@ -51,6 +51,7 @@ Platform-specific capabilities are adapted through Rust conditional compilation 
     - [Vue 3](https://vuejs.org/)
     - [Vuetify 4](https://vuetifyjs.com/)
     - [TypeScript](https://www.typescriptlang.org/)
+    - Chat window UI ported from AstrBot's upstream dashboard ChatUI (MIT, CodedThemes); see `src/chatui/LICENSE`
 - Build and package manager:
     - [Vite](https://vite.dev/)
     - [pnpm](https://pnpm.io/)

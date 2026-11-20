@@ -1,4 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { isLanguagePreference } from "../i18n/locale";
 import type {
   AppSnapshot,
   DefaultCredentials,
@@ -7,9 +8,12 @@ import type {
   InstanceRestartEvent,
   LogEntry,
   LogLevel,
+  PreferencesChangedEvent,
+  ReduceMotionPreference,
   ResourceAlertEvent,
   ScheduledJob,
   TaskRecord,
+  ThemePreference,
 } from "../types/launcher";
 import { toScheduledJob } from "./scheduled";
 import { toTaskRecord } from "./tasks";
@@ -180,6 +184,44 @@ export function listenInstanceRestart(
     const payload = toInstanceRestartEvent(event.payload);
     if (payload) {
       handler(payload);
+    }
+  });
+}
+
+function isThemePreference(value: unknown): value is ThemePreference {
+  return value === "system" || value === "light" || value === "dark";
+}
+
+function isReduceMotionPreference(
+  value: unknown,
+): value is ReduceMotionPreference {
+  return value === "system" || value === "on" || value === "off";
+}
+
+function toPreferencesChanged(value: unknown): PreferencesChangedEvent | null {
+  if (
+    !isRecord(value) ||
+    !isThemePreference(value.theme_preference) ||
+    !isLanguagePreference(value.language_preference) ||
+    !isReduceMotionPreference(value.reduce_motion_preference)
+  ) {
+    return null;
+  }
+  return {
+    theme_preference: value.theme_preference,
+    language_preference: value.language_preference,
+    reduce_motion_preference: value.reduce_motion_preference,
+  };
+}
+
+/** Appearance preference saved in any window, broadcast to every window. */
+export function listenPreferencesChanged(
+  handler: (preferences: PreferencesChangedEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<unknown>("preferences-changed", (event) => {
+    const preferences = toPreferencesChanged(event.payload);
+    if (preferences) {
+      handler(preferences);
     }
   });
 }
