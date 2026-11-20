@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import ChatUIHost from "../chatui";
 import {
   getChatWindowTarget,
   listenChatTargetChanged,
 } from "../services/chat";
 import { useLauncherStore } from "../stores/launcher";
 
-const { t } = useI18n();
 const { instances } = useLauncherStore();
 
-// Reserved for the chat island host that mounts in the next layer.
 const instanceId = ref<string | null>(null);
 let unlistenTarget: UnlistenFn | null = null;
 
@@ -85,21 +83,22 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="chat-view">
-    <span class="chat-view__pending">{{ t("chat.windowPending") }}</span>
+    <ChatUIHost
+      class="chat-view__ui"
+      :instance-id="instanceId"
+      @select-instance="instanceId = $event"
+    />
   </div>
 </template>
 
 <style scoped>
 .chat-view {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   height: 100%;
   min-height: 0;
   overflow: hidden;
 }
 
-.chat-view__pending {
-  opacity: 0.7;
+.chat-view__ui {
+  height: 100%;
 }
 </style>

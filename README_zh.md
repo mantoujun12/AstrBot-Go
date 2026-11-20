@@ -51,6 +51,7 @@
     - [Vue 3](https://vuejs.org/)
     - [Vuetify 4](https://vuetifyjs.com/)
     - [TypeScript](https://www.typescriptlang.org/)
+    - 聊天窗口界面移植自 AstrBot 上游仪表盘的 ChatUI（MIT，CodedThemes）；许可证见 `src/chatui/LICENSE`
 - 构建与包管理：
     - [Vite](https://vite.dev/)
     - [pnpm](https://pnpm.io/)
