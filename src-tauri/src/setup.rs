@@ -173,7 +173,7 @@ pub fn configure_main_window(window: &tauri::WebviewWindow) {
 /// up for the taskbar, which blurs it on high-DPI displays. Set the largest
 /// embedded entry instead so the shell always downscales.
 #[cfg(target_os = "windows")]
-fn apply_crisp_window_icon(window: &tauri::WebviewWindow) {
+pub(crate) fn apply_crisp_window_icon(window: &tauri::WebviewWindow) {
     match tauri::image::Image::from_app_icon_resource(256) {
         Ok(icon) => {
             if let Err(error) = window.set_icon(icon) {
@@ -185,6 +185,13 @@ fn apply_crisp_window_icon(window: &tauri::WebviewWindow) {
 }
 
 fn apply_initial_background(window: &tauri::WebviewWindow) {
+    apply_window_background(window, window_backdrop_is_transparent());
+}
+
+/// Applies the initial window background: fully transparent where a native
+/// material must show through the webview, otherwise the theme's colour so
+/// the window never flashes a wrong tint while the page loads.
+pub(crate) fn apply_window_background(window: &tauri::WebviewWindow, transparent: bool) {
     let preference = load_config()
         .map(|config| config.theme_preference)
         .unwrap_or_default();
@@ -196,7 +203,7 @@ fn apply_initial_background(window: &tauri::WebviewWindow) {
             .map(|theme| theme == tauri::Theme::Dark)
             .unwrap_or(false),
     };
-    let color = if window_backdrop_is_transparent() {
+    let color = if transparent {
         TRANSPARENT_WINDOW_BACKGROUND
     } else if dark {
         DARK_WINDOW_BACKGROUND
@@ -234,7 +241,7 @@ fn window_backdrop_is_transparent() -> bool {
 /// Mica requires Windows 11 (build 22000+). `RtlGetVersion` reports the real
 /// build number, while `GetVersionEx` is shimmed by the application manifest.
 #[cfg(target_os = "windows")]
-fn windows_supports_mica() -> bool {
+pub(crate) fn windows_supports_mica() -> bool {
     windows_build_number() >= WINDOWS_11_FIRST_BUILD
 }
 
@@ -268,7 +275,7 @@ fn windows_build_number() -> u32 {
 /// more strongly than plain Mica; builds 22000-22620 only support the
 /// undocumented Mica attribute (1029), as used by `window-vibrancy`.
 #[cfg(target_os = "windows")]
-fn apply_windows_backdrop(window: &tauri::WebviewWindow) {
+pub(crate) fn apply_windows_backdrop(window: &tauri::WebviewWindow) {
     use std::ffi::c_void;
     use windows::Win32::Graphics::Dwm::{
         DwmSetWindowAttribute, DWMSBT_TABBEDWINDOW, DWMWA_SYSTEMBACKDROP_TYPE, DWMWINDOWATTRIBUTE,
@@ -334,7 +341,7 @@ fn apply_windows_backdrop(window: &tauri::WebviewWindow) {
 /// rounded corners restores them; builds that ignore the attribute just return
 /// an error, which is only logged.
 #[cfg(target_os = "windows")]
-fn apply_windows_corner_preference(window: &tauri::WebviewWindow) {
+pub(crate) fn apply_windows_corner_preference(window: &tauri::WebviewWindow) {
     use std::ffi::c_void;
     use windows::Win32::Graphics::Dwm::{
         DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
