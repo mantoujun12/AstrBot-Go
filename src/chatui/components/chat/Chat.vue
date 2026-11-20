@@ -285,7 +285,7 @@
       class="chat-main"
       :class="{
         'empty-chat': isEmptyChat,
-        'has-side-panel': threadPanelOpen,
+        'has-side-panel': threadPanelOpen || refsSidebarOpen,
       }"
     >
       <div
@@ -365,6 +365,7 @@
               @regenerate-with-model="handleRegenerateMessage"
               @select-bot-text="handleBotTextSelection"
               @open-thread="openThreadPanel"
+              @open-refs="openRefsSidebar"
               @button-click="handleButtonClick"
               @configure-models="openProviderWorkspace()"
             />
@@ -514,7 +515,7 @@
       @delete="deleteThread"
       @configure-models="openProviderWorkspace()"
     />
-    <!-- shortcut: restore with the message rendering layer (refs sidebar) -->
+    <RefsSidebar v-model="refsSidebarOpen" :refs="selectedRefs" />
   </div>
 </template>
 
@@ -561,7 +562,7 @@ import { chatInstanceSelectionKey } from "@/instanceSelection";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ThreadPanel from "@/components/chat/ThreadPanel.vue";
 import { chatPreferences } from "@/utils/chatPreferences";
-// shortcut: restore with the message rendering layer (refs sidebar)
+import RefsSidebar from "@/components/chat/message_list_comps/RefsSidebar.vue";
 import { useSessions, type Session } from "@/composables/useSessions";
 import {
   useMessages,
@@ -723,7 +724,8 @@ const replyTarget = ref<ChatRecord | null>(null);
 const threadPanelOpen = ref(false);
 const activeThread = ref<ChatThread | null>(null);
 const deletingThread = ref(false);
-// shortcut: restore with the message rendering layer (refs sidebar)
+const refsSidebarOpen = ref(false);
+const selectedRefs = ref<Record<string, unknown> | null>(null);
 const threadSelection = reactive<{
   visible: boolean;
   left: number;
@@ -1022,6 +1024,8 @@ watch(
     threadSelection.visible = false;
     threadPanelOpen.value = false;
     activeThread.value = null;
+    refsSidebarOpen.value = false;
+    selectedRefs.value = null;
   },
 );
 
@@ -1149,6 +1153,8 @@ function closeSecondaryPanels() {
   threadSelection.visible = false;
   threadPanelOpen.value = false;
   activeThread.value = null;
+  refsSidebarOpen.value = false;
+  selectedRefs.value = null;
   chatHeader.SET_WORKSPACE_FILES_OPEN(false);
 }
 
@@ -1554,10 +1560,19 @@ async function createThreadFromSelection() {
 
 function openThreadPanel(thread: ChatThread) {
   chatHeader.SET_WORKSPACE_FILES_OPEN(false);
+  refsSidebarOpen.value = false;
   activeThread.value = thread;
   threadPanelOpen.value = true;
 }
-// shortcut: restore with the message rendering layer (openRefsSidebar)
+
+function openRefsSidebar(refs: unknown) {
+  chatHeader.SET_WORKSPACE_FILES_OPEN(false);
+  threadPanelOpen.value = false;
+  activeThread.value = null;
+  selectedRefs.value =
+    refs && typeof refs === "object" ? (refs as Record<string, unknown>) : null;
+  refsSidebarOpen.value = true;
+}
 
 async function loadEarlierWithAnchor() {
   const sessionId = currSessionId.value;
