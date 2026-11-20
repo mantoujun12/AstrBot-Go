@@ -15,7 +15,7 @@ use crate::utils::net::{
 use crate::utils::proxy::{
     build_single_url_proxy_settings, ProxyFields, ProxySource, DEFAULT_NO_PROXY_VALUE,
 };
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter as _, State};
 
 // === Config ===
 
@@ -252,16 +252,62 @@ define_save_config_command!(
     ignored_launcher_version: String,
     ignored_launcher_version
 );
-define_save_config_command!(
-    save_theme_preference,
+
+/// Appearance preferences are shared by every window (launcher and chat), so a
+/// save must notify the other windows instead of only updating the caller.
+#[derive(Clone, serde::Serialize)]
+struct PreferencesChangedEvent {
     theme_preference: ThemePreference,
-    theme_preference
-);
-define_save_config_command!(
-    save_reduce_motion_preference,
+    language_preference: LanguagePreference,
     reduce_motion_preference: ReduceMotionPreference,
-    reduce_motion_preference
-);
+}
+
+fn emit_preferences_changed(app_handle: &AppHandle) {
+    let config = match load_config() {
+        Ok(config) => config,
+        Err(error) => {
+            log::warn!(
+                "Failed to load config for preferences-changed event: {}",
+                error
+            );
+            return;
+        }
+    };
+    let payload = PreferencesChangedEvent {
+        theme_preference: config.theme_preference,
+        language_preference: config.language_preference,
+        reduce_motion_preference: config.reduce_motion_preference,
+    };
+    if let Err(error) = app_handle.emit("preferences-changed", payload) {
+        log::warn!("Failed to emit preferences-changed: {}", error);
+    }
+}
+
+#[tauri::command]
+pub fn save_theme_preference(
+    theme_preference: ThemePreference,
+    app_handle: AppHandle,
+) -> Result<()> {
+    with_config_mut(move |config| {
+        config.theme_preference = theme_preference;
+        Ok(())
+    })?;
+    emit_preferences_changed(&app_handle);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_reduce_motion_preference(
+    reduce_motion_preference: ReduceMotionPreference,
+    app_handle: AppHandle,
+) -> Result<()> {
+    with_config_mut(move |config| {
+        config.reduce_motion_preference = reduce_motion_preference;
+        Ok(())
+    })?;
+    emit_preferences_changed(&app_handle);
+    Ok(())
+}
 
 #[tauri::command]
 pub fn save_language_preference(
@@ -274,6 +320,7 @@ pub fn save_language_preference(
     })?;
 
     crate::tray::refresh_tray_menu(&app_handle);
+    emit_preferences_changed(&app_handle);
     Ok(())
 }
 
