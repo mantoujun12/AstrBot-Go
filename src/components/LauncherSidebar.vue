@@ -2,6 +2,8 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import SidebarNavItem from "./SidebarNavItem.vue";
+import { openChatWindow } from "../services/chat";
+import { showErrorToast } from "../stores/toast";
 
 const props = defineProps<{
   permanent: boolean;
@@ -20,6 +22,14 @@ const emit = defineEmits<{
 const toggleLabel = computed(() =>
   props.rail ? t("shell.sidebar.expand") : t("shell.sidebar.collapse"),
 );
+
+async function handleOpenChat(): Promise<void> {
+  try {
+    await openChatWindow();
+  } catch (cause) {
+    showErrorToast(cause);
+  }
+}
 </script>
 
 <template>
@@ -35,6 +45,14 @@ const toggleLabel = computed(() =>
   >
     <div class="launcher-sidebar__content">
       <v-list nav density="comfortable" class="launcher-sidebar__nav">
+        <SidebarNavItem
+          icon="mdi-chat-outline"
+          :label="t('shell.nav.chat')"
+          append-icon="mdi-chevron-right"
+          :tooltip-disabled="!props.rail"
+          :active="false"
+          @select="handleOpenChat"
+        />
         <SidebarNavItem
           icon="mdi-view-dashboard-outline"
           :label="t('shell.nav.overview')"

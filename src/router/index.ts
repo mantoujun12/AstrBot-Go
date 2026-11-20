@@ -15,6 +15,11 @@ const routes: RouteRecordRaw[] = [
     component: OverviewView,
   },
   {
+    path: "/chat",
+    name: "chat",
+    component: () => import("../views/ChatView.vue"),
+  },
+  {
     path: "/instances",
     name: "instances",
     component: InstancesView,

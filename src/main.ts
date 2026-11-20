@@ -17,6 +17,7 @@ import { router } from "./router";
 import { applyThemeColors, readStoredThemeColors } from "./theme/customColors";
 import { readCachedTheme } from "./utils/themeCache";
 import { showMainWindow } from "./services/windowControls";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 type DesktopPlatform = "macos" | "windows" | "web";
 
@@ -72,6 +73,18 @@ createApp(App).use(i18n).use(vuetify).use(router).mount("#app");
 void revealMainWindowAfterFirstPaint();
 
 async function revealMainWindowAfterFirstPaint(): Promise<void> {
+  // Only the launcher window announces itself; the chat window reuses this
+  // entry and must not reveal the main window when it mounts.
+  let label = "main";
+  try {
+    label = getCurrentWindow().label;
+  } catch {
+    // Browser preview: no Tauri window, fall through to the harmless error.
+  }
+  if (label !== "main") {
+    return;
+  }
+
   await nextTick();
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => {
