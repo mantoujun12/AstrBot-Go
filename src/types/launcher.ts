@@ -16,6 +16,13 @@ export type LanguagePreference = "system" | SupportedLocale;
 
 export type TrayStyle = "native_menu" | "panel";
 
+/** Cross-window payload emitted after an appearance preference is saved. */
+export interface PreferencesChangedEvent {
+  theme_preference: ThemePreference;
+  language_preference: LanguagePreference;
+  reduce_motion_preference: ReduceMotionPreference;
+}
+
 export type InstanceState = "stopped" | "starting" | "running" | "stopping";
 
 export type ComponentId = "python" | "nodejs" | "uv";
@@ -108,6 +115,7 @@ export interface InstanceStatus {
   port: number;
   version: string;
   dashboard_enabled: boolean;
+  dashboard_credentials_configured: boolean;
   pid_tracker_not_available: boolean;
   configured_host: string;
   configured_port: number;
@@ -398,6 +406,10 @@ export interface UpdateInstanceRequest {
   autoRestartEnabled?: boolean;
   autoRestartMaxRetries?: number;
   autoRestartNotify?: boolean;
+  /** "" clears the field; omitted keeps it; a value sets it. Username is trimmed. */
+  dashboardUsername?: string | null;
+  /** "" clears the field; omitted keeps it; a value is stored verbatim. */
+  dashboardPassword?: string | null;
 }
 
 export interface InstanceRestartEvent {

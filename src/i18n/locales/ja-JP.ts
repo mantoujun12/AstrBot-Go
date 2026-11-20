@@ -529,6 +529,7 @@ const jaJP = {
   },
   shell: {
     nav: {
+      chat: "チャット",
       overview: "概要",
       instances: "インスタンス",
       versions: "バージョン",
@@ -770,9 +771,16 @@ const jaJP = {
         autoRestart: "異常終了後に自動再起動",
         autoRestartMaxRetries: "最大リトライ回数",
         autoRestartNotify: "再起動時に通知",
+        dashboardUsername: "WebUI ユーザー名",
+        dashboardPassword: "WebUI パスワード",
       },
       emptyVersions: "インストール済みのバージョンはありません",
       goVersions: "バージョンページへ移動",
+      dashboardConfigured: "設定済み（空欄なら変更なし）",
+      dashboardHint: "AstrBot WebUI のログイン情報を入力します。",
+      dashboardClear: "保存済みのログイン情報を削除",
+      dashboardKeep: "保存済みのログイン情報を保持",
+      dashboardClearPending: "保存時に保存済みのログイン情報を削除します。",
       validation: {
         nameRequired: "名前を入力してください",
         versionRequired: "バージョンを選択してください",

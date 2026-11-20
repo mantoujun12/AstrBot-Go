@@ -28,6 +28,23 @@ fn ensure_version_installed(manifest: &AppManifest, version: &str) -> Result<()>
     }
 }
 
+/// `None` keeps the stored value, an empty value clears that field, and any
+/// other value replaces it. The username is trimmed (it is a login name); the
+/// password is kept byte-for-byte because leading/trailing spaces can be part
+/// of it.
+fn apply_dashboard_credentials(
+    instance: &mut InstanceConfig,
+    username: Option<&str>,
+    password: Option<&str>,
+) {
+    if let Some(username) = username {
+        instance.dashboard_username = username.trim().to_string();
+    }
+    if let Some(password) = password {
+        instance.dashboard_password = password.to_string();
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn update_instance_config(
     instance_id: &str,
@@ -39,6 +56,8 @@ fn update_instance_config(
     auto_restart_enabled: Option<bool>,
     auto_restart_max_retries: Option<u32>,
     auto_restart_notify: Option<bool>,
+    dashboard_username: Option<&str>,
+    dashboard_password: Option<&str>,
 ) -> Result<()> {
     let id = instance_id.to_string();
     let name_owned = name.map(ToOwned::to_owned);
@@ -75,6 +94,7 @@ fn update_instance_config(
         if let Some(v) = auto_restart_notify {
             instance.auto_restart_notify = v;
         }
+        apply_dashboard_credentials(instance, dashboard_username, dashboard_password);
         Ok(())
     })
 }
@@ -179,6 +199,8 @@ pub fn create_instance(name: &str, version: &str, port: u16) -> Result<()> {
             auto_restart_enabled: false,
             auto_restart_max_retries: 3,
             auto_restart_notify: true,
+            dashboard_username: String::new(),
+            dashboard_password: String::new(),
         };
 
         manifest.instances.insert(key, instance);
@@ -229,6 +251,8 @@ pub async fn update_instance(
     auto_restart_enabled: Option<bool>,
     auto_restart_max_retries: Option<u32>,
     auto_restart_notify: Option<bool>,
+    dashboard_username: Option<&str>,
+    dashboard_password: Option<&str>,
     app_handle: &AppHandle,
 ) -> Result<()> {
     validate_instance_id(instance_id)?;
@@ -362,6 +386,8 @@ pub async fn update_instance(
             auto_restart_enabled,
             auto_restart_max_retries,
             auto_restart_notify,
+            dashboard_username,
+            dashboard_password,
         )?;
 
         emit_progress(
@@ -384,6 +410,8 @@ pub async fn update_instance(
             auto_restart_enabled,
             auto_restart_max_retries,
             auto_restart_notify,
+            dashboard_username,
+            dashboard_password,
         )
     }
 }
@@ -455,6 +483,8 @@ pub fn list_instances(
                 auto_restart_enabled: inst.auto_restart_enabled,
                 auto_restart_max_retries: inst.auto_restart_max_retries.max(1),
                 auto_restart_notify: inst.auto_restart_notify,
+                dashboard_credentials_configured: !inst.dashboard_username.trim().is_empty()
+                    && !inst.dashboard_password.is_empty(),
                 last_exit_reason,
                 restart_attempts,
                 restarts_completed,
@@ -465,4 +495,60 @@ pub fn list_instances(
 
     instances.sort_by_cached_key(|a| a.id.clone());
     instances
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::process::ResourceAlertThreshold;
+
+    fn instance(username: &str, password: &str) -> InstanceConfig {
+        let defaults = ResourceAlertThreshold::default();
+        InstanceConfig {
+            name: "main".to_string(),
+            version: "v4.29.4".to_string(),
+            host: DEFAULT_INSTANCE_HOST.to_string(),
+            port: 0,
+            created_at: String::new(),
+            check_update_enabled: true,
+            resource_alert_cpu_percent: Some(defaults.cpu_percent),
+            resource_alert_memory_bytes: Some(defaults.memory_bytes),
+            resource_alert_disk_bytes: Some(defaults.disk_bytes),
+            resource_alert_enabled: defaults.enabled,
+            auto_restart_enabled: false,
+            auto_restart_max_retries: 3,
+            auto_restart_notify: true,
+            dashboard_username: username.to_string(),
+            dashboard_password: password.to_string(),
+        }
+    }
+
+    #[test]
+    fn absent_credentials_keep_the_stored_values() {
+        let mut config = instance("admin", "saved");
+        apply_dashboard_credentials(&mut config, None, None);
+        assert_eq!(config.dashboard_username, "admin");
+        assert_eq!(config.dashboard_password, "saved");
+    }
+
+    #[test]
+    fn empty_credentials_clear_only_the_given_field() {
+        let mut config = instance("admin", "saved");
+        apply_dashboard_credentials(&mut config, Some(""), None);
+        assert_eq!(config.dashboard_username, "");
+        assert_eq!(config.dashboard_password, "saved");
+
+        let mut config = instance("admin", "saved");
+        apply_dashboard_credentials(&mut config, None, Some(""));
+        assert_eq!(config.dashboard_username, "admin");
+        assert_eq!(config.dashboard_password, "");
+    }
+
+    #[test]
+    fn username_is_trimmed_but_password_is_kept_verbatim() {
+        let mut config = instance("", "");
+        apply_dashboard_credentials(&mut config, Some("  admin  "), Some("  p@ss  "));
+        assert_eq!(config.dashboard_username, "admin");
+        assert_eq!(config.dashboard_password, "  p@ss  ");
+    }
 }

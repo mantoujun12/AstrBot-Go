@@ -24,7 +24,7 @@ pub fn rebuild_instance_manifest_from_disk() -> Result<RebuildInstanceManifestRe
 
     with_manifest_mut(move |manifest| {
         manifest.installed_versions = installed_versions;
-        manifest.instances = instances;
+        manifest.instances = merge_recovered_instances(instances, &manifest.instances);
         let rebuilt_ids: HashSet<String> = manifest.instances.keys().cloned().collect();
         manifest
             .tracked_instances_snapshot
@@ -36,6 +36,24 @@ pub fn rebuild_instance_manifest_from_disk() -> Result<RebuildInstanceManifestRe
         instances: instance_count,
         versions: version_count,
     })
+}
+
+/// Keep the dashboard login of every instance that survives a rebuild; the
+/// recovered record cannot read it back from the instance directory.
+fn merge_recovered_instances(
+    recovered: HashMap<String, InstanceConfig>,
+    existing: &HashMap<String, InstanceConfig>,
+) -> HashMap<String, InstanceConfig> {
+    recovered
+        .into_iter()
+        .map(|(id, mut instance)| {
+            if let Some(saved) = existing.get(&id) {
+                instance.dashboard_username = saved.dashboard_username.clone();
+                instance.dashboard_password = saved.dashboard_password.clone();
+            }
+            (id, instance)
+        })
+        .collect()
 }
 
 fn scan_installed_versions() -> Result<Vec<InstalledVersion>> {
@@ -149,6 +167,8 @@ fn scan_instances() -> Result<HashMap<String, InstanceConfig>> {
             auto_restart_enabled: false,
             auto_restart_max_retries: 3,
             auto_restart_notify: true,
+            dashboard_username: String::new(),
+            dashboard_password: String::new(),
         };
 
         instances.insert(instance_id, instance);
@@ -199,4 +219,59 @@ fn read_pyproject_version(instance_dir: &Path) -> Option<String> {
 fn default_instance_name(instance_id: &str) -> String {
     let short_id: String = instance_id.chars().take(8).collect();
     format!("Rev {}", short_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::process::ResourceAlertThreshold;
+
+    fn instance_config(name: &str, username: &str, password: &str) -> InstanceConfig {
+        let defaults = ResourceAlertThreshold::default();
+        InstanceConfig {
+            name: name.to_string(),
+            version: "v4.29.4".to_string(),
+            host: DEFAULT_INSTANCE_HOST.to_string(),
+            port: 0,
+            created_at: String::new(),
+            check_update_enabled: true,
+            resource_alert_cpu_percent: Some(defaults.cpu_percent),
+            resource_alert_memory_bytes: Some(defaults.memory_bytes),
+            resource_alert_disk_bytes: Some(defaults.disk_bytes),
+            resource_alert_enabled: defaults.enabled,
+            auto_restart_enabled: false,
+            auto_restart_max_retries: 3,
+            auto_restart_notify: true,
+            dashboard_username: username.to_string(),
+            dashboard_password: password.to_string(),
+        }
+    }
+
+    #[test]
+    fn rebuild_keeps_saved_credentials_for_surviving_instances() {
+        let existing = HashMap::from([
+            (
+                "keep".to_string(),
+                instance_config("saved", "admin", "secret"),
+            ),
+            (
+                "gone".to_string(),
+                instance_config("removed", "ghost", "gone"),
+            ),
+        ]);
+        let recovered = HashMap::from([
+            ("keep".to_string(), instance_config("Rev keep", "", "")),
+            ("new".to_string(), instance_config("Rev new", "", "")),
+        ]);
+
+        let merged = merge_recovered_instances(recovered, &existing);
+
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged["keep"].dashboard_username, "admin");
+        assert_eq!(merged["keep"].dashboard_password, "secret");
+        assert_eq!(merged["keep"].name, "Rev keep");
+        assert_eq!(merged["new"].dashboard_username, "");
+        assert_eq!(merged["new"].dashboard_password, "");
+        assert!(!merged.contains_key("gone"));
+    }
 }

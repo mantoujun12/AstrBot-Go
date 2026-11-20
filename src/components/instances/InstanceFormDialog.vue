@@ -36,8 +36,15 @@ const checkUpdate = ref(true);
 const autoRestart = ref(false);
 const maxRetriesText = ref("3");
 const autoRestartNotify = ref(true);
+const dashboardUsername = ref("");
+const dashboardPassword = ref("");
+const clearCredentials = ref(false);
 
 const isEditing = computed(() => props.instance !== null);
+
+const dashboardCredentialsConfigured = computed(
+  () => props.instance?.dashboard_credentials_configured === true,
+);
 
 const otherPorts = computed(() => {
   const selfPort = props.instance?.configured_port;
@@ -90,7 +97,38 @@ function initialize(): void {
   autoRestart.value = target?.auto_restart_enabled ?? false;
   maxRetriesText.value = String(target?.auto_restart_max_retries ?? 3);
   autoRestartNotify.value = target?.auto_restart_notify ?? true;
+  // Stored credentials never reach the frontend, so both fields start empty.
+  dashboardUsername.value = "";
+  dashboardPassword.value = "";
+  clearCredentials.value = false;
 }
+
+const credentialPlaceholder = computed(() =>
+  dashboardCredentialsConfigured.value && !clearCredentials.value
+    ? t("instances.form.dashboardConfigured")
+    : undefined,
+);
+
+const clearCredentialsLabel = computed(() =>
+  clearCredentials.value
+    ? t("instances.form.dashboardKeep")
+    : t("instances.form.dashboardClear"),
+);
+
+function toggleClearCredentials(): void {
+  clearCredentials.value = !clearCredentials.value;
+  if (clearCredentials.value) {
+    dashboardUsername.value = "";
+    dashboardPassword.value = "";
+  }
+}
+
+// Typing new credentials cancels the pending clear.
+watch([dashboardUsername, dashboardPassword], () => {
+  if (dashboardUsername.value !== "" || dashboardPassword.value !== "") {
+    clearCredentials.value = false;
+  }
+});
 
 function validateName(value: unknown): true | string {
   return typeof value === "string" && value.trim() !== ""
@@ -148,6 +186,14 @@ async function submit(): Promise<void> {
   const target = props.instance;
   if (target) {
     const maxRetries = Number(maxRetriesText.value.trim());
+    const usernameValue =
+      typeof dashboardUsername.value === "string"
+        ? dashboardUsername.value.trim()
+        : "";
+    const passwordValue =
+      typeof dashboardPassword.value === "string"
+        ? dashboardPassword.value
+        : "";
     const request: UpdateInstanceRequest = {
       name: nameValue,
       version: selectedVersion.value,
@@ -160,6 +206,18 @@ async function submit(): Promise<void> {
         : 3,
       autoRestartNotify: autoRestartNotify.value,
     };
+    // Typed values overwrite the stored credentials; clearing sends "".
+    if (clearCredentials.value) {
+      request.dashboardUsername = "";
+      request.dashboardPassword = "";
+    } else {
+      if (usernameValue !== "") {
+        request.dashboardUsername = usernameValue;
+      }
+      if (passwordValue !== "") {
+        request.dashboardPassword = passwordValue;
+      }
+    }
     emit("update", target.id, request);
     return;
   }
@@ -311,6 +369,56 @@ watch(
             hide-details
             :disabled="loading"
           />
+
+          <template v-if="isEditing">
+            <v-text-field
+              v-model="dashboardUsername"
+              :label="t('instances.form.fields.dashboardUsername')"
+              :placeholder="credentialPlaceholder"
+              variant="outlined"
+              density="compact"
+              hide-details
+              autocomplete="off"
+              spellcheck="false"
+              :disabled="loading"
+            />
+            <v-text-field
+              v-model="dashboardPassword"
+              :label="t('instances.form.fields.dashboardPassword')"
+              :placeholder="credentialPlaceholder"
+              type="password"
+              variant="outlined"
+              density="compact"
+              hide-details
+              autocomplete="off"
+              spellcheck="false"
+              :disabled="loading"
+            >
+              <template v-if="dashboardCredentialsConfigured" #append-inner>
+                <v-tooltip :text="clearCredentialsLabel" location="top">
+                  <template #activator="{ props: tip }">
+                    <v-btn
+                      v-bind="tip"
+                      :icon="clearCredentials ? 'mdi-undo' : 'mdi-close'"
+                      size="small"
+                      variant="text"
+                      color="error"
+                      :aria-label="clearCredentialsLabel"
+                      :disabled="loading"
+                      @click="toggleClearCredentials"
+                    />
+                  </template>
+                </v-tooltip>
+              </template>
+            </v-text-field>
+            <p class="instance-form__hint">
+              {{
+                clearCredentials
+                  ? t("instances.form.dashboardClearPending")
+                  : t("instances.form.dashboardHint")
+              }}
+            </p>
+          </template>
         </v-form>
       </v-card-text>
       <v-card-actions class="instance-form__actions">
@@ -360,6 +468,13 @@ watch(
   background: rgba(var(--v-theme-on-surface), 0.05);
   color: rgba(var(--v-theme-on-surface), 0.64);
   font-size: 0.85rem;
+}
+
+.instance-form__hint {
+  margin: 2px 0 6px;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .instance-form__actions {

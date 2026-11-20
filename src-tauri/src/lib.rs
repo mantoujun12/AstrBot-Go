@@ -19,7 +19,7 @@ mod utils;
 mod validation;
 mod webview_shortcuts;
 
-pub(crate) use network::{github, network_config, update_check, updater};
+pub(crate) use network::{dashboard_chat, github, network_config, update_check, updater};
 pub(crate) use tray::tray_panel;
 
 use std::sync::RwLock;
@@ -128,6 +128,14 @@ pub fn run() {
     }
 
     utils::paths::ensure_data_dirs().expect("Failed to create data directories");
+    // Earlier builds stored OpenAPI keys in the manifest; drop them before any
+    // instance record is rewritten with the dashboard login fields.
+    if let Err(error) = config::scrub_openapi_keys() {
+        log::warn!(
+            "Failed to remove stored OpenAPI keys: {}",
+            log_redact::redact_text(&error.to_string())
+        );
+    }
     tasks::initialize();
     scheduler::initialize();
     github::init_releases_cache();
@@ -187,6 +195,7 @@ pub fn run() {
         .plugin(webview_shortcuts::plugin())
         .manage(setup::StartupWindowState::new())
         .manage(tray_panel::TrayPanelState::default())
+        .manage(dashboard_chat::DashboardAuthState::default())
         .manage(updater::LauncherUpdateState::default())
         .manage({
             let startup_client = (|| {
@@ -290,6 +299,9 @@ pub fn run() {
             // GitHub
             commands::fetch_releases,
             commands::check_instance_updates,
+            // AstrBot dashboard chat
+            dashboard_chat::chat_send_message,
+            dashboard_chat::dashboard_api_request,
             // Launcher updater
             updater::check_launcher_update,
             updater::download_launcher_update,

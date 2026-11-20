@@ -545,6 +545,7 @@ const ruRU = {
   },
   shell: {
     nav: {
+      chat: "Чат",
       overview: "Обзор",
       instances: "Экземпляры",
       versions: "Версии",
@@ -794,9 +795,17 @@ const ruRU = {
         autoRestart: "Автоматический перезапуск после сбоя",
         autoRestartMaxRetries: "Максимум попыток",
         autoRestartNotify: "Уведомлять о перезапуске",
+        dashboardUsername: "Имя пользователя WebUI",
+        dashboardPassword: "Пароль WebUI",
       },
       emptyVersions: "Нет установленных версий",
       goVersions: "Перейти к версиям",
+      dashboardConfigured: "Задано; оставьте пустым, чтобы сохранить",
+      dashboardHint: "Используйте данные входа в веб-интерфейс AstrBot.",
+      dashboardClear: "Удалить сохранённые учётные данные",
+      dashboardKeep: "Оставить сохранённые учётные данные",
+      dashboardClearPending:
+        "Сохранённые учётные данные будут удалены при сохранении.",
       validation: {
         nameRequired: "Введите название",
         versionRequired: "Выберите версию",

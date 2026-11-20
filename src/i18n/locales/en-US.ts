@@ -530,6 +530,7 @@ const enUS = {
   },
   shell: {
     nav: {
+      chat: "Chat",
       overview: "Overview",
       instances: "Instances",
       versions: "Versions",
@@ -771,9 +772,16 @@ const enUS = {
         autoRestart: "Auto-restart after abnormal exit",
         autoRestartMaxRetries: "Max retries",
         autoRestartNotify: "Notify on restart",
+        dashboardUsername: "WebUI username",
+        dashboardPassword: "WebUI password",
       },
       emptyVersions: "No installed versions",
       goVersions: "Go to Versions",
+      dashboardConfigured: "Configured; leave blank to keep",
+      dashboardHint: "Use your AstrBot WebUI login.",
+      dashboardClear: "Clear saved credentials",
+      dashboardKeep: "Keep saved credentials",
+      dashboardClearPending: "The saved credentials will be removed on save.",
       validation: {
         nameRequired: "Enter a name",
         versionRequired: "Select a version",
