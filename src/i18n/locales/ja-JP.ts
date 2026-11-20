@@ -1075,9 +1075,6 @@ const jaJP = {
       },
     },
   },
-  chat: {
-    windowPending: "チャットUI を準備しています。",
-  },
 } satisfies typeof zhCN;
 
 export default jaJP;

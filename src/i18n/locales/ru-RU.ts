@@ -1105,9 +1105,6 @@ const ruRU = {
       },
     },
   },
-  chat: {
-    windowPending: "Интерфейс чата готовится.",
-  },
 } satisfies typeof zhCN;
 
 export default ruRU;

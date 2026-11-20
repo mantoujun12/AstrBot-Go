@@ -18,6 +18,7 @@ import { isSupportedLocale } from "./i18n/locale";
 import {
   listenDefaultCredentials,
   listenInstanceRestart,
+  listenPreferencesChanged,
   listenResourceAlert,
   listenTrayPanelAction,
 } from "./services/events";
@@ -40,7 +41,12 @@ const theme = useTheme();
 const { current: vuetifyLocale } = useVuetifyLocale();
 const { t } = useI18n();
 
-const { config, instances, init: initLauncher } = useLauncherStore();
+const {
+  config,
+  instances,
+  init: initLauncher,
+  refresh: refreshLauncher,
+} = useLauncherStore();
 const { activeTab, isHomeActive, activateHome, openInstanceTab, pruneTabs } =
   useTabsStore();
 const { init: initLogs } = useLogStore();
@@ -68,6 +74,7 @@ let unlistenCredentials: UnlistenFn | null = null;
 let unlistenResourceAlert: UnlistenFn | null = null;
 let unlistenRestart: UnlistenFn | null = null;
 let unlistenTrayAction: UnlistenFn | null = null;
+let unlistenPreferences: UnlistenFn | null = null;
 
 const drawerOpen = computed({
   get: () => mdAndUp.value || mobileDrawerOpen.value,
@@ -211,6 +218,16 @@ onMounted(() => {
   // The chat window needs the instance list (for its selector and running
   // state) but none of the launcher-shell event listeners below.
   void initLauncher();
+  void listenPreferencesChanged(() => {
+    void refreshLauncher();
+  })
+    .then((unlisten) => {
+      unlistenPreferences = unlisten;
+    })
+    .catch(() => {
+      // A missed preference event only delays the other window's update; its
+      // own snapshot refresh still applies the saved value.
+    });
 
   if (chatWindow) {
     return;
@@ -281,6 +298,8 @@ onBeforeUnmount(() => {
   unlistenRestart = null;
   unlistenTrayAction?.();
   unlistenTrayAction = null;
+  unlistenPreferences?.();
+  unlistenPreferences = null;
   if (railAnimationTimer !== undefined) {
     clearTimeout(railAnimationTimer);
   }

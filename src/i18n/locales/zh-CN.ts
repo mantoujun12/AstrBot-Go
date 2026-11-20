@@ -1057,11 +1057,9 @@ const zhCN = {
         "description": "代码片段沙盒"
       }
     }
-  },
-  "chat": {
-    "windowPending": "聊天界面准备中。"
   }
 };
+
 export type MessageSchema = typeof zhCN;
 
 export default zhCN;

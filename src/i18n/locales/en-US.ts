@@ -1076,9 +1076,6 @@ const enUS = {
       },
     },
   },
-  chat: {
-    windowPending: "Chat UI is coming.",
-  },
 } satisfies typeof zhCN;
 
 export default enUS;
