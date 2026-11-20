@@ -203,6 +203,18 @@ pub struct AppManifest {
     pub tracked_instances_snapshot: Vec<String>,
 }
 
+/// Keep a launcher record readable by its owner only. The manifest stores the
+/// per-instance dashboard password, so group/other read access must be dropped
+/// on Unix. Windows keeps the default ACL: the record already lives in the
+/// per-user profile directory.
+#[cfg(unix)]
+fn restrict_record_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|e| AppError::config(format!("chmod {}: {}", path.display(), e)))
+}
+
 /// Serialize and write a JSON record atomically (temp file + rename).
 fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     ensure_data_dirs()?;
@@ -210,6 +222,9 @@ fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let temp = path.with_extension("json.tmp");
     fs::write(&temp, payload)
         .map_err(|e| AppError::config(format!("write {}: {}", path.display(), e)))?;
+    // Set the mode on the temp file so the rename publishes it already private.
+    #[cfg(unix)]
+    restrict_record_permissions(&temp)?;
     fs::rename(&temp, path)
         .map_err(|e| AppError::config(format!("rename {}: {}", path.display(), e)))?;
     Ok(())
@@ -228,6 +243,54 @@ fn read_json_text(path: &Path) -> Result<Option<String>> {
 fn write_config_record(path: &Path, config: AppConfig) -> Result<AppConfig> {
     write_json_atomic(path, &config)?;
     Ok(config)
+}
+
+/// Delete every `openapi_key` field left under `instances` by builds that
+/// authenticated with an API key. The values are never read or logged; the
+/// rewrite happens only when at least one stale field was found.
+fn scrub_openapi_keys_at(path: &Path) -> Result<usize> {
+    let Some(text) = read_json_text(path)? else {
+        return Ok(0);
+    };
+    let mut value: serde_json::Value = match serde_json::from_str(&text) {
+        Ok(value) => value,
+        Err(error) => {
+            log::warn!(
+                "Manifest record is not valid JSON, skipping the OpenAPI key scrub: {error}"
+            );
+            return Ok(0);
+        }
+    };
+
+    let mut scrubbed = 0usize;
+    if let Some(instances) = value
+        .get_mut("instances")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        for instance in instances.values_mut() {
+            if instance
+                .as_object_mut()
+                .is_some_and(|record| record.remove("openapi_key").is_some())
+            {
+                scrubbed += 1;
+            }
+        }
+    }
+
+    if scrubbed > 0 {
+        write_json_atomic(path, &value)?;
+        log::info!("Removed stored OpenAPI keys from {scrubbed} instance record(s)");
+    }
+    Ok(scrubbed)
+}
+
+/// One-time startup scrub for manifests saved before dashboard login replaced
+/// the OpenAPI key, so the unused secret does not stay on disk.
+pub fn scrub_openapi_keys() -> Result<usize> {
+    let _guard = STORE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    scrub_openapi_keys_at(&manifest_json_path())
 }
 
 fn load_or_init_config_value() -> Result<AppConfig> {
@@ -372,6 +435,12 @@ pub struct InstanceConfig {
     pub auto_restart_max_retries: u32,
     #[serde(default = "default_auto_restart_notify")]
     pub auto_restart_notify: bool,
+    /// AstrBot dashboard account used by the built-in chat. The credentials are
+    /// exchanged for a JWT on demand and never reach the webview.
+    #[serde(default)]
+    pub dashboard_username: String,
+    #[serde(default)]
+    pub dashboard_password: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -617,11 +686,124 @@ version = "v4.0.0"
     }
 
     #[test]
+    fn dashboard_credentials_default_to_empty_and_round_trip() -> Result<()> {
+        // Manifests saved before these fields existed must keep loading.
+        let manifest: AppManifest =
+            serde_json::from_str(r#"{"instances":{"id":{"name":"main","version":"v4.29.4"}}}"#)?;
+        let instance = manifest
+            .instances
+            .get("id")
+            .ok_or_else(|| AppError::other("instance missing"))?;
+        assert_eq!(instance.dashboard_username, "");
+        assert_eq!(instance.dashboard_password, "");
+
+        let stored: AppManifest = serde_json::from_str(
+            r#"{"instances":{"id":{"name":"main","version":"v4.29.4","dashboard_username":"admin","dashboard_password":"p@ss"}}}"#,
+        )?;
+        let encoded = serde_json::to_string(&stored)?;
+        let decoded: AppManifest = serde_json::from_str(&encoded)?;
+        let instance = decoded
+            .instances
+            .get("id")
+            .ok_or_else(|| AppError::other("instance missing"))?;
+        assert_eq!(instance.dashboard_username, "admin");
+        assert_eq!(instance.dashboard_password, "p@ss");
+        Ok(())
+    }
+
+    struct ScrubDir(std::path::PathBuf);
+
+    impl ScrubDir {
+        fn new(label: &str) -> Result<Self> {
+            let path = std::env::temp_dir().join(format!(
+                "astrbot-launcher-manifest-scrub-{}-{}",
+                label,
+                uuid::Uuid::new_v4()
+            ));
+            fs::create_dir_all(&path)?;
+            Ok(Self(path))
+        }
+
+        fn file(&self, label: &str) -> std::path::PathBuf {
+            self.0.join(format!("{label}.json"))
+        }
+    }
+
+    impl Drop for ScrubDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn openapi_key_scrub_removes_stale_secrets_and_keeps_other_fields() -> Result<()> {
+        let dir = ScrubDir::new("strip")?;
+        let path = dir.file("manifest");
+        fs::write(
+            &path,
+            r#"{"instances":{
+                "a":{"name":"main","version":"v4.29.4","openapi_key":"abk_a","dashboard_username":"admin"},
+                "b":{"name":"alt","version":"v4.30.0","openapi_key":"abk_b","dashboard_password":"p"}
+            },"installed_versions":[],"tracked_instances_snapshot":["a"]}"#,
+        )?;
+
+        assert_eq!(scrub_openapi_keys_at(&path)?, 2);
+
+        let rewritten: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path)?)?;
+        let instances = rewritten
+            .get("instances")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| AppError::other("instances missing"))?;
+        for instance in instances.values() {
+            assert!(instance.get("openapi_key").is_none(), "stale key survived");
+        }
+        assert_eq!(instances["a"]["name"], "main");
+        assert_eq!(instances["a"]["dashboard_username"], "admin");
+        assert_eq!(instances["b"]["dashboard_password"], "p");
+        assert_eq!(
+            rewritten["tracked_instances_snapshot"],
+            serde_json::json!(["a"])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn openapi_key_scrub_leaves_clean_manifests_untouched() -> Result<()> {
+        let dir = ScrubDir::new("clean")?;
+        let path = dir.file("manifest");
+        let original = r#"{"instances":{"a":{"name":"main","version":"v4.29.4"}}}"#;
+        fs::write(&path, original)?;
+
+        assert_eq!(scrub_openapi_keys_at(&path)?, 0);
+        assert_eq!(fs::read_to_string(&path)?, original);
+        Ok(())
+    }
+
+    #[test]
     fn network_source_fields_default_to_empty() -> Result<()> {
         let config: AppConfig = serde_json::from_str("{}")?;
         assert!(config.python_mirror.is_empty());
         assert!(config.uv_mirror.is_empty());
         assert!(!config.allow_local_dns_probe);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn launcher_records_are_readable_by_the_owner_only() -> Result<()> {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let path = std::env::temp_dir().join(format!(
+            "astrbot-launcher-record-{}.json",
+            uuid::Uuid::new_v4()
+        ));
+        fs::write(&path, b"{}")?;
+
+        restrict_record_permissions(&path)?;
+
+        let mode = fs::metadata(&path)?.permissions().mode() & 0o777;
+        let _ = fs::remove_file(&path);
+        assert_eq!(mode, 0o600);
         Ok(())
     }
 

@@ -52,6 +52,12 @@ pub struct UpdateInstanceRequest {
     pub auto_restart_enabled: Option<bool>,
     pub auto_restart_max_retries: Option<u32>,
     pub auto_restart_notify: Option<bool>,
+    /// `None` (absent or `null`) keeps the stored value, an empty value clears
+    /// that field, and any other value replaces it. Stored credentials never
+    /// come back to the frontend, so the UI sends nothing unless the user typed
+    /// a value.
+    pub dashboard_username: Option<String>,
+    pub dashboard_password: Option<String>,
 }
 
 #[tauri::command]
@@ -85,6 +91,8 @@ pub async fn update_instance(
             request.auto_restart_enabled,
             request.auto_restart_max_retries,
             request.auto_restart_notify,
+            request.dashboard_username.as_deref(),
+            request.dashboard_password.as_deref(),
             &app_handle,
         )
         .await;
@@ -107,6 +115,8 @@ pub async fn update_instance(
             request.auto_restart_enabled,
             request.auto_restart_max_retries,
             request.auto_restart_notify,
+            request.dashboard_username.as_deref(),
+            request.dashboard_password.as_deref(),
             &context.app_handle,
         )
         .await;

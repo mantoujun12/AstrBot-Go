@@ -514,6 +514,7 @@ const zhCN = {
   },
   "shell": {
     "nav": {
+      "chat": "聊天",
       "overview": "概览",
       "instances": "实例",
       "versions": "版本",
@@ -754,10 +755,17 @@ const zhCN = {
         "checkUpdate": "检查更新",
         "autoRestart": "异常退出后自动重启",
         "autoRestartMaxRetries": "最大重试次数",
-        "autoRestartNotify": "重启时发送通知"
+        "autoRestartNotify": "重启时发送通知",
+        "dashboardUsername": "WebUI 用户名",
+        "dashboardPassword": "WebUI 密码"
       },
       "emptyVersions": "暂无已安装版本",
       "goVersions": "前往版本页",
+      "dashboardConfigured": "已配置，留空保持不变",
+      "dashboardHint": "使用 AstrBot WebUI 的登录账号。",
+      "dashboardClear": "清除已保存的登录信息",
+      "dashboardKeep": "保留已保存的登录信息",
+      "dashboardClearPending": "保存后将清除已保存的登录信息。",
       "validation": {
         "nameRequired": "请输入名称",
         "versionRequired": "请选择版本",

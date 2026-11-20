@@ -209,6 +209,14 @@ impl AppError {
     pub fn kind(&self) -> ErrorKind {
         self.kind
     }
+
+    /// Primary user-facing detail, if the error carries one.
+    pub fn detail(&self) -> &str {
+        self.payload
+            .get("detail")
+            .map(String::as_str)
+            .unwrap_or_default()
+    }
 }
 
 impl fmt::Display for AppError {
