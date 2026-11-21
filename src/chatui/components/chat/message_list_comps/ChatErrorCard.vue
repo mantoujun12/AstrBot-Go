@@ -18,15 +18,11 @@
       <p class="error-description">
         {{ tm(`executionError.${category}.description`) }}
       </p>
-      <v-btn
-        v-if="configurationError"
-        class="configure-button"
-        size="small"
-        variant="tonal"
-        @click="emit('configureModels')"
-      >
-        {{ tm("executionError.configureModels") }}
-      </v-btn>
+      <!-- No provider workspace exists in this window; model setup lives in
+           the instance's WebUI, so the CTA is a hint instead of a button. -->
+      <p v-if="configurationError" class="configure-hint">
+        {{ tm("executionError.configureModelsWebui") }}
+      </p>
       <details v-if="message" class="error-details">
         <summary>{{ tm("executionError.details") }}</summary>
         <pre>{{ message }}</pre>
@@ -41,7 +37,6 @@ import { CircleAlert, TriangleAlert } from "@lucide/vue";
 import { useModuleI18n } from "@/i18n/composables";
 
 const props = defineProps<{ code?: string; message?: string }>();
-const emit = defineEmits<{ configureModels: [] }>();
 const { tm } = useModuleI18n("features/chat");
 
 const category = computed(() => {
@@ -101,9 +96,11 @@ const configurationError = computed(() =>
   line-height: 1.6;
   color: rgba(var(--v-theme-on-surface), 0.7);
 }
-.configure-button {
-  margin-top: 12px;
-  text-transform: none;
+.configure-hint {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(var(--v-theme-on-surface), 0.6);
 }
 .error-details {
   margin-top: 12px;

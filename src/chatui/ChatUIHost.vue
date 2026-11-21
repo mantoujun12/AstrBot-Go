@@ -23,6 +23,7 @@ import {
   isWindowMaximized,
   minimizeWindow,
   onWindowResize,
+  setWindowTitle,
   showSnapOverlay,
   toggleMaximizeWindow,
 } from "../services/windowControls";
@@ -38,7 +39,9 @@ import {
   registerThemeChange,
   setIsDark,
   setThemePreference,
+  customizerState,
 } from "./stores/customizer";
+import { useChatHeaderStore } from "./stores/chatHeader";
 import { useMobileDrawerStore } from "./stores/mobileDrawer";
 import { useLauncherStore } from "../stores/launcher";
 
@@ -56,6 +59,22 @@ const { smAndDown: isMobile } = useDisplay();
 const mobileDrawer = useMobileDrawerStore();
 const { tm } = useModuleI18n("features/chat");
 const { config, instances } = useLauncherStore();
+const chatHeader = useChatHeaderStore();
+
+// Session title in the title-bar band: the island's Chat view pushes the
+// current session name into the chatHeader store on load, switch and rename.
+const sidebarWidth = computed(() =>
+  isMobile.value ? 0 : customizerState.chatSidebarCollapsed ? 56 : 245,
+);
+
+watch(
+  () => chatHeader.title,
+  (title) => {
+    // Empty/new-chat state falls back to the app name in the taskbar.
+    void runWindowAction(() => setWindowTitle(title.trim() || "AstrBot Go"));
+  },
+  { immediate: true },
+);
 
 // Window controls mirror the launcher's AppTitleBar; macOS keeps its native
 // traffic lights, so the custom cluster is hidden there.
@@ -300,6 +319,16 @@ registerLocaleSwitch((preference) => {
     <!-- Native title-bar drag surface. No decorum script is registered for this
          window, so this is the only drag region in the page. -->
     <div class="chatui-titlebar-drag" data-tauri-drag-region aria-hidden="true" />
+    <div
+      v-if="chatHeader.title"
+      class="chatui-titlebar-title"
+      :class="{ 'chatui-titlebar-title--mac': isMac }"
+      :style="{ left: `max(${sidebarWidth}px, 48px)` }"
+    >
+      <span class="chatui-titlebar-title-text" :title="chatHeader.title">{{
+        chatHeader.title
+      }}</span>
+    </div>
     <button
       v-if="isMobile"
       type="button"
@@ -423,6 +452,38 @@ registerLocaleSwitch((preference) => {
   height: var(--astrbot-toolbar-height);
   z-index: 0;
   background: transparent;
+}
+
+/* Session title in the native title-bar band: centered over the chat pane,
+   clear of the sidebar and the window controls, truncating when narrow.
+   pointer-events: none keeps the drag band beneath it usable. */
+.chatui-titlebar-title {
+  position: absolute;
+  top: 0;
+  /* The window control cluster is 3 x 46px; macOS keeps native controls.
+     `left` follows the sidebar toggle and shares the launcher's motion. */
+  right: 138px;
+  transition: left 180ms cubic-bezier(0.2, 0, 0, 1);
+  height: var(--astrbot-toolbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.chatui-titlebar-title--mac {
+  right: 12px;
+}
+
+.chatui-titlebar-title-text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 /* Narrow windows hide the temporary sidebar; this floating button is its only

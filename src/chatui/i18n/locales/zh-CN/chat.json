@@ -325,7 +325,7 @@
       "title": "这次回复未能完成",
       "description": "请稍后重试，或展开详情查看原因。"
     },
-    "configureModels": "配置模型",
+    "configureModelsWebui": "模型配置请在实例的 WebUI 中完成。",
     "details": "查看详情"
   }
 }

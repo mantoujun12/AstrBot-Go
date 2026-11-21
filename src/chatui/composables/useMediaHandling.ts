@@ -38,8 +38,8 @@ export function useMediaHandling() {
     stagedNonImageFiles,
     failedUploadViews,
     activeUploadViews,
-    processAndUploadImage: async () => {},
-    processAndUploadFile: async () => {},
+    processAndUploadImage: async (_file: File) => {},
+    processAndUploadFile: async (_file: File) => {},
     handlePaste: () => {},
     removeImage: () => {},
     removeAudio: () => {},
@@ -47,7 +47,7 @@ export function useMediaHandling() {
     retryFailedUpload: () => {},
     discardFailedUpload: () => {},
     cancelActiveUpload: () => {},
-    clearStaged: () => {},
+    clearStaged: (_options?: { revokeUrls?: boolean }) => {},
     cleanupMediaCache: () => {},
   };
 }

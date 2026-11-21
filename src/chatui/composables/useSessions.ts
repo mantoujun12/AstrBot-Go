@@ -82,73 +82,6 @@ export function useSessions(chatboxMode: boolean = false) {
         }
     }
 
-    interface BatchDeleteFailedItem {
-        session_id: string;
-        reason: string;
-    }
-
-    interface BatchDeleteResult {
-        deleted_count: number;
-        failed_count: number;
-        failed_items: BatchDeleteFailedItem[];
-        currentSessionDeleted: boolean;
-    }
-
-    function isBatchDeleteResponseData(data: unknown): data is {
-        deleted_count: number;
-        failed_count: number;
-        failed_items: BatchDeleteFailedItem[];
-    } {
-        if (!data || typeof data !== 'object') {
-            return false;
-        }
-        const payload = data as Record<string, unknown>;
-        return (
-            typeof payload.deleted_count === 'number' &&
-            typeof payload.failed_count === 'number' &&
-            Array.isArray(payload.failed_items)
-        );
-    }
-
-    async function batchDeleteSessions(sessionIds: string[]): Promise<BatchDeleteResult> {
-        try {
-            const currentSessionId = currSessionId.value;
-            const response = await chatApi.batchDeleteSessions({ session_ids: sessionIds });
-            if (response.data?.status !== 'ok') {
-                throw new Error(response.data?.message || 'Failed to batch delete sessions');
-            }
-
-            const data = response.data?.data;
-            if (!isBatchDeleteResponseData(data)) {
-                throw new Error('Invalid batch delete response payload');
-            }
-
-            const failedItems = data.failed_items;
-            const failedSessionIds = new Set(failedItems.map(item => item.session_id));
-            const currentSessionDeleted = Boolean(
-                currentSessionId &&
-                sessionIds.includes(currentSessionId) &&
-                !failedSessionIds.has(currentSessionId)
-            );
-
-            if (currentSessionDeleted) {
-                currSessionId.value = '';
-                selectedSessions.value = [];
-            }
-            await getSessions();
-
-            return {
-                deleted_count: data.deleted_count,
-                failed_count: data.failed_count,
-                failed_items: failedItems,
-                currentSessionDeleted,
-            };
-        } catch (err) {
-            console.error(err);
-            throw err;
-        }
-    }
-
     function showEditTitleDialog(sessionId: string, title: string) {
         editingSessionId.value = sessionId;
         editingTitle.value = title || '';
@@ -203,7 +136,6 @@ export function useSessions(chatboxMode: boolean = false) {
         getCurrentSession,
         getSessions,
         deleteSession,
-        batchDeleteSessions,
         showEditTitleDialog,
         saveTitle,
         updateSessionTitle,

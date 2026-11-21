@@ -4,6 +4,8 @@
 // call signature and response envelope so ported code paths are unmodified.
 
 import { apiV1Client } from "./http";
+import { getChatInstance } from "./adapter";
+import { fetchChatMedia } from "../../services/chat";
 
 export interface ApiEnvelope<T> {
   status: "ok" | "error";
@@ -14,9 +16,6 @@ export interface ApiEnvelope<T> {
 type AnyResponse = { data: { status: string; message?: string | null; data: any } };
 
 export const chatApi = {
-  sendStreamUrl() {
-    return "/api/v1/chat";
-  },
   listSessions(params?: { page?: number; page_size?: number; username?: string }) {
     return apiV1Client.get<AnyResponse["data"]>("/chat/sessions", { params });
   },
@@ -52,18 +51,19 @@ export const chatApi = {
       payload,
     );
   },
-  regenerateMessage(
-    sessionId: string,
-    messageId: string | number,
-    payload?: Record<string, unknown>,
-  ) {
-    return apiV1Client.post<AnyResponse["data"]>(
-      `/chat/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(String(messageId))}/regenerate`,
-      payload,
-    );
-  },
   createThread(payload: Record<string, unknown>) {
     return apiV1Client.post<AnyResponse["data"]>("/chat/threads", payload);
+  },
+  getThread(threadId: string) {
+    return apiV1Client.get<AnyResponse["data"]>(
+      `/chat/threads/${encodeURIComponent(threadId)}`,
+    );
+  },
+  // shortcut: the thread panel is gated off (`CHATUI_FEATURES.threads`) and
+  // its send path still uses the browser fetch helper, so this URL only keeps
+  // the ported panel type-complete until threads get a Tauri stream.
+  sendThreadMessageUrl(threadId: string) {
+    return `/api/v1/chat/threads/${encodeURIComponent(threadId)}/messages`;
   },
   deleteThread(threadId: string) {
     return apiV1Client.delete<AnyResponse["data"]>(
@@ -130,14 +130,28 @@ export const configRouteApi = {
 };
 
 export const fileApi = {
-  // Attachment transport is stubbed; URLs are never dereferenced in practice.
-  contentUrl(_attachmentId: string) {
-    return "";
+  // Media bytes cannot ride the JSON proxy, so both loaders return blobs
+  // fetched through the dedicated media command.
+  loadContent(attachmentId: string) {
+    return loadMedia(`/api/v1/files/${encodeURIComponent(attachmentId)}/content`);
   },
-  byNameUrl(_filename: string) {
-    return "";
-  },
-  getByName(_filename: string) {
-    return Promise.reject(new Error("Not available in this window."));
+  loadByName(filename: string) {
+    return loadMedia(
+      `/api/v1/files/content?filename=${encodeURIComponent(filename)}`,
+    );
   },
 };
+
+async function loadMedia(path: string): Promise<Blob> {
+  const media = await fetchChatMedia(getChatInstance(), path);
+  return base64ToBlob(media.base64, media.mime);
+}
+
+function base64ToBlob(base64: string, mime: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mime });
+}

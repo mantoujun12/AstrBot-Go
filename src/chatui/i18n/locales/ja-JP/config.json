@@ -1,0 +1,9 @@
+{
+  "configSelection": {
+    "selectConfig": "設定プロファイルを選択",
+    "defaultConfig": "デフォルトの設定プロファイル",
+    "empty": "選択できる設定プロファイルがありません。先に設定ページで作成してください。",
+    "apply": "適用",
+    "applyFailed": "設定プロファイルの適用に失敗しました"
+  }
+}

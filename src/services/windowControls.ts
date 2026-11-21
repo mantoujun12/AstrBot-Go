@@ -22,6 +22,10 @@ export function isWindowMaximized(): Promise<boolean> {
   return getCurrentWindow().isMaximized();
 }
 
+export function setWindowTitle(title: string): Promise<void> {
+  return getCurrentWindow().setTitle(title);
+}
+
 export function onWindowResize(handler: () => void): Promise<UnlistenFn> {
   return getCurrentWindow().onResized(() => handler());
 }

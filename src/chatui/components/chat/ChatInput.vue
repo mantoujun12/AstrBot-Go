@@ -211,7 +211,7 @@
           />
           <!-- Settings Menu -->
           <StyledMenu
-            v-if="CHATUI_FEATURES.uploads"
+            v-if="CHATUI_FEATURES.uploads || CHATUI_FEATURES.configSelection"
             offset="8"
             location="top start"
             :close-on-content-click="false"
@@ -225,7 +225,7 @@
                 :class="{
                   'recording-upload-btn': !!recordingMode && !disabled,
                 }"
-                :aria-label="tm('input.upload')"
+                :aria-label="plusMenuLabel"
                 :disabled="disabled || !!recordingMode"
               >
                 <Plus :size="18" :stroke-width="1.75" />
@@ -234,6 +234,7 @@
 
             <!-- Upload Files -->
             <v-list-item
+              v-if="CHATUI_FEATURES.uploads"
               class="styled-menu-item"
               rounded="md"
               @click="triggerImageInput"
@@ -459,7 +460,6 @@ import { CHATUI_FEATURES } from "@/features";
 import { useCustomizerStore } from "@/stores/customizer";
 import { isComposingEnter } from "@/utils/imeInput.mjs";
 import { commandApi } from "@/api/v1";
-import type { CommandItem } from "@/components/extension/componentPanel/types";
 import ConfigSelector from "./ConfigSelector.vue";
 import ProviderModelMenu from "./ProviderModelMenu.vue";
 import StyledMenu from "@/components/shared/StyledMenu.vue";
@@ -471,6 +471,20 @@ import type {
   ActiveUploadView,
 } from "@/composables/useMediaHandling";
 import type { SuggestionCommand } from "./CommandSuggestion.vue";
+
+// Shape of the dashboard command list item used by the suggestion palette.
+interface CommandItem {
+  type?: string;
+  enabled: boolean;
+  effective_command: string;
+  handler_full_name: string;
+  description: string;
+  plugin_display_name: string | null;
+  reserved: boolean;
+  aliases?: string[];
+  parent_signature?: string;
+  sub_commands?: CommandItem[];
+}
 
 interface StagedFileInfo {
   attachment_id: string;
@@ -550,7 +564,6 @@ const emit = defineEmits<{
   pasteImage: [event: ClipboardEvent];
   fileSelect: [files: FileList | File[]];
   clearReply: [];
-  openLiveMode: [];
 }>();
 
 const { tm } = useModuleI18n("features/chat");
@@ -644,7 +657,7 @@ const enabledCommands = computed(() => {
       });
     }
     // 同时加入别名（别名也需要加上唤醒词前缀）
-    cmd.aliases?.forEach((alias) => {
+    cmd.aliases?.forEach((alias: string) => {
       const aliasBase = cmd.parent_signature
         ? `${cmd.parent_signature} ${alias}`
         : alias;
@@ -723,6 +736,9 @@ const sessionPlatformId = computed(
   () => props.currentSession?.platform_id || "webchat",
 );
 const sessionIsGroup = computed(() => Boolean(props.currentSession?.is_group));
+const plusMenuLabel = computed(() =>
+  CHATUI_FEATURES.uploads ? tm("input.upload") : tm("config.title"),
+);
 
 const canSend = computed(() => {
   return (
@@ -893,11 +909,6 @@ function handleKeyDown(e: KeyboardEvent) {
 
   if (isSendHotkey) {
     e.preventDefault();
-    if (localPrompt.value.trim() === "/astr_live_dev") {
-      emit("openLiveMode");
-      localPrompt.value = "";
-      return;
-    }
     if (canSend.value && isReady.value) {
       emit("send");
     }

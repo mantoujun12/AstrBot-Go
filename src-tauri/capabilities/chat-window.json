@@ -1,13 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "chat-window",
-  "description": "Capability for the standalone chat window. It loads the app snapshot, drives the chat commands and controls its own window chrome (drag, minimize, maximize, close, decorum snap overlay); application commands such as get_app_snapshot are not permission-gated, so only the core event and window permissions are listed.",
+  "description": "Capability for the standalone chat window. It loads the app snapshot, drives the chat commands and controls its own window chrome (drag, minimize, maximize, close, title, decorum snap overlay); application commands such as get_app_snapshot are not permission-gated, so only the core event and window permissions are listed.",
   "windows": ["chat"],
   "permissions": [
     "core:event:default",
     "core:window:allow-close",
     "core:window:allow-is-maximized",
     "core:window:allow-minimize",
+    "core:window:allow-set-title",
     "core:window:allow-start-dragging",
     "core:window:allow-toggle-maximize",
     "decorum:allow-show-snap-overlay"

@@ -198,7 +198,9 @@
 
                       <div
                         v-else-if="
-                          part.type === 'plain' && messageThreads(msg).length
+                          part.type === 'plain' &&
+                          CHATUI_FEATURES.threads &&
+                          messageThreads(msg).length
                         "
                         class="threaded-message-content"
                       >
@@ -217,7 +219,6 @@
                         v-else-if="part.type === 'error'"
                         :code="part.code"
                         :message="part.message"
-                        @configure-models="emit('configureModels')"
                       />
 
                       <MarkdownMessagePart
@@ -464,7 +465,7 @@
               </v-card>
             </v-menu>
             <StyledMenu
-              v-if="messageThreads(msg).length"
+              v-if="CHATUI_FEATURES.threads && messageThreads(msg).length"
               location="bottom"
               transition="none"
               no-border
@@ -515,7 +516,7 @@
     <RefsSidebar
       v-if="manageRefsSidebar"
       v-model="refsSidebarOpen"
-      :refs="selectedRefs"
+      :refs="selectedRefs || undefined"
     />
 
     <v-overlay
@@ -540,7 +541,6 @@ import PluginViewMessage from "@/components/chat/message_list_comps/PluginViewMe
 import MessageContentTransition from "@/components/chat/MessageContentTransition.vue";
 import { computed, nextTick, reactive, ref } from "vue";
 import { Copy, Info, SquarePen, CodeXml } from "@lucide/vue";
-import axios from "axios";
 import { fileApi } from "@/api/v1";
 import RegenerateMenu, {
   type RegenerateModelSelection,
@@ -576,6 +576,7 @@ import type {
   MessagePart,
 } from "@/composables/useMessages";
 import { useI18n, useModuleI18n } from "@/i18n/composables";
+import { CHATUI_FEATURES } from "@/features";
 import { copyToClipboard } from "@/utils/clipboard";
 
 const props = withDefaults(
@@ -608,7 +609,6 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  configureModels: [];
   "update:editDraft": [value: string];
   openEdit: [message: ChatRecord];
   cancelEdit: [];
@@ -720,10 +720,6 @@ function showMessageMeta(message: ChatRecord, messageIndex: number) {
   );
 }
 
-function hasNonReasoningContent(message: ChatRecord) {
-  return renderBlocks(message).some((block) => block.kind === "content");
-}
-
 function renderBlocks(message: ChatRecord): MessageDisplayBlock[] {
   if (isUserMessage(message)) {
     const parts = bubbleParts(message);
@@ -759,13 +755,7 @@ function threadPreview(thread: ChatThread) {
 function partUrl(part: MessagePart) {
   if (part.embedded_url) return part.embedded_url;
   if (part.embedded_file?.url) return part.embedded_file.url;
-  if (part.attachment_id) {
-    return fileApi.contentUrl(part.attachment_id);
-  }
-  const lookupFilename = part.stored_filename || part.filename;
-  if (lookupFilename) {
-    return fileApi.byNameUrl(lookupFilename);
-  }
+  // Media parts get `embedded_url` from the blob loader before rendering.
   return "";
 }
 
@@ -895,8 +885,12 @@ async function downloadPart(part: MessagePart) {
   if (!key) return;
   downloadingFiles.value = new Set(downloadingFiles.value).add(key);
   try {
-    const response = await axios.get(partUrl(part), { responseType: "blob" });
-    const url = URL.createObjectURL(response.data);
+    const blob = part.attachment_id
+      ? await fileApi.loadContent(part.attachment_id)
+      : await fileApi.loadByName(
+          part.stored_filename || part.filename || "",
+        );
+    const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = part.filename || "file";

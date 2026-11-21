@@ -1,0 +1,9 @@
+{
+  "configSelection": {
+    "selectConfig": "Select a config profile",
+    "defaultConfig": "Default config profile",
+    "empty": "No config profiles yet; create one on the config page first.",
+    "apply": "Apply",
+    "applyFailed": "Failed to apply the config profile"
+  }
+}

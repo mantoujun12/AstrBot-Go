@@ -311,6 +311,7 @@ pub fn run() {
             commands::check_instance_updates,
             // AstrBot dashboard chat
             dashboard_chat::chat_send_message,
+            dashboard_chat::chat_fetch_media,
             dashboard_chat::dashboard_api_request,
             // Launcher updater
             updater::check_launcher_update,

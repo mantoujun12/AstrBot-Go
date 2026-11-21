@@ -1,0 +1,9 @@
+{
+  "configSelection": {
+    "selectConfig": "选择配置文件",
+    "defaultConfig": "默认配置文件",
+    "empty": "暂无可选配置，请先在配置页创建。",
+    "apply": "应用",
+    "applyFailed": "配置文件应用失败"
+  }
+}

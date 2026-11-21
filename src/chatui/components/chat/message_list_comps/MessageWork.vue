@@ -24,7 +24,7 @@
       class="process-collapse"
       :class="{ 'is-expanded': expanded }"
       :aria-hidden="!expanded"
-      :inert="expanded ? undefined : ''"
+      :inert="expanded ? undefined : true"
     >
       <div class="process-collapse-inner">
         <div v-if="visited" class="message-work-content">
