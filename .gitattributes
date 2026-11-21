@@ -1,0 +1,49 @@
+* text=auto
+
+# Cross-platform source and configuration files
+*.c text
+*.css text
+*.h text
+*.html text
+*.js text
+*.json text
+*.jsx text
+*.md text
+*.rs text
+*.scss text
+*.toml text
+*.ts text
+*.tsx text
+*.vue text
+*.xml text
+*.yml text
+*.yaml text
+
+# Windows scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Generated and local directories
+dist/** export-ignore
+node_modules/** export-ignore
+src-tauri/target/** export-ignore
+
+# Binary files
+*.ico binary
+*.icns binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.exe binary
+*.dll binary
+*.zip binary
+*.7z binary
+*.tar binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
