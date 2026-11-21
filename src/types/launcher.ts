@@ -129,6 +129,12 @@ export interface InstanceStatus {
   started_at_ms: number | null;
 }
 
+export interface WebuiSession {
+  token: string;
+  username: string;
+  source: "desktop" | "credentials";
+}
+
 export type InstanceHealthGrade = "healthy" | "warning" | "critical";
 
 export type InstanceHealthCheckKey =

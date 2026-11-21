@@ -26,6 +26,39 @@ const WINDOWS_11_FIRST_BUILD: u32 = 22000;
 #[allow(dead_code)]
 const WINDOWS_11_22H2_BUILD: u32 = 22621;
 
+/// Initialization script applied to every document the main window loads,
+/// including cross-origin frames: the hosted AstrBot WebUI runs in an
+/// iframe the launcher page cannot touch, so the Vue side `postMessage`s
+/// the Rust-issued session after the frame loads and this listener applies
+/// it inside the frame. Only loopback dashboard origins participate, only
+/// known launcher origins may send, and the listener removes itself after
+/// one applied session so SPA navigation does not re-consume it. Mirrors
+/// the bootstrap strategy of AstrBot-Desktop's `bridge_bootstrap.js`.
+const WEBUI_SESSION_BRIDGE: &str = r#"
+(function () {
+  if (window.parent === window) return;
+  var origin = window.location.origin;
+  if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(origin)) return;
+  var ALLOWED_ORIGINS = ["http://tauri.localhost", "https://tauri.localhost", "tauri://localhost", "http://localhost:1420"];
+  var apply = function (event) {
+    if (ALLOWED_ORIGINS.indexOf(event.origin) === -1) return;
+    var data = event.data;
+    if (!data || data.type !== "astrbot-go-webui-session") return;
+    if (typeof data.token !== "string" || !data.token) return;
+    if (typeof data.username !== "string" || !data.username) return;
+    window.removeEventListener("message", apply);
+    ["change_pwd_hint", "md5_pwd_hint", "password_upgrade_required"].forEach(function (key) {
+      try { localStorage.removeItem(key); } catch (e) {}
+    });
+    try { localStorage.setItem("user", data.username); } catch (e) {}
+    try { localStorage.setItem("token", data.token); } catch (e) {}
+    var hash = window.location.hash || "";
+    if (/^#\/auth\/(login|setup)([/?]|$)/.test(hash)) window.location.hash = "/welcome";
+  };
+  window.addEventListener("message", apply);
+})();
+"#;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RevealOutcome {
     Shown,
@@ -110,6 +143,10 @@ pub fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<tauri::Webvie
 
     let window = builder
         .initialization_script(initialization_script)
+        // Second script: applies to iframes too (WebView2 injects
+        // document-created scripts into every frame), so the hosted WebUI
+        // can receive the passwordless session. See `WEBUI_SESSION_BRIDGE`.
+        .initialization_script(WEBUI_SESSION_BRIDGE)
         .build()?;
     configure_main_window(&window);
     Ok(window)

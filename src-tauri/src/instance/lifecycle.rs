@@ -18,6 +18,7 @@ use super::types::ProgressMessage;
 use crate::component;
 use crate::config::{load_config, load_manifest};
 use crate::error::{AppError, Result};
+use crate::network::desktop_session::{self, DesktopSessionState};
 use crate::network_config;
 use crate::process::{
     can_signal_expected_process, check_port_available, find_available_port, force_kill,
@@ -304,8 +305,16 @@ pub async fn launch_instance(
         .env("UV_PYTHON", &venv_python)
         .env("UV_CACHE_DIR", &uv_cache_dir)
         .env("UV_DEFAULT_INDEX", default_index)
-        .env_remove("PYTHONHOME")
-        .stdout(std::process::Stdio::piped())
+        .env_remove("PYTHONHOME");
+
+    // Desktop-managed WebUI passwordless sign-in (upstream AstrBot v4.27.3+):
+    // the per-instance secret lets Rust exchange for a dashboard JWT without
+    // stored credentials. Harmless for instances with the dashboard disabled.
+    let session_secret = DesktopSessionState::secret_for_launch(app_handle, instance_id)?;
+    cmd.env(desktop_session::DESKTOP_MANAGED_ENV, "1")
+        .env(desktop_session::DESKTOP_SESSION_SECRET_ENV, session_secret);
+
+    cmd.stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
     // Inject Node.js environment variables (NODE_PATH, NPM_CONFIG_*, etc.)

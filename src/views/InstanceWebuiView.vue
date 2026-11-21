@@ -6,7 +6,14 @@ import TaskProgressDialog from "../components/common/TaskProgressDialog.vue";
 import { useOperation } from "../composables/useOperation";
 import { translateDynamicKey } from "../i18n/dynamic";
 import { openExternalUrl } from "../services/app";
-import { openInstanceCoreFolder, restartInstance, startInstance, stopInstance } from "../services/instances";
+import { isWebuiManualLoginRequired } from "../services/errors";
+import {
+  getWebuiSession,
+  openInstanceCoreFolder,
+  restartInstance,
+  startInstance,
+  stopInstance,
+} from "../services/instances";
 import { useLauncherStore } from "../stores/launcher";
 import { useProgressStore } from "../stores/progress";
 import { useTabsStore } from "../stores/tabs";
@@ -98,6 +105,45 @@ function startFrameLoad(): void {
 function handleFrameLoad(): void {
   clearLoadTimer();
   frameState.value = "ready";
+  void injectWebuiSession();
+}
+
+const iframeRef = ref<HTMLIFrameElement | null>(null);
+const sessionToastShown = ref(false);
+
+// Passwordless sign-in for the embedded WebUI: Rust exchanges the desktop
+// session secret (or the stored panel credentials) for a dashboard JWT, and
+// the frame-side initialization script applies it to the SPA storage.
+async function injectWebuiSession(): Promise<void> {
+  const target = instance.value;
+  const frame = iframeRef.value;
+  if (!target || !frame || target.state !== "running") {
+    return;
+  }
+  const frameOrigin = `http://${normalizeHost(target.configured_host)}:${target.port}`;
+  try {
+    const session = await getWebuiSession(target.id);
+    frame.contentWindow?.postMessage(
+      {
+        type: "astrbot-go-webui-session",
+        token: session.token,
+        username: session.username,
+      },
+      frameOrigin,
+    );
+  } catch (cause) {
+    // Expected on instances without stored credentials: the WebUI keeps
+    // its own sign-in form, so stay silent.
+    if (isWebuiManualLoginRequired(cause)) {
+      return;
+    }
+    // Actionable failures (for example a rejected panel login) surface once
+    // per view session, not on every iframe reload.
+    if (!sessionToastShown.value) {
+      sessionToastShown.value = true;
+      showErrorToast(cause);
+    }
+  }
 }
 
 function reloadFrame(): void {
@@ -273,6 +319,7 @@ onBeforeUnmount(() => {
     <div class="instance-webui__content">
       <div v-if="showIframe" class="instance-webui__frame-wrap">
         <iframe
+          ref="iframeRef"
           :key="frameKey"
           :src="webuiUrl"
           title="AstrBot WebUI"

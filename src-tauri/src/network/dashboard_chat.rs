@@ -1,9 +1,15 @@
 //! AstrBot dashboard chat, authenticated by a dashboard login.
 //!
-//! All HTTP calls happen here in Rust: the webview never sees the dashboard
-//! password or the JWT and is not exposed to CORS. The password is sent once
-//! to `POST /api/auth/login`; the returned token is cached in
-//! `DashboardAuthState` and must never appear in logs or error payloads.
+//! All HTTP calls happen here in Rust: the webview is not exposed to CORS
+//! and never sees the dashboard password or the JWTs used by the chat
+//! proxy. The password is sent once to `POST /api/auth/login`; the returned
+//! token is cached in `DashboardAuthState` and must never appear in logs or
+//! error payloads.
+//!
+//! `get_webui_session` is the one exception: its JWT exists to be handed to
+//! the embedded WebUI tab, which injects it into the hosted AstrBot SPA so
+//! the user signs in without typing panel credentials. The desktop session
+//! secret and the panel password still never reach the webview.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -16,8 +22,9 @@ use tauri::State;
 
 use crate::commands::AppState;
 use crate::config::{load_config, load_manifest};
-use crate::error::{AppError, Result};
+use crate::error::{AppError, ErrorKind, Result};
 use crate::i18n::Locale;
+use crate::network::desktop_session::{self, DesktopSessionState};
 use crate::network_config;
 use crate::process::InstanceRuntimeInfo;
 use crate::utils::net::USER_AGENT;
@@ -112,6 +119,16 @@ struct ApiEnvelope<T> {
 struct RawSession {
     #[serde(default)]
     session_id: String,
+}
+
+/// Session payload of the desktop-session response; unknown fields are
+/// ignored.
+#[derive(Debug, Deserialize)]
+struct RawDesktopSession {
+    #[serde(default)]
+    token: String,
+    #[serde(default)]
+    username: Option<String>,
 }
 
 /// One SSE frame from the AstrBot chat stream; unknown fields are ignored.
@@ -510,6 +527,159 @@ fn error_envelope_message(text: &str, locale: Locale) -> String {
     } else {
         locale.dashboard_stream_error()
     }
+}
+
+/// How the embedded WebUI tab obtains its session: the desktop exchange for
+/// launcher-managed instances, stored credentials as the fallback, and
+/// manual sign-in in the SPA when neither is possible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SessionSource {
+    Desktop,
+    Credentials,
+    Manual,
+}
+
+/// Whether stored dashboard credentials can be exchanged for a session.
+/// Mirrors the emptiness check inside `login`.
+fn credentials_available(username: &str, password: &str) -> bool {
+    !username.trim().is_empty() && !password.is_empty()
+}
+
+/// The source to try for one instance before any HTTP call is made.
+fn resolve_session_source(has_secret: bool, endpoint: &InstanceEndpoint) -> SessionSource {
+    if has_secret {
+        SessionSource::Desktop
+    } else if credentials_available(&endpoint.username, &endpoint.password) {
+        SessionSource::Credentials
+    } else {
+        SessionSource::Manual
+    }
+}
+
+/// The expected-state error that keeps the SPA's manual sign-in form as the
+/// fallback. The `reason` marker lets the WebUI view stay silent instead of
+/// toasting a state the iframe already renders on its own.
+fn manual_login_required(locale: Locale) -> AppError {
+    AppError::new(
+        ErrorKind::Network,
+        HashMap::from([
+            ("detail".to_string(), locale.dashboard_webui_manual_login()),
+            ("reason".to_string(), "webui_manual_login".to_string()),
+        ]),
+    )
+}
+
+/// Token and username from a desktop-session response body, or the reason
+/// they are missing. The body is never logged: it carries the JWT.
+fn parse_desktop_session_response(body: &str, locale: Locale) -> Result<(String, String)> {
+    let envelope: ApiEnvelope<RawDesktopSession> = serde_json::from_str(body)
+        .map_err(|_| AppError::network(locale.dashboard_stream_error()))?;
+    let session = envelope_data(envelope, locale)?;
+    if session.token.trim().is_empty()
+        || session.username.as_deref().unwrap_or("").trim().is_empty()
+    {
+        return Err(AppError::network(locale.dashboard_stream_error()));
+    }
+    Ok((session.token, session.username.unwrap_or_default()))
+}
+
+/// Loopback-only local exchange; a few seconds is generous.
+const DESKTOP_SESSION_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Exchange the launch secret for a dashboard JWT via the upstream
+/// desktop-session endpoint (v4.27.3+). Any failure — unsupported version,
+/// instance restarted outside the launcher, transient error — is the
+/// caller's cue to fall back to stored credentials.
+async fn desktop_session_exchange(
+    endpoint: &InstanceEndpoint,
+    secret: &str,
+    locale: Locale,
+) -> Result<(String, String)> {
+    let client = build_instance_client(&endpoint.host)?;
+    let resp = client
+        .post(format!(
+            "{}{}",
+            dashboard_base_url(&endpoint.host, endpoint.port),
+            desktop_session::DESKTOP_SESSION_ENDPOINT
+        ))
+        .header("User-Agent", USER_AGENT)
+        .header(desktop_session::DESKTOP_SESSION_HEADER, secret)
+        .timeout(DESKTOP_SESSION_TIMEOUT)
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .map_err(|error| transport_error(error, locale))?;
+    // The body is never logged: it carries the JWT.
+    let body = resp
+        .text()
+        .await
+        .map_err(|_| AppError::network(locale.dashboard_stream_error()))?;
+    parse_desktop_session_response(&body, locale)
+}
+
+/// A dashboard session issued for the embedded WebUI tab, so the user never
+/// types panel credentials into the iframe.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebuiSession {
+    pub token: String,
+    pub username: String,
+    /// `"desktop"` (secret exchange) or `"credentials"` (stored login).
+    pub source: String,
+}
+
+const SOURCE_DESKTOP: &str = "desktop";
+const SOURCE_CREDENTIALS: &str = "credentials";
+
+/// Session for the embedded WebUI tab of a hosted instance. Prefers the
+/// desktop-managed exchange; older AstrBot falls back to the stored panel
+/// credentials, and the SPA keeps its own sign-in form when neither works.
+/// The token and secret never appear in logs or error payloads.
+#[tauri::command]
+pub async fn get_webui_session(
+    state: State<'_, AppState>,
+    sessions: State<'_, DesktopSessionState>,
+    instance_id: String,
+) -> Result<WebuiSession> {
+    let locale = current_locale();
+    let endpoint = instance_endpoint(&state, &instance_id)?;
+    // The iframe only loads for a live instance; a stopped instance has no
+    // endpoint to exchange with.
+    if !matches!(
+        state.process_manager.get_runtime_info().get(&instance_id),
+        Some(InstanceRuntimeInfo::Live { .. })
+    ) {
+        return Err(AppError::instance_not_running());
+    }
+
+    let secret = sessions.stored(&instance_id);
+    if resolve_session_source(secret.is_some(), &endpoint) == SessionSource::Manual {
+        return Err(manual_login_required(locale));
+    }
+
+    // Preferred: the desktop-managed exchange. A failure is not surfaced —
+    // the credential fallback below is the actionable path.
+    if let Some(secret) = secret.as_deref() {
+        if let Ok((token, username)) = desktop_session_exchange(&endpoint, secret, locale).await {
+            return Ok(WebuiSession {
+                token,
+                username,
+                source: SOURCE_DESKTOP.to_string(),
+            });
+        }
+    }
+
+    // Fallback for AstrBot < v4.27.3: the stored panel credentials.
+    if !credentials_available(&endpoint.username, &endpoint.password) {
+        return Err(manual_login_required(locale));
+    }
+    let username = endpoint.username.trim().to_string();
+    let token = login(&endpoint, locale).await?;
+    Ok(WebuiSession {
+        token,
+        username,
+        source: SOURCE_CREDENTIALS.to_string(),
+    })
 }
 
 /// Applies the per-request model selection; AstrBot resolves provider and
@@ -1094,6 +1264,7 @@ mod tests {
             locale.dashboard_unsupported_version(),
             locale.dashboard_forbidden(),
             locale.dashboard_stream_error(),
+            locale.dashboard_webui_manual_login(),
         ]
     }
 
@@ -1307,6 +1478,82 @@ mod tests {
         for rejected in ["regen", "SEND", "send-message"] {
             assert_eq!(ChatSendMode::parse(Some(rejected)), None, "{rejected}");
         }
+    }
+
+    fn test_endpoint(username: &str, password: &str) -> InstanceEndpoint {
+        InstanceEndpoint {
+            host: "127.0.0.1".to_string(),
+            port: 6185,
+            username: username.to_string(),
+            password: password.to_string(),
+        }
+    }
+
+    #[test]
+    fn resolve_session_source_prefers_secret_then_credentials() {
+        let with_secret = test_endpoint("user", "pass");
+        assert_eq!(
+            resolve_session_source(true, &with_secret),
+            SessionSource::Desktop
+        );
+        // Without a launch secret, stored credentials are the only exchange.
+        assert_eq!(
+            resolve_session_source(false, &with_secret),
+            SessionSource::Credentials
+        );
+        // No secret and no credentials: the SPA's own form is the fallback.
+        let bare = test_endpoint("", "");
+        assert_eq!(resolve_session_source(false, &bare), SessionSource::Manual);
+    }
+
+    #[test]
+    fn credentials_available_matches_the_login_emptiness_check() {
+        assert!(credentials_available("user", "pass"));
+        assert!(!credentials_available("", "pass"));
+        // Whitespace-only usernames are treated as missing, like `login`.
+        assert!(!credentials_available("  ", "pass"));
+        assert!(!credentials_available("user", ""));
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn parse_desktop_session_response_extracts_token_and_username() {
+        let body = r#"{"status":"ok","data":{"token":"jwt-1","username":"astrbot"}}"#;
+        let parsed = parse_desktop_session_response(body, Locale::EnUs)
+            .expect("a well-formed session envelope parses");
+        assert_eq!(parsed, ("jwt-1".to_string(), "astrbot".to_string()));
+    }
+
+    #[test]
+    fn parse_desktop_session_response_rejects_unusable_payloads() {
+        // Missing token, missing username, error envelope, and a non-JSON
+        // body must all fail so the caller falls back to credentials.
+        for body in [
+            r#"{"status":"ok","data":{"username":"astrbot"}}"#,
+            r#"{"status":"ok","data":{"token":"jwt-1"}}"#,
+            r#"{"status":"error","message":"Not found","data":null}"#,
+            "<html>502</html>",
+        ] {
+            assert!(
+                parse_desktop_session_response(body, Locale::EnUs).is_err(),
+                "body: {body}"
+            );
+        }
+    }
+
+    #[test]
+    fn manual_login_required_marks_the_expected_state() {
+        let error = manual_login_required(Locale::EnUs);
+        assert_eq!(error.kind(), ErrorKind::Network);
+        assert_eq!(error.detail(), Locale::EnUs.dashboard_webui_manual_login());
+        // The marker lets the WebUI view stay silent on an expected state.
+        assert!(
+            error
+                .detail()
+                .contains("Passwordless sign-in is unavailable"),
+            "unexpected detail: {}",
+            error.detail()
+        );
     }
 
     #[test]
