@@ -20,7 +20,9 @@ mod utils;
 mod validation;
 mod webview_shortcuts;
 
-pub(crate) use network::{dashboard_chat, github, network_config, update_check, updater};
+pub(crate) use network::{
+    dashboard_chat, desktop_session, github, network_config, update_check, updater,
+};
 pub(crate) use tray::tray_panel;
 
 use std::sync::RwLock;
@@ -198,6 +200,7 @@ pub fn run() {
         .manage(tray_panel::TrayPanelState::default())
         .manage(chat_window::ChatWindowState::default())
         .manage(dashboard_chat::DashboardAuthState::default())
+        .manage(desktop_session::DesktopSessionState::default())
         .manage(updater::LauncherUpdateState::default())
         .manage({
             let startup_client = (|| {
@@ -313,6 +316,7 @@ pub fn run() {
             dashboard_chat::chat_send_message,
             dashboard_chat::chat_fetch_media,
             dashboard_chat::dashboard_api_request,
+            dashboard_chat::get_webui_session,
             // Launcher updater
             updater::check_launcher_update,
             updater::download_launcher_update,

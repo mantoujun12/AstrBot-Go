@@ -192,6 +192,22 @@ export function isDownloadCancelled(error: unknown): boolean {
   return toBackendError(error)?.code === 1006;
 }
 
+/**
+ * `true` when a `get_webui_session` failure means "the WebUI keeps its own
+ * sign-in form" and must stay silent: the instance is not running (1003), or
+ * neither the desktop exchange nor stored credentials could produce a
+ * session, which the backend marks with `reason: "webui_manual_login"`.
+ */
+export function isWebuiManualLoginRequired(error: unknown): boolean {
+  const backend = toBackendError(error);
+  if (!backend) {
+    return false;
+  }
+  return (
+    backend.code === 1003 || backend.payload.reason === "webui_manual_login"
+  );
+}
+
 // In-source tests, stripped from the production bundle by the
 // `import.meta.vitest` define in vite.config.ts.
 if (import.meta.vitest) {

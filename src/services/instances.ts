@@ -6,6 +6,7 @@ import type {
   RebuildInstanceManifestResult,
   RepairPreserveScope,
   UpdateInstanceRequest,
+  WebuiSession,
 } from "../types/launcher";
 
 export interface LockCheckInput {
@@ -35,6 +36,10 @@ export function deleteInstance(instanceId: string): Promise<void> {
 
 export function startInstance(instanceId: string): Promise<number> {
   return invoke<number>("start_instance", { instanceId });
+}
+
+export function getWebuiSession(instanceId: string): Promise<WebuiSession> {
+  return invoke<WebuiSession>("get_webui_session", { instanceId });
 }
 
 export function stopInstance(instanceId: string): Promise<void> {

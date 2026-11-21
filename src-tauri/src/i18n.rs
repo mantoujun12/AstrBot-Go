@@ -227,6 +227,29 @@ impl Locale {
         }
     }
 
+    /// Neither the desktop exchange nor stored credentials can produce a
+    /// WebUI session; the embedded login form is the fallback.
+    pub(crate) fn dashboard_webui_manual_login(self) -> String {
+        match self {
+            Self::ZhCn => {
+                "免密登录不可用：请启动实例后在 WebUI 中手动登录，或在实例设置中填写面板用户名和密码。"
+                    .to_string()
+            }
+            Self::EnUs => {
+                "Passwordless sign-in is unavailable. Sign in manually in the WebUI, or configure the dashboard username and password in the instance settings."
+                    .to_string()
+            }
+            Self::RuRu => {
+                "Автоматический вход недоступен. Войдите в WebUI вручную или укажите имя пользователя и пароль панели в настройках экземпляра."
+                    .to_string()
+            }
+            Self::JaJp => {
+                "パスワードなしログインは利用できません。WebUI で手動ログインするか、インスタンス設定にダッシュボードのユーザー名とパスワードを入力してください。"
+                    .to_string()
+            }
+        }
+    }
+
     /// The account requires a TOTP code, which the launcher cannot supply.
     pub(crate) fn dashboard_mfa_unsupported(self) -> String {
         match self {

@@ -12,6 +12,7 @@
 - Rename and delete chat sessions from the sidebar; when the target instance is not running or has no WebUI login configured, the window states the reason instead of a generic load error and blocks sending until the instance is ready.
 - Show images, audio, video and files from chat history in the chat window; attachments load and download through the authenticated instance connection.
 - Restore the config profile (conversation mode) picker in the chat composer's "+" menu; choosing a profile applies it to the current conversation.
+- The in-app WebUI tab signs in automatically: instances running AstrBot v4.27.3 or newer authenticate through the desktop-managed session exchange, and older instances fall back to the panel credentials stored in the instance settings.
 
 ### Changed
 
@@ -42,6 +43,7 @@
 - 侧边栏支持重命名和删除会话；目标实例未运行或未配置 WebUI 登录凭据时，窗口会直接说明原因，不再显示通用的加载失败提示，并在实例就绪前禁用发送。
 - 聊天窗口可显示历史消息中的图片、音频、视频与文件；附件通过已认证的实例连接加载和下载。
 - 恢复聊天窗口输入框“＋”菜单中的配置文件（对话模式）选择；选择后即应用到当前会话。
+- 应用内 WebUI 标签页支持自动登录：AstrBot v4.27.3 及以上的实例通过桌面托管会话交换免密登录，旧版本回退使用实例设置中保存的面板凭据。
 
 ### Changed
 

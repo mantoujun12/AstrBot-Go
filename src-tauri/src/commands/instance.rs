@@ -7,7 +7,7 @@ use crate::process::InstanceRuntimeInfo;
 use crate::tasks::{self, TaskKind};
 use crate::utils::paths::get_instance_core_dir;
 use crate::utils::validation::validate_instance_id;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager as _, State};
 use tauri_plugin_opener::open_path;
 
 // === Instance Management ===
@@ -32,12 +32,19 @@ pub async fn create_instance(name: String, version: String, port: u16) -> Result
 }
 
 #[tauri::command]
-pub async fn delete_instance(instance_id: String, state: State<'_, AppState>) -> Result<()> {
+pub async fn delete_instance(
+    app_handle: AppHandle,
+    instance_id: String,
+    state: State<'_, AppState>,
+) -> Result<()> {
     let _guard = state.process_manager.acquire_guard(&instance_id)?;
     let result = instance::delete_instance(&instance_id);
-    // Do not leak the crash tracker for a removed instance; it otherwise keeps
-    // growing the in-memory map for the manager lifetime.
+    // Do not leak per-instance in-memory state for a removed instance; it
+    // otherwise keeps growing the maps for the manager lifetime.
     state.process_manager.forget_restart_tracking(&instance_id);
+    app_handle
+        .state::<crate::network::desktop_session::DesktopSessionState>()
+        .remove(&instance_id);
     result
 }
 
