@@ -1,4 +1,4 @@
-* text=auto
+* text=auto eol=lf
 
 # Cross-platform source and configuration files
 *.c text
