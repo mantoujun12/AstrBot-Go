@@ -31,6 +31,11 @@ export default defineConfig(() => ({
     alias: chatuiAlias,
   },
 
+  // Strips `import.meta.vitest` in-source test blocks from production bundles.
+  define: {
+    "import.meta.vitest": "undefined",
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
