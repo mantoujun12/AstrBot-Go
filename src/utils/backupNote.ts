@@ -10,3 +10,16 @@ export function countBackupNoteChars(
 ): number {
   return value ? Array.from(value).length : 0;
 }
+
+// In-source tests, stripped from the production bundle by the
+// `import.meta.vitest` define in vite.config.ts.
+if (import.meta.vitest) {
+  const { describe, expect, it } = import.meta.vitest;
+
+  describe("countBackupNoteChars", () => {
+    it("counts emoji as one and empty input as zero", () => {
+      expect(countBackupNoteChars("😀")).toBe(1);
+      expect(countBackupNoteChars("")).toBe(0);
+    });
+  });
+}

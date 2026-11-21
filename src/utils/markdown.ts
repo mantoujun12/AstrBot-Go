@@ -20,3 +20,23 @@ export function renderMarkdown(source: string): string {
     USE_PROFILES: { html: true },
   });
 }
+
+// In-source tests, stripped from the production bundle by the
+// `import.meta.vitest` define in vite.config.ts.
+if (import.meta.vitest) {
+  const { describe, expect, it } = import.meta.vitest;
+
+  describe("renderMarkdown", () => {
+    it("returns an empty string for blank input", () => {
+      expect(renderMarkdown("   ")).toBe("");
+    });
+
+    it("never emits live tags or unsafe link hrefs", () => {
+      const html = renderMarkdown(
+        'hello <script>alert(1)</script> [click](javascript:alert(1))',
+      );
+      expect(html.toLowerCase()).not.toContain("<script");
+      expect(html.toLowerCase()).not.toContain('href="javascript:');
+    });
+  });
+}
