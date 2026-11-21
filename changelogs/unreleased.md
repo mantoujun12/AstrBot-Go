@@ -21,15 +21,14 @@
 - The "Instance & Model" panel now picks the model from a flat, provider-grouped list instead of a dropdown.
 - Theme and language picked in the chat window now follow the system when chosen and stay in sync with the launcher window.
 - Chat code blocks highlight a fixed whitelist of common languages; fences for other languages render as plain text.
+- Update frontend and Rust dependencies, including rusqlite (0.37 to 0.43), shiki (3 to 4), Tauri libraries and the release workflow actions.
 - Chat error cards now state that model configuration is done in the instance's WebUI instead of showing a button that cannot open a configuration page.
 
 ### Fixed
 
 - Regenerate in the chat window now streams the replacement reply instead of failing on every retry; retrying with another model reaches the instance too.
 - The chat window now receives token usage and reply completion snapshots from the stream, so the composer's usage ring and per-message stats populate.
-- Hide chat entries that fail when used: the per-message thread menu, the `/astr_live_dev` input easter egg, and the provider workspace sidebar button stay hidden until their backends exist.
-
-## 中文
+- Hide chat entries that fail when used: the per-message thread menu, the `/astr_live_dev` input easter egg, and the provider workspace sidebar button stay hidden until their backends exist.## 中文
 
 ### Added
 
@@ -52,6 +51,7 @@
 - “实例与模型”面板改为在按提供商分组的平铺列表中选择模型，不再使用下拉菜单。
 - 聊天窗口中选择的主题与语言支持跟随系统，并与启动器窗口双向同步。
 - 聊天代码块只对固定的常用语言白名单进行语法高亮，其他语言的代码块以纯文本显示。
+- 更新前端与 Rust 依赖，包括 rusqlite（0.37 至 0.43）、shiki（3 至 4）、Tauri 相关库及发布工作流 Actions。
 - 聊天错误卡片提示模型配置需在实例的 WebUI 中完成，不再显示无法打开配置页的“配置模型”按钮。
 
 ### Fixed

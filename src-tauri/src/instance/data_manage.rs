@@ -262,11 +262,7 @@ pub(crate) fn list_personas(data_dir: &Path) -> Result<Vec<InstancePersona>> {
     let mut stmt = conn
         .prepare("SELECT * FROM personas ORDER BY persona_id")
         .map_err(db_err)?;
-    let columns: Vec<String> = stmt
-        .column_names()
-        .iter()
-        .map(|name| (*name).to_string())
-        .collect();
+    let columns: Vec<String> = stmt.column_names().map(|name| name.to_string()).collect();
     let mut rows = stmt.query([]).map_err(db_err)?;
     let mut personas = Vec::new();
     while let Some(row) = rows.next().map_err(db_err)? {
@@ -357,11 +353,7 @@ pub(crate) fn list_cron_jobs(data_dir: &Path) -> Result<Vec<InstanceCronJob>> {
     let mut stmt = conn
         .prepare("SELECT * FROM cron_jobs ORDER BY id")
         .map_err(db_err)?;
-    let columns: Vec<String> = stmt
-        .column_names()
-        .iter()
-        .map(|name| (*name).to_string())
-        .collect();
+    let columns: Vec<String> = stmt.column_names().map(|name| name.to_string()).collect();
     let mut rows = stmt.query([]).map_err(db_err)?;
     let mut jobs = Vec::new();
     while let Some(row) = rows.next().map_err(db_err)? {
@@ -560,11 +552,7 @@ pub(crate) fn list_persona_folders(data_dir: &Path) -> Result<Vec<InstancePerson
     let mut stmt = conn
         .prepare("SELECT * FROM persona_folders ORDER BY sort_order, name")
         .map_err(db_err)?;
-    let columns: Vec<String> = stmt
-        .column_names()
-        .iter()
-        .map(|name| (*name).to_string())
-        .collect();
+    let columns: Vec<String> = stmt.column_names().map(|name| name.to_string()).collect();
     let mut rows = stmt.query([]).map_err(db_err)?;
     let mut folders = Vec::new();
     while let Some(row) = rows.next().map_err(db_err)? {
