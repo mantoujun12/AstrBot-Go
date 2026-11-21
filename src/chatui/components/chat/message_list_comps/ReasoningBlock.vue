@@ -31,7 +31,7 @@
       class="process-collapse"
       :class="{ 'is-expanded': isExpanded }"
       :aria-hidden="!isExpanded"
-      :inert="isExpanded ? undefined : ''"
+      :inert="isExpanded ? undefined : true"
     >
       <div class="process-collapse-inner">
         <div v-if="visited" class="reasoning-content">

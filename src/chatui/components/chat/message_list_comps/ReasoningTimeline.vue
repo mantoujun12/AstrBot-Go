@@ -31,7 +31,7 @@
                 :content="entry.think"
                 class="chat-markdown reasoning-text markdown-content"
                 :aria-hidden="!expandedThoughts[entry.key]"
-                :inert="expandedThoughts[entry.key] ? undefined : ''"
+                :inert="expandedThoughts[entry.key] ? undefined : true"
                 :final="!isStreaming"
                 :smooth-streaming="isStreaming ? 'auto' : false"
                 :fade="false"

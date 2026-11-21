@@ -18,6 +18,8 @@ export type ChatStreamEvent =
       /** Set for reasoning / tool-call output; absent for normal reply text. */
       chain?: string | null;
     }
+  | { type: "agent_stats"; data: unknown }
+  | { type: "complete"; data: unknown }
   | { type: "done" }
   | { type: "error"; message: string };
 
@@ -40,6 +42,13 @@ export interface ChatSendInput {
   /** Owner provider of the selected model; AstrBot resolves both together. */
   provider: string | null;
   model: string | null;
+  /**
+   * `send` (default) posts a new message; `regenerate` re-runs the turn of
+   * `targetMessageId` inside `sessionId` without creating a new session.
+   */
+  mode?: "send" | "regenerate";
+  /** History message the regenerate mode re-runs; ignored by `send`. */
+  targetMessageId?: string | number | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -67,6 +76,10 @@ function toChatStreamEvent(value: unknown): ChatStreamEvent | null {
           ? value.chain
           : null,
       };
+    case "agent_stats":
+      return { type: "agent_stats", data: value.data };
+    case "complete":
+      return { type: "complete", data: value.data };
     case "done":
       return { type: "done" };
     case "error":
@@ -94,6 +107,23 @@ export function dashboardApiRequest(
   return invoke<unknown>("dashboard_api_request", { instanceId, method, path, body });
 }
 
+/** One media file fetched through the authenticated dashboard proxy. */
+export interface ChatMediaPayload {
+  mime: string;
+  base64: string;
+}
+
+/**
+ * Fetches one chat attachment as base64. The dashboard origin and JWT stay in
+ * Rust; the island turns the payload into a blob URL.
+ */
+export function fetchChatMedia(
+  instanceId: string,
+  path: string,
+): Promise<ChatMediaPayload> {
+  return invoke<ChatMediaPayload>("chat_fetch_media", { instanceId, path });
+}
+
 /**
  * Sends one message and resolves when the stream completes. Streamed events
  * are delivered through a Tauri IPC channel; malformed events are dropped.
@@ -115,6 +145,8 @@ export function sendChatMessage(
     message: input.message,
     provider: input.provider,
     model: input.model,
+    mode: input.mode ?? null,
+    targetMessageId: input.targetMessageId == null ? null : String(input.targetMessageId),
     onEvent: channel,
   });
 }

@@ -1,11 +1,11 @@
 // Ported from AstrBot dashboard (MIT, CodedThemes); see src/chatui/LICENSE.
 import { computed, onBeforeUnmount, provide, reactive, ref, type Ref } from "vue";
-import { useI18n } from "@/i18n/composables";
 import { chatApi, fileApi } from "@/api/v1";
 // Island glue: the upstream SSE fetch transport is replaced by our typed
 // Tauri command; the accumulation and rendering pipeline is unchanged.
 import {
   sendChatMessage,
+  type ChatSendInput,
   type ChatStreamEvent,
 } from "../../services/chat";
 import { getChatInstance } from "@/api/adapter";
@@ -189,7 +189,6 @@ interface UseMessagesOptions {
 }
 
 export function useMessages(options: UseMessagesOptions) {
-  const { locale } = useI18n();
   const loadingMessagesState = ref(false);
   const sending = ref(false);
   const messagesBySession = reactive<Record<string, ChatRecord[]>>({});
@@ -292,32 +291,23 @@ export function useMessages(options: UseMessagesOptions) {
 
   async function resolvePartMedia(part: MessagePart): Promise<void> {
     if (part.embedded_url) return;
-    let url: string;
     let cacheKey: string;
+    let loader: () => Promise<Blob>;
     const storedFilename =
       typeof part.stored_filename === "string" ? part.stored_filename : "";
     const lookupFilename = storedFilename || part.filename || "";
     if (part.attachment_id) {
       cacheKey = `att:${part.attachment_id}`;
-      url = fileApi.contentUrl(part.attachment_id);
+      loader = () => fileApi.loadContent(part.attachment_id || "");
     } else if (lookupFilename) {
       cacheKey = `file:${lookupFilename}`;
-      url = "";
+      loader = () => fileApi.loadByName(lookupFilename);
     } else {
       return;
     }
     let promise = attachmentBlobCache.get(cacheKey);
     if (!promise) {
-      if (!part.attachment_id && lookupFilename) {
-        promise = fileApi
-          .getByName(lookupFilename)
-          .then((resp) => URL.createObjectURL(resp.data));
-      } else {
-        promise = fetchWithAuth(url).then(async (resp) => {
-          if (!resp.ok) throw new Error(`Media request failed: ${resp.status}`);
-          return URL.createObjectURL(await resp.blob());
-        });
-      }
+      promise = loader().then((blob) => URL.createObjectURL(blob));
       attachmentBlobCache.set(cacheKey, promise);
     }
     try {
@@ -712,6 +702,9 @@ export function useMessages(options: UseMessagesOptions) {
     enableStreaming = true,
     enableReasoning = true,
   ) {
+    // shortcut: the Rust transport streams but ignores the request flags.
+    void enableStreaming;
+    void enableReasoning;
     if (!sessionId || botRecord.id == null) return;
     const targetMessageId = botRecord.id;
     const records = messagesBySession[sessionId] || [];
@@ -730,12 +723,10 @@ export function useMessages(options: UseMessagesOptions) {
       isLoading: true,
     };
 
-    const abort = new AbortController();
     const connection: ActiveConnection = {
       sessionId,
       messageId: String(botRecord.id),
       transport: "sse",
-      abort,
       botRecord,
       userRecord,
       botVisible: true,
@@ -743,19 +734,24 @@ export function useMessages(options: UseMessagesOptions) {
     activeConnections[connection.messageId] = connection;
 
     try {
-      // shortcut: regenerate has no Tauri command; surface the gap honestly.
-      await chatApi.regenerateMessage(sessionId, targetMessageId, {
-        selected_provider: selectedProvider,
-        selected_model: selectedModel,
-        flags: buildChatRequestFlags(enableStreaming, enableReasoning),
-      });
-      throw new Error("Regenerate is not available in this window.");
-    } catch (error) {
-      appendError(botRecord, error, "connection_error");
-      console.error("Regenerate failed:", error);
+      await streamChatEvents(
+        {
+          sessionId,
+          message: "",
+          provider: selectedProvider || null,
+          model: selectedModel || null,
+          mode: "regenerate",
+          targetMessageId,
+        },
+        connection,
+        botRecord,
+        undefined,
+      );
     } finally {
-      if (activeConnections[connection.messageId]?.abort === abort) {
-        delete activeConnections[connection.messageId];
+      // A stream that never reached `end` may have drifted from the server;
+      // reload so the transcript matches the stored history again.
+      if (!connection.completed && !isSessionRunning(sessionId)) {
+        await loadSessionMessages(sessionId, true, false, true);
       }
       await options.onSessionsChanged?.();
     }
@@ -831,6 +827,12 @@ export function useMessages(options: UseMessagesOptions) {
       }
       return { type: "plain", data: event.text, streaming: true };
     }
+    if (event.type === "agent_stats") {
+      return { type: "agent_stats", data: event.data };
+    }
+    if (event.type === "complete") {
+      return { type: "complete", data: event.data };
+    }
     if (event.type === "done") return { type: "end" };
     if (event.type === "error") return { type: "error", data: event.message };
     return null;
@@ -856,6 +858,42 @@ export function useMessages(options: UseMessagesOptions) {
       delete paginationBySession[""];
     }
     options.onSessionBound?.(sessionId);
+  }
+
+  // One Tauri stream exchange: events accumulate into the bot record the same
+  // way for send and regenerate, and every exit path closes the connection.
+  function streamChatEvents(
+    input: Omit<ChatSendInput, "instanceId">,
+    connection: ActiveConnection,
+    botRecord: ChatRecord,
+    userRecord?: ChatRecord,
+  ) {
+    return sendChatMessage(
+      { instanceId: getChatInstance(), ...input },
+      (event) => {
+        if (event.type === "session") {
+          bindStreamSession(connection, event.session_id);
+          return;
+        }
+        const payload = streamEventToPayload(event);
+        if (!payload) return;
+        processStreamPayload(botRecord, payload, userRecord, connection);
+        options.onStreamUpdate?.(connection.sessionId);
+        // Terminal events close the exchange immediately; the promise settle
+        // below covers streams that end without one.
+        if (event.type === "done" || event.type === "error") {
+          finalizeConnection(connection);
+        }
+      },
+    )
+      .catch((error) => {
+        console.error("Chat stream failed:", error);
+        finalizeConnection(connection, error);
+      })
+      .finally(() => {
+        // The transport can settle without a terminal event; always close.
+        finalizeConnection(connection);
+      });
   }
 
   function startSseStream(
@@ -893,38 +931,17 @@ export function useMessages(options: UseMessagesOptions) {
       .filter((part) => part.type === "plain")
       .map((part) => part.text || "")
       .join("\n");
-    sendChatMessage(
+    streamChatEvents(
       {
-        instanceId: getChatInstance(),
         sessionId: sessionId || null,
         message: text,
         provider: selectedProvider || null,
         model: selectedModel || null,
       },
-      (event) => {
-        if (event.type === "session") {
-          bindStreamSession(connection, event.session_id);
-          return;
-        }
-        const payload = streamEventToPayload(event);
-        if (!payload) return;
-        processStreamPayload(botRecord, payload, userRecord, connection);
-        options.onStreamUpdate?.(connection.sessionId);
-        // Terminal events close the exchange immediately; the promise settle
-        // below covers streams that end without one.
-        if (event.type === "done" || event.type === "error") {
-          finalizeConnection(connection);
-        }
-      },
-    )
-      .catch((error) => {
-        console.error("Chat stream failed:", error);
-        finalizeConnection(connection, error);
-      })
-      .finally(() => {
-        // The transport can settle without a terminal event; always close.
-        finalizeConnection(connection);
-      });
+      connection,
+      botRecord,
+      userRecord,
+    );
   }
 
   // Finalization must not depend on a terminal event: the stream can end
@@ -1372,30 +1389,6 @@ export function messageBlocks(content: ChatContent): MessageDisplayBlock[] {
   return blocks;
 }
 
-function partToPayload(part: MessagePart) {
-  if (part.type === "plain") return { type: "plain", text: part.text || "" };
-  if (part.type === "reply") {
-    return {
-      type: "reply",
-      message_id: part.message_id,
-      selected_text: part.selected_text || "",
-    };
-  }
-  if (part.type === "button_interaction") {
-    return {
-      type: "button_interaction",
-      callback_data: part.callback_data,
-      source_message_id: part.source_message_id,
-    };
-  }
-  return {
-    type: part.type,
-    attachment_id: part.attachment_id,
-    filename: part.filename,
-  };
-}
-
-
 function normalizePartsInternal(parts: unknown): MessagePart[] {
   if (typeof parts === "string") {
     return parts ? [{ type: "plain", text: parts }] : [];
@@ -1422,10 +1415,6 @@ function isEmptyPlainPart(part: MessagePart) {
 
 function isThinkingPart(part: MessagePart) {
   return part.type === "think" || part.type === "tool_call";
-}
-
-function firstNonEmptyPartIndex(parts: MessagePart[]) {
-  return parts.findIndex((part) => !isEmptyPlainPart(part));
 }
 
 /** Preserve error identity across stream transports and thread messages. */

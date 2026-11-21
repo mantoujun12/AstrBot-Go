@@ -325,7 +325,7 @@
       "title": "This reply could not be completed",
       "description": "Try again later or open the details to learn more."
     },
-    "configureModels": "Configure models",
+    "configureModelsWebui": "Model configuration is managed in the instance's WebUI.",
     "details": "View details"
   }
 }

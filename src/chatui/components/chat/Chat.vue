@@ -7,7 +7,7 @@
       '--astrbot-chat-sidebar-width': `${isMobile ? 0 : isSidebarCollapsed ? 56 : 245}px`,
       '--astrbot-workbench-preferred-width': chatHeader.workbenchWidth ? `${chatHeader.workbenchWidth}px` : undefined,
     }"
-    :class="{ 'is-dark': isDark, 'sidebar-collapsed': isSidebarCollapsed }"
+    :class="{ 'is-dark': isDark, 'sidebar-collapsed': isSidebarCollapsed, 'sidebar-animating': sidebarAnimating }"
   >
     <v-navigation-drawer
       class="chat-sidebar"
@@ -367,7 +367,6 @@
               @open-thread="openThreadPanel"
               @open-refs="openRefsSidebar"
               @button-click="handleButtonClick"
-              @configure-models="openProviderWorkspace()"
             />
           </div>
         </section>
@@ -513,9 +512,8 @@
       :deleting="deletingThread"
       :get-provider-selection="getSelectedProviderSelection"
       @delete="deleteThread"
-      @configure-models="openProviderWorkspace()"
     />
-    <RefsSidebar v-model="refsSidebarOpen" :refs="selectedRefs" />
+    <RefsSidebar v-model="refsSidebarOpen" :refs="selectedRefs || undefined" />
   </div>
 </template>
 
@@ -538,11 +536,9 @@ import {
   Box,
   CalendarDays,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Clock,
   PanelLeft,
-  PanelRightOpen,
   Pencil,
   ServerCog,
   Settings,
@@ -781,7 +777,10 @@ const isProviderWorkspace = computed(
   () => activeWorkspace.value === "providers",
 );
 
-const providerWorkspaceType = computed(() => "chat_completion" as const);
+// The drawer width and the content offset animate together only while a
+// toggle is in flight, mirroring the launcher sidebar.
+const sidebarAnimating = ref(false);
+let sidebarAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 
 function toggleChatSidebar() {
   if (isMobile.value) {
@@ -789,6 +788,14 @@ function toggleChatSidebar() {
     return;
   }
   customizer.SET_CHAT_SIDEBAR_COLLAPSED(!customizer.chatSidebarCollapsed);
+  if (sidebarAnimationTimer !== undefined) {
+    clearTimeout(sidebarAnimationTimer);
+  }
+  sidebarAnimating.value = true;
+  sidebarAnimationTimer = setTimeout(() => {
+    sidebarAnimating.value = false;
+    sidebarAnimationTimer = undefined;
+  }, 220);
 }
 
 const {
@@ -796,7 +803,6 @@ const {
   sending,
   loadedSessions,
   sessionDetails,
-  sessionProjects,
   activeMessages,
   paginationBySession,
   isSessionRunning,
@@ -1902,6 +1908,21 @@ async function stopCurrentSession() {
   border-right: 0;
 }
 
+/* Width and content offset share the launcher's 180ms sidebar motion, and
+   only run while the sidebar is toggling so other layout changes stay still. */
+.chat-ui.sidebar-animating .chat-main {
+  transition: margin-left 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+.chat-ui.sidebar-animating .chat-sidebar {
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-ui.sidebar-animating .chat-main {
+    transition: none;
+  }
+}
+
 .chat-sidebar :deep(.v-navigation-drawer__content) {
   display: flex;
   flex-direction: column;
@@ -2569,7 +2590,7 @@ async function stopCurrentSession() {
   font-family: "Outfit", "Noto Sans", sans-serif;
   font-size: 28px;
   /* Faux-bold parity with upstream's 400-weight font; see brand-name note. */
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .welcome-subtitle {

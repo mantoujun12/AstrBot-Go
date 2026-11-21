@@ -30,7 +30,6 @@
           :is-message-streaming="(message) => sending && message === activeBotRecord"
           variant="thread"
           @button-click="handleButtonClick"
-          @configure-models="emit('configureModels')"
         />
       </div>
 
@@ -92,7 +91,6 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  configureModels: [];
   "update:modelValue": [value: boolean];
   delete: [thread: ChatThread];
 }>();

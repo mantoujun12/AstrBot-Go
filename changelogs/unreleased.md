@@ -10,15 +10,24 @@
 - Add a standalone chat window opened from the entry at the top of the sidebar; it opens directly into the conversation, with the target instance and model chosen inside the window.
 - The chat window's "Instance & Model" sidebar panel switches the target instance and picks the model (also selectable at the bottom-left of the composer), and the window uses a custom title bar on Windows and Linux with minimize, maximize/restore and close controls that stay usable while its settings dialog is open (macOS keeps the native traffic lights).
 - Rename and delete chat sessions from the sidebar; when the target instance is not running or has no WebUI login configured, the window states the reason instead of a generic load error and blocks sending until the instance is ready.
+- Show images, audio, video and files from chat history in the chat window; attachments load and download through the authenticated instance connection.
+- Restore the config profile (conversation mode) picker in the chat composer's "+" menu; choosing a profile applies it to the current conversation.
 
 ### Changed
 
-- The chat window title bar no longer shows the current session title.
+- The chat window title bar shows the current session title, and the taskbar title follows it.
+- The chat sidebar now slides between its full and rail widths instead of snapping, matching the launcher's sidebar motion.
+- The "Instance & Model" panel now picks the model from a flat, provider-grouped list instead of a dropdown.
 - Theme and language picked in the chat window now follow the system when chosen and stay in sync with the launcher window.
 - Chat code blocks highlight a fixed whitelist of common languages; fences for other languages render as plain text.
 - Update frontend and Rust dependencies, including rusqlite (0.37 to 0.43), shiki (3 to 4), Tauri libraries and the release workflow actions.
+- Chat error cards now state that model configuration is done in the instance's WebUI instead of showing a button that cannot open a configuration page.
 
-## 中文
+### Fixed
+
+- Regenerate in the chat window now streams the replacement reply instead of failing on every retry; retrying with another model reaches the instance too.
+- The chat window now receives token usage and reply completion snapshots from the stream, so the composer's usage ring and per-message stats populate.
+- Hide chat entries that fail when used: the per-message thread menu, the `/astr_live_dev` input easter egg, and the provider workspace sidebar button stay hidden until their backends exist.## 中文
 
 ### Added
 
@@ -30,10 +39,21 @@
 - 新增独立聊天窗口，入口位于侧边栏顶部；打开后直接进入聊天界面，目标实例与模型在窗口内选择。
 - 聊天窗口侧边栏新增“实例与模型”面板，可切换目标实例并选择模型（输入框底部左侧亦可选择）；Windows 和 Linux 上改用自定义标题栏，提供最小化、最大化/还原和关闭按钮，设置对话框打开时按钮仍可点击（macOS 保留原生红绿灯按钮）。
 - 侧边栏支持重命名和删除会话；目标实例未运行或未配置 WebUI 登录凭据时，窗口会直接说明原因，不再显示通用的加载失败提示，并在实例就绪前禁用发送。
+- 聊天窗口可显示历史消息中的图片、音频、视频与文件；附件通过已认证的实例连接加载和下载。
+- 恢复聊天窗口输入框“＋”菜单中的配置文件（对话模式）选择；选择后即应用到当前会话。
 
 ### Changed
 
-- 聊天窗口标题栏不再显示当前会话标题。
+- 聊天窗口标题栏显示当前会话标题，任务栏标题随之同步。
+- 聊天侧边栏在完整宽度与图标栏之间改为平滑过渡，与启动器侧边栏的动效一致。
+- “实例与模型”面板改为在按提供商分组的平铺列表中选择模型，不再使用下拉菜单。
 - 聊天窗口中选择的主题与语言支持跟随系统，并与启动器窗口双向同步。
 - 聊天代码块只对固定的常用语言白名单进行语法高亮，其他语言的代码块以纯文本显示。
 - 更新前端与 Rust 依赖，包括 rusqlite（0.37 至 0.43）、shiki（3 至 4）、Tauri 相关库及发布工作流 Actions。
+- 聊天错误卡片提示模型配置需在实例的 WebUI 中完成，不再显示无法打开配置页的“配置模型”按钮。
+
+### Fixed
+
+- 聊天窗口的重新生成现在会通过实例流式返回替换回复，不再每次重试都失败；更换模型重试也会传达到实例。
+- 聊天窗口现在能接收流中的 token 用量与回复完成快照，输入框用量环与会话消息统计恢复显示。
+- 隐藏无法使用的聊天入口：消息分支菜单、`/astr_live_dev` 彩蛋命令与模型配置侧边栏按钮，在其后端可用前保持隐藏。

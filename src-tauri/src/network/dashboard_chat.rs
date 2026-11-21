@@ -27,6 +27,9 @@ use crate::utils::validation::validate_instance_id;
 /// Lists and logins must not hang on a stalled response; chat streaming is
 /// separate and deliberately has no total timeout.
 const LIST_TIMEOUT: Duration = Duration::from_secs(30);
+/// shortcut: media crosses IPC base64-encoded, so cap it at 32 MiB; stream
+/// larger files through a local protocol if chat ever needs them.
+const MAX_MEDIA_BYTES: usize = 32 << 20;
 
 const TOKEN_LOCK_NAME: &str = "DashboardAuthState.tokens";
 
@@ -80,6 +83,14 @@ pub enum ChatStreamEvent {
         text: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         chain: Option<String>,
+    },
+    /// Token/timing stats for the reply; the ChatUI's usage ring reads these.
+    AgentStats {
+        data: Value,
+    },
+    /// Final reply snapshot; the ChatUI fills in any delta the stream dropped.
+    Complete {
+        data: Value,
     },
     Done,
     Error {
@@ -196,6 +207,9 @@ fn map_sse_data(raw: &str) -> Option<ChatStreamEvent> {
                 chain: event.chain_type,
             })
         }
+        // Forwarded verbatim: the ChatUI already knows these payload shapes.
+        "agent_stats" => Some(ChatStreamEvent::AgentStats { data: event.data }),
+        "complete" => Some(ChatStreamEvent::Complete { data: event.data }),
         "error" => Some(ChatStreamEvent::Error {
             message: extract_error_message(&event.data).unwrap_or_default(),
         }),
@@ -498,6 +512,17 @@ fn error_envelope_message(text: &str, locale: Locale) -> String {
     }
 }
 
+/// Applies the per-request model selection; AstrBot resolves provider and
+/// model together, exactly like its own WebUI selector.
+fn apply_model_selection(body: &mut Value, provider: Option<&str>, model: Option<&str>) {
+    if let Some(provider) = provider {
+        body["selected_provider"] = serde_json::json!(provider);
+    }
+    if let Some(model) = model {
+        body["selected_model"] = serde_json::json!(model);
+    }
+}
+
 /// Message payload for `POST /api/v1/chat`; the server derives the username
 /// from the JWT, so the body must carry the session and model selection only.
 fn chat_payload(
@@ -511,13 +536,64 @@ fn chat_payload(
         "message": message,
         "enable_streaming": true,
     });
-    if let Some(provider) = provider {
-        body["selected_provider"] = serde_json::json!(provider);
-    }
-    if let Some(model) = model {
-        body["selected_model"] = serde_json::json!(model);
-    }
+    apply_model_selection(&mut body, provider, model);
     body
+}
+
+/// Payload for the regenerate endpoint; the server rewinds the session to the
+/// target message and streams the replacement reply, so only the model
+/// selection travels.
+fn regenerate_payload(provider: Option<&str>, model: Option<&str>) -> Value {
+    let mut body = serde_json::json!({ "enable_streaming": true });
+    apply_model_selection(&mut body, provider, model);
+    body
+}
+
+/// Percent-encode one path segment (RFC 3986 unreserved characters stay
+/// plain) so a session or message id cannot escape the chat route prefix.
+fn encode_path_segment(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                encoded.push(byte as char);
+            }
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
+}
+
+/// `POST /api/v1/chat/sessions/{id}/messages/{id}/regenerate`, the upstream
+/// regenerate SSE endpoint.
+fn regenerate_url(host: &str, port: u16, session_id: &str, message_id: &str) -> String {
+    format!(
+        "{}/api/v1/chat/sessions/{}/messages/{}/regenerate",
+        dashboard_base_url(host, port),
+        encode_path_segment(session_id),
+        encode_path_segment(message_id),
+    )
+}
+
+/// What `chat_send_message` should do with the request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChatSendMode {
+    /// Send a new message, creating a session when none was given.
+    Send,
+    /// Re-run the turn of one history message inside an existing session.
+    Regenerate,
+}
+
+impl ChatSendMode {
+    /// `None` and blank mean the default `send` mode; unknown values are
+    /// rejected so the pinned contract stays explicit.
+    fn parse(mode: Option<&str>) -> Option<Self> {
+        match mode.map(str::trim) {
+            None | Some("") | Some("send") => Some(Self::Send),
+            Some("regenerate") => Some(Self::Regenerate),
+            Some(_) => None,
+        }
+    }
 }
 
 /// The WebUI always chats inside an existing session, so a new conversation is
@@ -599,6 +675,74 @@ fn validate_proxy_target(method: &str, path: &str, locale: Locale) -> Result<()>
     Err(rejected())
 }
 
+/// Media reads are GET-only and limited to the two dashboard shapes: by
+/// attachment id (`/api/v1/files/{id}/content`) and by stored filename
+/// (`/api/v1/files/content?filename=...`).
+fn validate_media_path(path: &str, locale: Locale) -> Result<()> {
+    let (path_only, query) = path.split_once('?').unwrap_or((path, ""));
+    let rejected = || {
+        log::warn!("Rejected chat media request: {path_only}");
+        AppError::network(locale.dashboard_forbidden())
+    };
+
+    if !path.starts_with('/') || path.starts_with("//") {
+        return Err(rejected());
+    }
+    if path_only
+        .split('/')
+        .any(|segment| segment == "." || segment == "..")
+    {
+        return Err(rejected());
+    }
+
+    if path_only == "/api/v1/files/content" {
+        let has_filename = query.split('&').any(|pair| {
+            pair.strip_prefix("filename=")
+                .is_some_and(|value| !value.is_empty())
+        });
+        return if has_filename {
+            Ok(())
+        } else {
+            Err(rejected())
+        };
+    }
+
+    let segments: Vec<&str> = path_only.split('/').collect();
+    if segments.len() == 6
+        && segments[1..4] == ["api", "v1", "files"]
+        && !segments[4].is_empty()
+        && segments[5] == "content"
+    {
+        return Ok(());
+    }
+    Err(rejected())
+}
+
+/// Base64 for the IPC payload. Kept local so media does not pull in a crate
+/// for one encode path; media is capped well below anything streaming needs.
+fn base64_encode(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let first = chunk[0];
+        let second = chunk.get(1).copied().unwrap_or(0);
+        let third = chunk.get(2).copied().unwrap_or(0);
+        encoded.push(ALPHABET[(first >> 2) as usize] as char);
+        encoded.push(ALPHABET[(((first & 0b11) << 4) | (second >> 4)) as usize] as char);
+        if chunk.len() > 1 {
+            encoded.push(ALPHABET[(((second & 0b1111) << 2) | (third >> 6)) as usize] as char);
+        } else {
+            encoded.push('=');
+        }
+        if chunk.len() > 2 {
+            encoded.push(ALPHABET[(third & 0b111111) as usize] as char);
+        } else {
+            encoded.push('=');
+        }
+    }
+    encoded
+}
+
 /// Authenticated proxy for the dashboard routes the chat UI reads and writes.
 /// The raw dashboard envelope is returned so the frontend can consume it
 /// as-is; transport, status, and post-retry auth failures become errors.
@@ -649,6 +793,68 @@ pub async fn dashboard_api_request(
         .map_err(|_| AppError::network(locale.dashboard_stream_error()))
 }
 
+/// One media file for the chat transcript. Base64 keeps the webview free of
+/// dashboard URLs and JWTs; the island turns it into a blob URL.
+#[derive(Debug, Serialize)]
+pub struct ChatMediaPayload {
+    mime: String,
+    base64: String,
+}
+
+#[tauri::command]
+pub async fn chat_fetch_media(
+    state: State<'_, AppState>,
+    auth: State<'_, DashboardAuthState>,
+    instance_id: String,
+    path: String,
+) -> Result<ChatMediaPayload> {
+    validate_instance_id(&instance_id)?;
+    let locale = current_locale();
+    validate_media_path(&path, locale)?;
+
+    let endpoint = instance_endpoint(&state, &instance_id)?;
+    let client = build_instance_client(&endpoint.host)?;
+    let url = format!(
+        "{}{path}",
+        dashboard_base_url(&endpoint.host, endpoint.port)
+    );
+    let resp = authorized_send(&auth, &instance_id, &endpoint, locale, |token| {
+        client
+            .get(&url)
+            .bearer_auth(token)
+            .header("User-Agent", USER_AGENT)
+            .timeout(LIST_TIMEOUT)
+    })
+    .await?;
+
+    if let Some(failure) = classify_status(resp.status()) {
+        return Err(AppError::network(status_error_message(failure, locale)));
+    }
+    if resp
+        .content_length()
+        .is_some_and(|length| length as usize > MAX_MEDIA_BYTES)
+    {
+        return Err(AppError::network(locale.dashboard_stream_error()));
+    }
+    let mime = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("application/octet-stream")
+        .to_string();
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|_| AppError::network(locale.dashboard_stream_error()))?;
+    if bytes.len() > MAX_MEDIA_BYTES {
+        return Err(AppError::network(locale.dashboard_stream_error()));
+    }
+    Ok(ChatMediaPayload {
+        mime,
+        base64: base64_encode(&bytes),
+    })
+}
+
 /// Terminal event for a finished loop. A clean EOF (short replies such as a
 /// command result) may close without the `end` frame, so completion is still
 /// reported; a broken transport keeps reporting an error instead.
@@ -685,16 +891,31 @@ pub async fn chat_send_message(
     // its own WebUI selector; sending only the model can silently no-op.
     provider: Option<String>,
     model: Option<String>,
+    // `send` (default) posts a new message; `regenerate` re-runs the turn of
+    // `target_message_id` inside `session_id` without creating a session.
+    mode: Option<String>,
+    target_message_id: Option<String>,
     on_event: Channel<ChatStreamEvent>,
 ) -> Result<()> {
     validate_instance_id(&instance_id)?;
+    let locale = current_locale();
+    let mode = ChatSendMode::parse(mode.as_deref())
+        .ok_or_else(|| AppError::network(locale.dashboard_forbidden()))?;
     // Blank strings from the webview are treated as "not provided".
     let session_id = session_id.filter(|value| !value.trim().is_empty());
     let provider = provider.filter(|value| !value.trim().is_empty());
     let model = model.filter(|value| !value.trim().is_empty());
-    let locale = current_locale();
+    let target_message_id = target_message_id.filter(|value| !value.trim().is_empty());
     let endpoint = instance_endpoint(&state, &instance_id)?;
     let client = build_instance_client(&endpoint.host)?;
+
+    // Regenerate always targets an existing session and history message.
+    if mode == ChatSendMode::Regenerate && (session_id.is_none() || target_message_id.is_none()) {
+        let _ = on_event.send(ChatStreamEvent::Error {
+            message: locale.dashboard_stream_error(),
+        });
+        return Ok(());
+    }
 
     let session_id = match session_id {
         Some(session_id) => session_id,
@@ -719,11 +940,24 @@ pub async fn chat_send_message(
         return Ok(());
     }
 
-    let body = chat_payload(&session_id, &message, provider.as_deref(), model.as_deref());
-    let url = format!(
-        "{}/api/v1/chat",
-        dashboard_base_url(&endpoint.host, endpoint.port)
-    );
+    let (url, body) = match mode {
+        ChatSendMode::Send => (
+            format!(
+                "{}/api/v1/chat",
+                dashboard_base_url(&endpoint.host, endpoint.port)
+            ),
+            chat_payload(&session_id, &message, provider.as_deref(), model.as_deref()),
+        ),
+        ChatSendMode::Regenerate => (
+            regenerate_url(
+                &endpoint.host,
+                endpoint.port,
+                &session_id,
+                target_message_id.as_deref().unwrap_or_default(),
+            ),
+            regenerate_payload(provider.as_deref(), model.as_deref()),
+        ),
+    };
     let send_result = authorized_send(&auth, &instance_id, &endpoint, locale, |token| {
         client
             .post(&url)
@@ -796,6 +1030,16 @@ pub async fn chat_send_message(
                         .send(ChatStreamEvent::Delta { text, chain })
                         .is_err()
                     {
+                        return Ok(());
+                    }
+                }
+                ChatStreamEvent::AgentStats { data } => {
+                    if on_event.send(ChatStreamEvent::AgentStats { data }).is_err() {
+                        return Ok(());
+                    }
+                }
+                ChatStreamEvent::Complete { data } => {
+                    if on_event.send(ChatStreamEvent::Complete { data }).is_err() {
                         return Ok(());
                     }
                 }
@@ -901,6 +1145,38 @@ mod tests {
             .unwrap_or_default(),
             r#"{"type":"error","message":"boom"}"#
         );
+        assert_eq!(
+            serde_json::to_string(&ChatStreamEvent::AgentStats {
+                data: serde_json::json!({"total_tokens": 12})
+            })
+            .unwrap_or_default(),
+            r#"{"type":"agent_stats","data":{"total_tokens":12}}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&ChatStreamEvent::Complete {
+                data: serde_json::json!("final")
+            })
+            .unwrap_or_default(),
+            r#"{"type":"complete","data":"final"}"#
+        );
+    }
+
+    #[test]
+    fn map_sse_data_forwards_stats_and_complete_verbatim() {
+        assert_eq!(
+            map_sse_data(r#"{"type":"agent_stats","data":{"total_tokens":12}}"#),
+            Some(ChatStreamEvent::AgentStats {
+                data: serde_json::json!({"total_tokens": 12})
+            })
+        );
+        assert_eq!(
+            map_sse_data(r#"{"type":"complete","data":"final text"}"#),
+            Some(ChatStreamEvent::Complete {
+                data: serde_json::json!("final text")
+            })
+        );
+        // Unknown event kinds stay filtered out, so the contract stays pinned.
+        assert_eq!(map_sse_data(r#"{"type":"run_snapshot","data":{}}"#), None);
     }
 
     #[test]
@@ -1009,6 +1285,104 @@ mod tests {
         for split in 0..=crlf.len() {
             assert_eq!(parse(&crlf, split), expected, "split at {split}");
         }
+    }
+
+    #[test]
+    fn chat_send_mode_parses_the_pinned_values() {
+        assert_eq!(ChatSendMode::parse(None), Some(ChatSendMode::Send));
+        assert_eq!(ChatSendMode::parse(Some("")), Some(ChatSendMode::Send));
+        assert_eq!(ChatSendMode::parse(Some("send")), Some(ChatSendMode::Send));
+        assert_eq!(
+            ChatSendMode::parse(Some(" send ")),
+            Some(ChatSendMode::Send)
+        );
+        assert_eq!(
+            ChatSendMode::parse(Some("regenerate")),
+            Some(ChatSendMode::Regenerate)
+        );
+        assert_eq!(
+            ChatSendMode::parse(Some(" regenerate ")),
+            Some(ChatSendMode::Regenerate)
+        );
+        for rejected in ["regen", "SEND", "send-message"] {
+            assert_eq!(ChatSendMode::parse(Some(rejected)), None, "{rejected}");
+        }
+    }
+
+    #[test]
+    fn regenerate_payload_carries_only_the_model_selection() {
+        let payload = regenerate_payload(Some("provider-1"), Some("gpt-4o"));
+        assert_eq!(payload["enable_streaming"], true);
+        assert_eq!(payload["selected_provider"], "provider-1");
+        assert_eq!(payload["selected_model"], "gpt-4o");
+        for key in ["session_id", "message"] {
+            assert!(payload.get(key).is_none(), "unexpected {key}");
+        }
+
+        let minimal = regenerate_payload(None, None);
+        assert!(minimal.get("selected_provider").is_none());
+        assert!(minimal.get("selected_model").is_none());
+    }
+
+    #[test]
+    fn regenerate_url_encodes_route_segments() {
+        assert_eq!(
+            regenerate_url("127.0.0.1", 6185, "webchat!admin!abc", "42"),
+            "http://127.0.0.1:6185/api/v1/chat/sessions/webchat%21admin%21abc/messages/42/regenerate"
+        );
+        // Separators in either segment cannot escape the chat route prefix.
+        assert_eq!(
+            regenerate_url("127.0.0.1", 6185, "a/b?c", "1"),
+            "http://127.0.0.1:6185/api/v1/chat/sessions/a%2Fb%3Fc/messages/1/regenerate"
+        );
+        assert_eq!(
+            regenerate_url("127.0.0.1", 6185, "s-1", "../x"),
+            "http://127.0.0.1:6185/api/v1/chat/sessions/s-1/messages/..%2Fx/regenerate"
+        );
+    }
+
+    #[test]
+    fn validate_media_path_accepts_the_two_dashboard_shapes() {
+        let locale = Locale::EnUs;
+        for path in [
+            "/api/v1/files/abc-123/content",
+            "/api/v1/files/content?filename=x.png",
+            "/api/v1/files/content?filename=a%2Fb.png&download=1",
+        ] {
+            assert!(validate_media_path(path, locale).is_ok(), "{path}");
+        }
+    }
+
+    #[test]
+    fn validate_media_path_rejects_everything_else() {
+        let locale = Locale::EnUs;
+        for path in [
+            "/api/v1/files",
+            "/api/v1/files/abc",
+            "/api/v1/files/abc/other",
+            "/api/v1/files//content",
+            "/api/v1/files/../content",
+            "/api/v1/files/a/b/content",
+            "/api/v1/files/content",
+            "/api/v1/files/content?filename=",
+            "/api/v1/chat/sessions",
+            "api/v1/files/abc/content",
+            "//api/v1/files/abc/content",
+        ] {
+            assert!(validate_media_path(path, locale).is_err(), "{path}");
+        }
+    }
+
+    #[test]
+    fn base64_encode_matches_rfc4648_vectors() {
+        assert_eq!(base64_encode(b""), "");
+        assert_eq!(base64_encode(b"f"), "Zg==");
+        assert_eq!(base64_encode(b"fo"), "Zm8=");
+        assert_eq!(base64_encode(b"foo"), "Zm9v");
+        assert_eq!(base64_encode(b"foob"), "Zm9vYg==");
+        assert_eq!(base64_encode(b"fooba"), "Zm9vYmE=");
+        assert_eq!(base64_encode(b"foobar"), "Zm9vYmFy");
+        assert_eq!(base64_encode(&[0x00, 0xFF, 0x10]), "AP8Q");
     }
 
     #[test]

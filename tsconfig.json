@@ -9,6 +9,13 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    // The island still has plain-JS modules (features, toast, imeInput) and
+    // JS Vue components; infer their types instead of demanding declarations.
+    "allowJs": true,
+    // The chat island mirrors the dashboard's `@/` import root.
+    "paths": {
+      "@/*": ["./src/chatui/*"]
+    },
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -21,7 +28,7 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
-  // shortcut: upstream island is untyped JS/TS, tighten incrementally
-  "exclude": ["src/chatui/**"],
+  // Vitest files use Node APIs and are checked by the test runner, not vue-tsc.
+  "exclude": ["src/chatui/**/*.test.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
