@@ -16,6 +16,7 @@
 - The chat window title bar no longer shows the current session title.
 - Theme and language picked in the chat window now follow the system when chosen and stay in sync with the launcher window.
 - Chat code blocks highlight a fixed whitelist of common languages; fences for other languages render as plain text.
+- Update frontend and Rust dependencies, including rusqlite (0.37 to 0.43), shiki (3 to 4), Tauri libraries and the release workflow actions.
 
 ## 中文
 
@@ -35,3 +36,4 @@
 - 聊天窗口标题栏不再显示当前会话标题。
 - 聊天窗口中选择的主题与语言支持跟随系统，并与启动器窗口双向同步。
 - 聊天代码块只对固定的常用语言白名单进行语法高亮，其他语言的代码块以纯文本显示。
+- 更新前端与 Rust 依赖，包括 rusqlite（0.37 至 0.43）、shiki（3 至 4）、Tauri 相关库及发布工作流 Actions。
