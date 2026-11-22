@@ -1064,7 +1064,7 @@ const zhCN = {
     "update": "检查更新",
     "uninstall": "卸载",
     "toggleAria": "启用或停用 {name}",
-    "instanceRunning": "实例正在运行，安装、卸载与启停需先停止实例。",
+    "instanceRunning": "实例正在运行，安装、卸载与启用停用需先停止实例。",
     "noInstance": "请先选择实例。",
     "market": {
       "empty": "没有匹配的插件。"
@@ -1095,7 +1095,7 @@ const zhCN = {
     "upload": "上传技能",
     "search": "搜索技能",
     "localTitle": "本地技能",
-    "instanceRunning": "实例正在运行，上传、编辑与启停需先停止实例。",
+    "instanceRunning": "实例正在运行，上传、编辑与启用停用需先停止实例。",
     "noInstance": "请先选择实例。",
     "empty": "该实例还没有本地技能。",
     "searchEmpty": "没有匹配的技能。",
@@ -1113,7 +1113,7 @@ const zhCN = {
     "table": {
       "name": "名称",
       "description": "描述",
-      "enabled": "启停"
+      "enabled": "启用"
     },
     "pluginSkills": {
       "title": "插件技能",
