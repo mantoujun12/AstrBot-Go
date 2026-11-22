@@ -10,6 +10,7 @@
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -19,12 +20,15 @@ use crate::archive::{extract_zip_flat, validate_zip_archive};
 use crate::error::{AppError, Result};
 use crate::instance::data_manage::{db_err, ensure_table, open_db};
 use crate::utils::log_redact;
-use crate::utils::net::{ensure_success_status, fetch_json, send_get};
+use crate::utils::net::{ensure_success_status, fetch_json, send_get_opt};
 
 /// Official AstrBot plugin market (AstrBot Cloud).
 const MARKET_URL: &str = "https://cloud.astrbot.app/api/v1/market/plugins";
 /// Plugins are small source archives; anything larger is rejected.
 const DOWNLOAD_MAX_BYTES: u64 = 256 * 1024 * 1024;
+/// Bounds a stalled archive download so it cannot hold the instance lifecycle
+/// guard forever.
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(600);
 const MARKET_MAX_PAGE_SIZE: i64 = 100;
 /// Staging prefix matched by upstream's plugin discovery, which skips it.
 const STAGING_PREFIX: &str = ".plugin-install-";
@@ -261,7 +265,15 @@ pub fn list_plugins(data_dir: &Path) -> Result<Vec<InstancePlugin>> {
             continue;
         }
         let module_path = module_path_for(&path, &dir_name);
-        let metadata = read_metadata(&path)?;
+        // Upstream degrades to defaults when metadata is unreadable; one
+        // broken plugin must not hide the whole installed list.
+        let metadata = match read_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                log::warn!("Ignoring unreadable metadata for plugin {dir_name}: {error}");
+                None
+            }
+        };
         let name = metadata
             .as_ref()
             .and_then(|m| m.name.clone())
@@ -519,7 +531,7 @@ async fn download_archive(client: &Client, url: &str, dest: &Path) -> Result<()>
         "Downloading plugin archive from {}",
         log_redact::url_for_log(url)
     );
-    let resp = send_get(client, url, false)
+    let resp = send_get_opt(client, url, false, Some(DOWNLOAD_TIMEOUT))
         .await
         .map_err(|e| AppError::network(format!("下载插件失败：{}", e)))?;
     ensure_success_status(&resp, |detail| {
@@ -735,6 +747,24 @@ mod tests {
         assert_eq!(plugin.author.as_deref(), Some("anka"));
         assert_eq!(plugin.version.as_deref(), Some("1.0.0"));
         assert!(!plugin.enabled);
+        Ok(())
+    }
+
+    #[test]
+    fn broken_metadata_degrades_to_the_directory_name() -> Result<()> {
+        let dir = TempDir::new("broken-meta")?;
+        let plugin_dir = dir.path().join("plugins").join("my_plugin");
+        fs::create_dir_all(&plugin_dir)?;
+        fs::write(plugin_dir.join("main.py"), "")?;
+        fs::write(plugin_dir.join("metadata.yaml"), "name: [broken")?;
+
+        // One broken metadata file must not fail the whole listing.
+        let plugins = list_plugins(dir.path())?;
+        assert_eq!(plugins.len(), 1);
+        assert_eq!(plugins[0].name, "my_plugin");
+        assert_eq!(plugins[0].author, None);
+        assert!(plugins[0].enabled);
+        assert!(!plugins[0].has_metadata);
         Ok(())
     }
 
