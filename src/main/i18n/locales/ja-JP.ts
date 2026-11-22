@@ -629,6 +629,7 @@ const jaJP = {
       upgradeAll: "すべてアップグレード",
       healthCheck: "健康診断",
       manageData: "データ管理",
+      beta: "Beta",
     },
     health: {
       title: "{instance} · インスタンス診断",
@@ -711,6 +712,7 @@ const jaJP = {
         state: "状態順",
         versionDesc: "バージョン（新しい順）",
         portAsc: "ポート（昇順）",
+        label: "並べ替え",
       },
       view: {
         table: "テーブル表示",

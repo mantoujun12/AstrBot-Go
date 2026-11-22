@@ -138,22 +138,18 @@ export function sortInstanceRows(
 }
 
 /**
- * `search` is normalized per row so callers can pass the raw input value.
+ * Transient states stay visible under the filter they are transitioning into,
+ * so a row does not vanish while its start or stop is still settling.
  */
-export function matchesSearch(row: InstanceRow, search: string): boolean {
-  const query = search.trim().toLowerCase();
-  return query === "" || row.name.toLowerCase().includes(query);
-}
-
 export function matchesStateFilter(
   row: InstanceRow,
   stateFilter: InstanceStateFilter,
 ): boolean {
   switch (stateFilter) {
     case "running":
-      return row.state === "running";
+      return row.state === "running" || row.state === "starting";
     case "stopped":
-      return row.state === "stopped";
+      return row.state === "stopped" || row.state === "stopping";
     default:
       return true;
   }
@@ -183,9 +179,10 @@ export function filterInstanceRows(
   rows: readonly InstanceRow[],
   filters: InstanceListFilters,
 ): InstanceRow[] {
+  const query = filters.search.trim().toLowerCase();
   return rows.filter(
     (row) =>
-      matchesSearch(row, filters.search) &&
+      (query === "" || row.name.toLowerCase().includes(query)) &&
       matchesStateFilter(row, filters.stateFilter) &&
       matchesSourceFilter(row, filters.sourceFilter),
   );

@@ -91,6 +91,7 @@ const sortItems = computed(() => [
       v-model="sortKey"
       class="instance-list-toolbar__sort"
       :items="sortItems"
+      :label="t('instances.list.sort.label')"
       prepend-inner-icon="mdi-sort-variant"
       variant="outlined"
       density="compact"

@@ -168,8 +168,10 @@ describe("filterInstanceRows", () => {
   const rows = [
     launcherRow({ id: "l-running", name: "Alpha", state: "running" }),
     launcherRow({ id: "l-stopped", name: "Beta", state: "stopped" }),
+    launcherRow({ id: "l-starting", name: "Gamma", state: "starting" }),
     externalRow({ id: "e-running", name: "Delta" }),
     externalRow({ id: "e-stopped", name: "Epsilon", state: "stopped" }),
+    launcherRow({ id: "l-stopping", name: "Zeta", state: "stopping" }),
   ];
 
   it("matches search case-insensitively on the name", () => {
@@ -189,7 +191,7 @@ describe("filterInstanceRows", () => {
     })).toHaveLength(rows.length);
   });
 
-  it("filters by state", () => {
+  it("keeps transient states visible under their target filter", () => {
     const ids = (stateFilter: "all" | "running" | "stopped") =>
       filterInstanceRows(rows, {
         search: "",
@@ -197,9 +199,16 @@ describe("filterInstanceRows", () => {
         sourceFilter: "all",
       }).map((row) => row.id);
 
-    expect(ids("running")).toEqual(["l-running", "e-running"]);
-    expect(ids("stopped")).toEqual(["l-stopped", "e-stopped"]);
-    expect(ids("all")).toHaveLength(rows.length);
+    expect(ids("running")).toEqual(["l-running", "l-starting", "e-running"]);
+    expect(ids("stopped")).toEqual(["l-stopped", "e-stopped", "l-stopping"]);
+    expect(ids("all")).toEqual([
+      "l-running",
+      "l-stopped",
+      "l-starting",
+      "e-running",
+      "e-stopped",
+      "l-stopping",
+    ]);
   });
 
   it("filters by source", () => {
@@ -210,7 +219,12 @@ describe("filterInstanceRows", () => {
         sourceFilter,
       }).map((row) => row.id);
 
-    expect(ids("launcher")).toEqual(["l-running", "l-stopped"]);
+    expect(ids("launcher")).toEqual([
+      "l-running",
+      "l-stopped",
+      "l-starting",
+      "l-stopping",
+    ]);
     expect(ids("external")).toEqual(["e-running", "e-stopped"]);
     expect(ids("all")).toHaveLength(rows.length);
   });

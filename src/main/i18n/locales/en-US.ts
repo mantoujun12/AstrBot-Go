@@ -630,6 +630,7 @@ const enUS = {
       upgradeAll: "Upgrade All",
       healthCheck: "Health Check",
       manageData: "Manage data",
+      beta: "Beta",
     },
     health: {
       title: "{instance} · Health Check",
@@ -712,6 +713,7 @@ const enUS = {
         state: "By state",
         versionDesc: "Version (new to old)",
         portAsc: "Port (low to high)",
+        label: "Sort",
       },
       view: {
         table: "Table view",
