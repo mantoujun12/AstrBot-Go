@@ -613,7 +613,8 @@ const zhCN = {
       "upgrade": "升级",
       "upgradeAll": "全部升级",
       "healthCheck": "健康诊断",
-      "manageData": "管理数据"
+      "manageData": "管理数据",
+      "beta": "Beta"
     },
     "health": {
       "title": "{instance} · 实例体检",
@@ -695,7 +696,8 @@ const zhCN = {
         "nameDesc": "名称 Z-A",
         "state": "按状态",
         "versionDesc": "版本（新→旧）",
-        "portAsc": "端口（小→大）"
+        "portAsc": "端口（小→大）",
+        "label": "排序"
       },
       "view": {
         "table": "表格视图",

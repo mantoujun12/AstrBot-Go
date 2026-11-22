@@ -647,6 +647,7 @@ const ruRU = {
       upgradeAll: "Обновить все",
       healthCheck: "Диагностика экземпляра",
       manageData: "Управление данными",
+      beta: "Beta",
     },
     health: {
       title: "{instance} · Проверка состояния",
@@ -729,6 +730,7 @@ const ruRU = {
         state: "По состоянию",
         versionDesc: "Версия (новые — старые)",
         portAsc: "Порт (по возрастанию)",
+        label: "Сортировка",
       },
       view: {
         table: "Таблица",
