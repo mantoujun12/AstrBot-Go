@@ -190,18 +190,18 @@ const sortItems = computed(() => [
 }
 
 .instance-list-toolbar__search {
-  width: 240px;
-  max-width: 100%;
+  flex: 1 1 240px;
+  min-width: 0;
 }
 
 .instance-list-toolbar__filter {
-  width: 160px;
-  max-width: 100%;
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .instance-list-toolbar__sort {
-  width: 170px;
-  max-width: 100%;
+  flex: 1 1 190px;
+  min-width: 0;
 }
 
 .instance-list-toolbar__actions {
