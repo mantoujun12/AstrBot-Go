@@ -150,6 +150,8 @@ const pluginHeaders = computed<DataTableHeader[]>(() => [
   },
 ]);
 
+let loadGeneration = 0;
+
 async function loadSkills(): Promise<void> {
   if (!instanceId.value) {
     skills.value = [];
@@ -157,6 +159,8 @@ async function loadSkills(): Promise<void> {
     pluginSkillsLoaded.value = false;
     return;
   }
+  // A fast instance switch can overlap loads; only the newest one may win.
+  const generation = ++loadGeneration;
   loading.value = true;
   loadError.value = null;
   try {
@@ -164,15 +168,21 @@ async function loadSkills(): Promise<void> {
       listInstanceSkills(instanceId.value),
       listInstancePluginSkills(instanceId.value),
     ]);
-    skills.value = local;
-    pluginSkills.value = plugin;
-    pluginSkillsLoaded.value = true;
+    if (generation === loadGeneration) {
+      skills.value = local;
+      pluginSkills.value = plugin;
+      pluginSkillsLoaded.value = true;
+    }
   } catch (requestError) {
-    skills.value = [];
-    pluginSkills.value = [];
-    loadError.value = toUserMessage(requestError);
+    if (generation === loadGeneration) {
+      skills.value = [];
+      pluginSkills.value = [];
+      loadError.value = toUserMessage(requestError);
+    }
   } finally {
-    loading.value = false;
+    if (generation === loadGeneration) {
+      loading.value = false;
+    }
   }
 }
 
@@ -371,9 +381,13 @@ function openUpload(): void {
 }
 
 async function pickFile(): Promise<void> {
-  const picked = await pickSkillZip();
-  if (picked) {
-    uploadFile.value = picked;
+  try {
+    const picked = await pickSkillZip();
+    if (picked) {
+      uploadFile.value = picked;
+    }
+  } catch (cause) {
+    showErrorToast(cause);
   }
 }
 
