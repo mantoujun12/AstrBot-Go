@@ -385,7 +385,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             crate::setup::request_show_main_window(app);
             let _ = app.emit_to("main", "tray-panel-action", json!({ "kind": "settings" }));
         }
-        "quit" => app.exit(0),
+        "quit" => crate::exit_app(app),
         _ => {
             if let Some(instance_id) = id.strip_prefix("open:") {
                 crate::setup::request_show_main_window(app);

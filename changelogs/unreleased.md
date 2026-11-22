@@ -10,6 +10,7 @@
 
 ### Fixed
 - The directory scan no longer descends into symlinks and Windows junctions, silencing access-denied log noise; a deployment behind a link can be added as a scan path instead.
+- Exiting the app now destroys all webview windows before terminating, removing the Chromium `Chrome_WidgetWin_0` unregister error printed at shutdown.
 
 ## 中文
 
@@ -25,3 +26,4 @@
 ### 修复
 
 - 目录扫描不再进入符号链接与 Windows junction，消除拒绝访问的日志噪声；链接后的部署可以改用添加扫描路径的方式发现。
+- 退出应用时先销毁全部 webview 窗口再结束进程，消除退出时 Chromium 的 `Chrome_WidgetWin_0` 窗口类注销报错。
