@@ -1040,22 +1040,57 @@ const zhCN = {
   "extensions": {
     "title": "扩展",
     "items": {
-      "hue": {
-        "title": "Hue",
-        "description": "Material You 取色器"
-      },
-      "palette": {
-        "title": "Palette",
-        "description": "精选配色方案"
-      },
-      "converter": {
-        "title": "Converter",
-        "description": "格式转换工具"
-      },
-      "playground": {
-        "title": "Playground",
-        "description": "代码片段沙盒"
+      "plugins": {
+        "title": "插件",
+        "description": "插件市场与已安装插件管理"
       }
+    }
+  },
+  "plugins": {
+    "title": "插件",
+    "instance": "目标实例",
+    "tabs": {
+      "market": "插件市场",
+      "installed": "已安装"
+    },
+    "search": "搜索插件",
+    "category": "分类",
+    "allCategories": "全部分类",
+    "official": "官方",
+    "installed": "已安装",
+    "downloads": "下载 {count}",
+    "stars": "Star {count}",
+    "requiresVersion": "要求的 AstrBot 版本",
+    "repo": "仓库",
+    "openRepo": "打开插件仓库",
+    "install": "安装",
+    "loadMore": "加载更多",
+    "update": "检查更新",
+    "uninstall": "卸载",
+    "toggleAria": "启用或停用 {name}",
+    "instanceRunning": "实例正在运行，安装、卸载与启停需先停止实例。",
+    "noInstance": "请先选择实例。",
+    "market": {
+      "empty": "没有匹配的插件。"
+    },
+    "installedList": {
+      "empty": "该实例还没有安装插件。"
+    },
+    "installConfirm": {
+      "title": "安装插件",
+      "message": "将 {name} 安装到实例「{instance}」？"
+    },
+    "uninstallConfirm": {
+      "title": "卸载插件",
+      "message": "卸载 {name}？",
+      "deleteConfig": "同时删除插件配置文件",
+      "deleteData": "同时删除插件持久化数据"
+    },
+    "toasts": {
+      "installed": "已安装 {name}。",
+      "uninstalled": "已卸载 {name}。",
+      "upToDate": "已是最新版本 {version}。",
+      "marketMissing": "未在插件市场找到该插件的记录。"
     }
   }
 };

@@ -16,6 +16,7 @@ mod discovery_docker;
 pub mod discovery_uv;
 mod health;
 pub(crate) mod lifecycle;
+pub(crate) mod plugins;
 mod rebuild;
 mod types;
 
@@ -27,6 +28,7 @@ pub use data_manage::{
     CopyInstanceDataRequest, InstanceConfigFile, InstanceCronJob, InstanceKnowledgeBase,
     InstancePersona, InstancePersonaFolder,
 };
+pub use plugins::{InstancePlugin, PluginInstallRequest, PluginMarketPage};
 
 pub(crate) use health::check_instance_health;
 

@@ -17,6 +17,7 @@ const { t } = useI18n();
         :icon="extension.icon"
         :title="t(`extensions.items.${extension.id}.title`)"
         :description="t(`extensions.items.${extension.id}.description`)"
+        :to="extension.to"
       />
     </div>
   </div>

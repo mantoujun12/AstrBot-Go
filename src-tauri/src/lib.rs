@@ -369,6 +369,12 @@ pub fn run() {
             commands::list_instance_knowledge_bases,
             commands::delete_instance_knowledge_base,
             commands::copy_instance_data,
+            // Instance plugins
+            commands::fetch_plugin_market,
+            commands::list_instance_plugins,
+            commands::install_instance_plugin,
+            commands::set_instance_plugin_enabled,
+            commands::uninstall_instance_plugin,
             // Resource Monitoring
             commands::get_instance_resource_history,
             commands::set_resource_alert_threshold,

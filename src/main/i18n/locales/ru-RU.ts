@@ -1087,22 +1087,58 @@ const ruRU = {
   extensions: {
     title: "Расширения",
     items: {
-      hue: {
-        title: "Hue",
-        description: "Инструмент выбора цветов Material You",
+      plugins: {
+        title: "Плагины",
+        description: "Магазин плагинов и управление установленными",
       },
-      palette: {
-        title: "Palette",
-        description: "Подборки цветовых палитр",
-      },
-      converter: {
-        title: "Converter",
-        description: "Инструменты конвертации форматов",
-      },
-      playground: {
-        title: "Playground",
-        description: "Песочница для фрагментов кода",
-      },
+    },
+  },
+  plugins: {
+    title: "Плагины",
+    instance: "Целевой экземпляр",
+    tabs: {
+      market: "Магазин",
+      installed: "Установленные",
+    },
+    search: "Поиск плагинов",
+    category: "Категория",
+    allCategories: "Все категории",
+    official: "Официальный",
+    installed: "Установлен",
+    downloads: "Загрузки {count}",
+    stars: "Звёзды {count}",
+    requiresVersion: "Требуемая версия AstrBot",
+    repo: "Репозиторий",
+    openRepo: "Открыть репозиторий плагина",
+    install: "Установить",
+    loadMore: "Показать ещё",
+    update: "Проверить обновления",
+    uninstall: "Удалить",
+    toggleAria: "Включить или отключить {name}",
+    instanceRunning:
+      "Экземпляр запущен. Остановите его перед установкой, удалением или переключением плагинов.",
+    noInstance: "Сначала выберите экземпляр.",
+    market: {
+      empty: "Подходящих плагинов нет.",
+    },
+    installedList: {
+      empty: "На этом экземпляре нет установленных плагинов.",
+    },
+    installConfirm: {
+      title: "Установка плагина",
+      message: "Установить {name} на экземпляр «{instance}»?",
+    },
+    uninstallConfirm: {
+      title: "Удаление плагина",
+      message: "Удалить {name}?",
+      deleteConfig: "Также удалить файл конфигурации плагина",
+      deleteData: "Также удалить постоянные данные плагина",
+    },
+    toasts: {
+      installed: "Установлен {name}.",
+      uninstalled: "Удалён {name}.",
+      upToDate: "Уже актуальная версия ({version}).",
+      marketMissing: "Запись об этом плагине в магазине не найдена.",
     },
   },
 } satisfies typeof zhCN;

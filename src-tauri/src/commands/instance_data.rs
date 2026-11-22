@@ -7,9 +7,10 @@
 use super::AppState;
 use crate::error::{AppError, Result};
 use crate::instance::data_manage;
+use crate::instance::plugins;
 use crate::instance::{
     CopyInstanceDataRequest, InstanceConfigFile, InstanceCronJob, InstanceKnowledgeBase,
-    InstancePersona, InstancePersonaFolder,
+    InstancePersona, InstancePersonaFolder, InstancePlugin, PluginInstallRequest, PluginMarketPage,
 };
 use crate::process::InstanceGuard;
 use std::path::PathBuf;
@@ -167,4 +168,77 @@ pub async fn copy_instance_data(
     let result = off_runtime(move || data_manage::copy_instance_data(&request)).await;
     drop(guards);
     result
+}
+
+// === Instance plugins ===
+
+#[tauri::command]
+pub async fn fetch_plugin_market(
+    page: Option<i64>,
+    page_size: Option<i64>,
+    search: Option<String>,
+    category: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<PluginMarketPage> {
+    let client = state.client();
+    plugins::fetch_market_page(
+        &client,
+        page.unwrap_or(1),
+        page_size.unwrap_or(30),
+        search.as_deref(),
+        category.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn list_instance_plugins(instance_id: String) -> Result<Vec<InstancePlugin>> {
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        plugins::list_plugins(&data_dir)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn install_instance_plugin(
+    instance_id: String,
+    request: PluginInstallRequest,
+    state: State<'_, AppState>,
+) -> Result<InstancePlugin> {
+    let _guard = state.process_manager.acquire_guard(&instance_id)?;
+    let data_dir = data_dir_of(&instance_id)?;
+    let client = state.download_client()?;
+    plugins::install_plugin(&client, &data_dir, &request).await
+}
+
+#[tauri::command]
+pub async fn set_instance_plugin_enabled(
+    instance_id: String,
+    dir_name: String,
+    enabled: bool,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    let _guard = state.process_manager.acquire_guard(&instance_id)?;
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        plugins::set_plugin_enabled(&data_dir, &dir_name, enabled)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn uninstall_instance_plugin(
+    instance_id: String,
+    dir_name: String,
+    delete_config: bool,
+    delete_data: bool,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    let _guard = state.process_manager.acquire_guard(&instance_id)?;
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        plugins::uninstall_plugin(&data_dir, &dir_name, delete_config, delete_data)
+    })
+    .await
 }

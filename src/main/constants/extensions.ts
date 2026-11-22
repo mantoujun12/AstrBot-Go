@@ -1,12 +1,10 @@
 export interface ExtensionEntry {
   id: string;
   icon: string;
+  /** Route the card opens. */
+  to: string;
 }
 
-// shortcut: fake placeholder entries, replace before shipping real extensions
 export const EXTENSIONS: ExtensionEntry[] = [
-  { id: "hue", icon: "mdi-palette-outline" },
-  { id: "palette", icon: "mdi-watermark" },
-  { id: "converter", icon: "mdi-swap-horizontal" },
-  { id: "playground", icon: "mdi-code-braces" },
+  { id: "plugins", icon: "mdi-puzzle-outline", to: "/extensions/plugins" },
 ];

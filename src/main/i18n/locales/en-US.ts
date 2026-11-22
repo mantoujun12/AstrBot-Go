@@ -1058,22 +1058,58 @@ const enUS = {
   extensions: {
     title: "Extensions",
     items: {
-      hue: {
-        title: "Hue",
-        description: "Material You color picker",
+      plugins: {
+        title: "Plugins",
+        description: "Plugin market and installed plugin management",
       },
-      palette: {
-        title: "Palette",
-        description: "Curated color palettes",
-      },
-      converter: {
-        title: "Converter",
-        description: "Format conversion tools",
-      },
-      playground: {
-        title: "Playground",
-        description: "Quick snippet sandbox",
-      },
+    },
+  },
+  plugins: {
+    title: "Plugins",
+    instance: "Target instance",
+    tabs: {
+      market: "Market",
+      installed: "Installed",
+    },
+    search: "Search plugins",
+    category: "Category",
+    allCategories: "All categories",
+    official: "Official",
+    installed: "Installed",
+    downloads: "Downloads {count}",
+    stars: "Stars {count}",
+    requiresVersion: "Required AstrBot version",
+    repo: "Repo",
+    openRepo: "Open the plugin repository",
+    install: "Install",
+    loadMore: "Load more",
+    update: "Check update",
+    uninstall: "Uninstall",
+    toggleAria: "Enable or disable {name}",
+    instanceRunning:
+      "The instance is running. Stop it before installing, uninstalling, or toggling plugins.",
+    noInstance: "Select an instance first.",
+    market: {
+      empty: "No plugins matched.",
+    },
+    installedList: {
+      empty: "No plugins are installed on this instance.",
+    },
+    installConfirm: {
+      title: "Install plugin",
+      message: "Install {name} to instance \"{instance}\"?",
+    },
+    uninstallConfirm: {
+      title: "Uninstall plugin",
+      message: "Uninstall {name}?",
+      deleteConfig: "Also delete the plugin config file",
+      deleteData: "Also delete the plugin persistent data",
+    },
+    toasts: {
+      installed: "Installed {name}.",
+      uninstalled: "Uninstalled {name}.",
+      upToDate: "Already up to date ({version}).",
+      marketMissing: "No market record was found for this plugin.",
     },
   },
 } satisfies typeof zhCN;

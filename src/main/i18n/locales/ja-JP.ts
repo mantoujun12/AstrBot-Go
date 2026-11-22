@@ -1057,22 +1057,58 @@ const jaJP = {
   extensions: {
     title: "拡張",
     items: {
-      hue: {
-        title: "Hue",
-        description: "Material You カラーピッカー",
+      plugins: {
+        title: "プラグイン",
+        description: "プラグイン市場とインストール済みプラグインの管理",
       },
-      palette: {
-        title: "Palette",
-        description: "厳選カラーパレット",
-      },
-      converter: {
-        title: "Converter",
-        description: "フォーマット変換ツール",
-      },
-      playground: {
-        title: "Playground",
-        description: "スニペットサンドボックス",
-      },
+    },
+  },
+  plugins: {
+    title: "プラグイン",
+    instance: "対象インスタンス",
+    tabs: {
+      market: "プラグイン市場",
+      installed: "インストール済み",
+    },
+    search: "プラグインを検索",
+    category: "カテゴリー",
+    allCategories: "すべてのカテゴリー",
+    official: "公式",
+    installed: "インストール済み",
+    downloads: "ダウンロード {count}",
+    stars: "スター {count}",
+    requiresVersion: "必要な AstrBot バージョン",
+    repo: "リポジトリ",
+    openRepo: "プラグインのリポジトリを開く",
+    install: "インストール",
+    loadMore: "さらに読み込む",
+    update: "更新を確認",
+    uninstall: "アンインストール",
+    toggleAria: "{name} を有効または無効にする",
+    instanceRunning:
+      "インスタンスが実行中です。インストール、アンインストール、切り替えの前に停止してください。",
+    noInstance: "先にインスタンスを選択してください。",
+    market: {
+      empty: "一致するプラグインがありません。",
+    },
+    installedList: {
+      empty: "このインスタンスにプラグインはありません。",
+    },
+    installConfirm: {
+      title: "プラグインをインストール",
+      message: "{name} をインスタンス「{instance}」にインストールしますか？",
+    },
+    uninstallConfirm: {
+      title: "プラグインをアンインストール",
+      message: "{name} をアンインストールしますか？",
+      deleteConfig: "プラグイン設定ファイルも削除する",
+      deleteData: "プラグインの永続データも削除する",
+    },
+    toasts: {
+      installed: "{name} をインストールしました。",
+      uninstalled: "{name} をアンインストールしました。",
+      upToDate: "最新バージョンです（{version}）。",
+      marketMissing: "このプラグインの市場レコードが見つかりません。",
     },
   },
 } satisfies typeof zhCN;

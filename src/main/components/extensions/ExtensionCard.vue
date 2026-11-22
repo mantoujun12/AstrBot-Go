@@ -1,13 +1,14 @@
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   icon: string;
   title: string;
   description: string;
+  to: string;
 }>();
 </script>
 
 <template>
-  <article class="extension-card">
+  <router-link class="extension-card" :to="props.to">
     <div class="extension-card__cover" aria-hidden="true" />
     <div class="extension-card__info">
       <v-avatar class="extension-card__icon" size="32">
@@ -18,7 +19,7 @@ defineProps<{
         <p class="extension-card__description">{{ description }}</p>
       </div>
     </div>
-  </article>
+  </router-link>
 </template>
 
 <style scoped>
@@ -29,13 +30,18 @@ defineProps<{
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: var(--astrbot-radius-card);
   overflow: hidden;
-  /* shortcut: plain static card until real extensions add open actions */
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.extension-card:hover,
+.extension-card:focus-visible {
+  border-color: rgba(var(--v-theme-primary), 0.55);
 }
 
 .extension-card__cover {
   flex: 4;
   min-height: 0;
-  /* shortcut: placeholder gradient, replace with real cover art */
   background: linear-gradient(
     135deg,
     rgba(var(--v-theme-primary), 0.85),
