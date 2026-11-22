@@ -197,7 +197,16 @@ fn collect_candidate_dirs(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
     }
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.is_dir() || is_skipped_dir(&entry.file_name().to_string_lossy()) {
+        // Links are never descended: the Windows profile compatibility
+        // junctions (Application Data, Cookies, ...) deny reads by design,
+        // so descending only logged access errors, and other links can
+        // point outside the scan root.
+        // shortcut: a deployment behind a link is not discovered; add its
+        // resolved directory as a scan path when users actually need it.
+        if entry.file_type().is_ok_and(|t| t.is_symlink())
+            || !path.is_dir()
+            || is_skipped_dir(&entry.file_name().to_string_lossy())
+        {
             continue;
         }
         collect_candidate_dirs(&path, depth + 1, out);
@@ -439,6 +448,40 @@ mod tests {
         assert!(found_names.contains(&"my-bot".to_string()));
         assert!(found_names.contains(&"deep3".to_string()));
         assert!(!found_names.contains(&"fake".to_string()));
+        fs::remove_dir_all(&temp)?;
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn scan_root_skips_junctions() -> Result<()> {
+        let temp = std::env::temp_dir().join(format!("dirscan-junction-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&temp);
+        let root = temp.join("root");
+        // The junction target sits outside the scan root, so the instance
+        // behind it is only reachable through the link.
+        let target = temp.join("target");
+        write_config(&target, VALID_CONFIG)?;
+        write_config(&root.join("real-bot"), VALID_CONFIG)?;
+        // Creating a junction needs no elevation.
+        let output = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(root.join("linked-bot"))
+            .arg(&target)
+            .output()?;
+        assert!(
+            output.status.success(),
+            "mklink /J failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let found = scan_root(&root);
+        let found_names: Vec<String> = found
+            .iter()
+            .filter_map(|path| path.file_name().map(|n| n.to_string_lossy().to_string()))
+            .collect();
+        assert!(found_names.contains(&"real-bot".to_string()));
+        assert!(!found_names.contains(&"linked-bot".to_string()));
         fs::remove_dir_all(&temp)?;
         Ok(())
     }
