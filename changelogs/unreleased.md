@@ -30,7 +30,10 @@
 
 - Regenerate in the chat window now streams the replacement reply instead of failing on every retry; retrying with another model reaches the instance too.
 - The chat window now receives token usage and reply completion snapshots from the stream, so the composer's usage ring and per-message stats populate.
-- Hide chat entries that fail when used: the per-message thread menu, the `/astr_live_dev` input easter egg, and the provider workspace sidebar button stay hidden until their backends exist.## 中文
+- Hide chat entries that fail when used: the per-message thread menu, the `/astr_live_dev` input easter egg, and the provider workspace sidebar button stay hidden until their backends exist.
+- The sidebar's chat entry no longer shows its right-arrow hint in the collapsed rail, so its icon stays centered instead of being squeezed.
+
+## 中文
 
 ### Added
 
@@ -63,3 +66,4 @@
 - 聊天窗口的重新生成现在会通过实例流式返回替换回复，不再每次重试都失败；更换模型重试也会传达到实例。
 - 聊天窗口现在能接收流中的 token 用量与回复完成快照，输入框用量环与会话消息统计恢复显示。
 - 隐藏无法使用的聊天入口：消息分支菜单、`/astr_live_dev` 彩蛋命令与模型配置侧边栏按钮，在其后端可用前保持隐藏。
+- 侧边栏聊天入口在收缩的图标栏状态下不再显示右箭头提示，图标保持居中而不被挤压。

@@ -286,6 +286,13 @@ async function handleOpenChat(): Promise<void> {
   display: none;
 }
 
+/* Rail items are a single centered icon column; the append hint (the chat
+   entry's chevron) would share that column and squeeze the icon. */
+.launcher-sidebar.v-navigation-drawer--rail
+  .launcher-sidebar__nav :deep(.v-list-item__append) {
+  display: none;
+}
+
 .launcher-sidebar.v-navigation-drawer--rail
   .launcher-sidebar__footer {
   flex-direction: column;
