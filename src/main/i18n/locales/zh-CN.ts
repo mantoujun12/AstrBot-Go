@@ -1043,6 +1043,10 @@ const zhCN = {
       "plugins": {
         "title": "插件",
         "description": "插件市场与已安装插件管理"
+      },
+      "skills": {
+        "title": "技能",
+        "description": "SKILL.md 技能包管理"
       }
     }
   },
@@ -1091,6 +1095,28 @@ const zhCN = {
       "uninstalled": "已卸载 {name}。",
       "upToDate": "已是最新版本 {version}。",
       "marketMissing": "未在插件市场找到该插件的记录。"
+    }
+  },
+  "skills": {
+    "title": "技能",
+    "instance": "目标实例",
+    "upload": "上传技能",
+    "instanceRunning": "实例正在运行，上传、编辑与启停需先停止实例。",
+    "noInstance": "请先选择实例。",
+    "empty": "该实例还没有本地技能。",
+    "edit": "编辑",
+    "toggleAria": "启用或停用 {name}",
+    "deleteConfirm": {
+      "title": "删除技能",
+      "message": "删除技能 {name}？"
+    },
+    "editor": {
+      "label": "SKILL.md 内容"
+    },
+    "toasts": {
+      "installed": "已安装技能：{names}。",
+      "saved": "已保存 {name}。",
+      "deleted": "已删除 {name}。"
     }
   }
 };

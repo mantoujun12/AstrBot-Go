@@ -8,9 +8,11 @@ use super::AppState;
 use crate::error::{AppError, Result};
 use crate::instance::data_manage;
 use crate::instance::plugins;
+use crate::instance::skills;
 use crate::instance::{
     CopyInstanceDataRequest, InstanceConfigFile, InstanceCronJob, InstanceKnowledgeBase,
-    InstancePersona, InstancePersonaFolder, InstancePlugin, PluginInstallRequest, PluginMarketPage,
+    InstancePersona, InstancePersonaFolder, InstancePlugin, InstanceSkill, PluginInstallRequest,
+    PluginMarketPage, SkillZipInstall,
 };
 use crate::process::InstanceGuard;
 use std::path::PathBuf;
@@ -239,6 +241,84 @@ pub async fn uninstall_instance_plugin(
     off_runtime(move || {
         let data_dir = data_dir_of(&instance_id)?;
         plugins::uninstall_plugin(&data_dir, &dir_name, delete_config, delete_data)
+    })
+    .await
+}
+
+// === Instance skills ===
+
+#[tauri::command]
+pub async fn list_instance_skills(instance_id: String) -> Result<Vec<InstanceSkill>> {
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        Ok(skills::list_skills(&data_dir))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn read_instance_skill(instance_id: String, name: String) -> Result<String> {
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        skills::read_skill(&data_dir, &name)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn write_instance_skill(
+    instance_id: String,
+    name: String,
+    content: String,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    let _guard = state.process_manager.acquire_guard(&instance_id)?;
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        skills::write_skill(&data_dir, &name, &content)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn set_instance_skill_enabled(
+    instance_id: String,
+    name: String,
+    enabled: bool,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    let _guard = state.process_manager.acquire_guard(&instance_id)?;
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        skills::set_skill_active(&data_dir, &name, enabled)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn delete_instance_skill(
+    instance_id: String,
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    let _guard = state.process_manager.acquire_guard(&instance_id)?;
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        skills::delete_skill(&data_dir, &name)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn install_instance_skill_zip(
+    instance_id: String,
+    request: SkillZipInstall,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>> {
+    let _guard = state.process_manager.acquire_guard(&instance_id)?;
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        skills::install_skill_zip(&data_dir, &request)
     })
     .await
 }

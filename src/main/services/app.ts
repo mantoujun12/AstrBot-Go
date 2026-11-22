@@ -37,3 +37,20 @@ export async function pickDirectory(): Promise<string | null> {
   }
   return null;
 }
+
+/** Pick one skill ZIP; the file name becomes the root-mode skill name hint. */
+export async function pickSkillZip(): Promise<{
+  path: string;
+  nameHint: string;
+} | null> {
+  const selected = await open({
+    multiple: false,
+    filters: [{ name: "ZIP", extensions: ["zip"] }],
+  });
+  if (typeof selected !== "string" || selected.trim() === "") {
+    return null;
+  }
+  const fileName = selected.split(/[\\/]/).pop() ?? "";
+  const nameHint = fileName.replace(/\.zip$/i, "");
+  return { path: selected, nameHint };
+}

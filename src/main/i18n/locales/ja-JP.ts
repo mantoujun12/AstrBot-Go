@@ -1061,6 +1061,10 @@ const jaJP = {
         title: "プラグイン",
         description: "プラグイン市場とインストール済みプラグインの管理",
       },
+      skills: {
+        title: "スキル",
+        description: "SKILL.md スキルパックの管理",
+      },
     },
   },
   plugins: {
@@ -1109,6 +1113,29 @@ const jaJP = {
       uninstalled: "{name} をアンインストールしました。",
       upToDate: "最新バージョンです（{version}）。",
       marketMissing: "このプラグインの市場レコードが見つかりません。",
+    },
+  },
+  skills: {
+    title: "スキル",
+    instance: "対象インスタンス",
+    upload: "スキルをアップロード",
+    instanceRunning:
+      "インスタンスが実行中です。アップロード、編集、切り替えの前に停止してください。",
+    noInstance: "先にインスタンスを選択してください。",
+    empty: "このインスタンスにはローカルスキルがありません。",
+    edit: "編集",
+    toggleAria: "{name} を有効または無効にする",
+    deleteConfirm: {
+      title: "スキルを削除",
+      message: "スキル {name} を削除しますか？",
+    },
+    editor: {
+      label: "SKILL.md の内容",
+    },
+    toasts: {
+      installed: "スキルをインストールしました：{names}。",
+      saved: "{name} を保存しました。",
+      deleted: "{name} を削除しました。",
     },
   },
 } satisfies typeof zhCN;

@@ -375,6 +375,13 @@ pub fn run() {
             commands::install_instance_plugin,
             commands::set_instance_plugin_enabled,
             commands::uninstall_instance_plugin,
+            // Instance skills
+            commands::list_instance_skills,
+            commands::read_instance_skill,
+            commands::write_instance_skill,
+            commands::set_instance_skill_enabled,
+            commands::delete_instance_skill,
+            commands::install_instance_skill_zip,
             // Resource Monitoring
             commands::get_instance_resource_history,
             commands::set_resource_alert_threshold,

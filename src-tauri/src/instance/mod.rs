@@ -18,6 +18,7 @@ mod health;
 pub(crate) mod lifecycle;
 pub(crate) mod plugins;
 mod rebuild;
+pub(crate) mod skills;
 mod types;
 
 // Re-export types
@@ -29,6 +30,7 @@ pub use data_manage::{
     InstancePersona, InstancePersonaFolder,
 };
 pub use plugins::{InstancePlugin, PluginInstallRequest, PluginMarketPage};
+pub use skills::{InstanceSkill, SkillZipInstall};
 
 pub(crate) use health::check_instance_health;
 

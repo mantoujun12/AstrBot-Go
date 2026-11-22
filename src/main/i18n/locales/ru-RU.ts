@@ -1091,6 +1091,10 @@ const ruRU = {
         title: "Плагины",
         description: "Магазин плагинов и управление установленными",
       },
+      skills: {
+        title: "Навыки",
+        description: "Управление пакетами навыков SKILL.md",
+      },
     },
   },
   plugins: {
@@ -1139,6 +1143,29 @@ const ruRU = {
       uninstalled: "Удалён {name}.",
       upToDate: "Уже актуальная версия ({version}).",
       marketMissing: "Запись об этом плагине в магазине не найдена.",
+    },
+  },
+  skills: {
+    title: "Навыки",
+    instance: "Целевой экземпляр",
+    upload: "Загрузить навык",
+    instanceRunning:
+      "Экземпляр запущен. Остановите его перед загрузкой, изменением или переключением навыков.",
+    noInstance: "Сначала выберите экземпляр.",
+    empty: "На этом экземпляре пока нет локальных навыков.",
+    edit: "Изменить",
+    toggleAria: "Включить или отключить {name}",
+    deleteConfirm: {
+      title: "Удаление навыка",
+      message: "Удалить навык {name}?",
+    },
+    editor: {
+      label: "Содержимое SKILL.md",
+    },
+    toasts: {
+      installed: "Установлены навыки: {names}.",
+      saved: "Сохранён {name}.",
+      deleted: "Удалён {name}.",
     },
   },
 } satisfies typeof zhCN;

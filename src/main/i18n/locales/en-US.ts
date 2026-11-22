@@ -1062,6 +1062,10 @@ const enUS = {
         title: "Plugins",
         description: "Plugin market and installed plugin management",
       },
+      skills: {
+        title: "Skills",
+        description: "SKILL.md skill pack management",
+      },
     },
   },
   plugins: {
@@ -1110,6 +1114,29 @@ const enUS = {
       uninstalled: "Uninstalled {name}.",
       upToDate: "Already up to date ({version}).",
       marketMissing: "No market record was found for this plugin.",
+    },
+  },
+  skills: {
+    title: "Skills",
+    instance: "Target instance",
+    upload: "Upload skill",
+    instanceRunning:
+      "The instance is running. Stop it before uploading, editing, or toggling skills.",
+    noInstance: "Select an instance first.",
+    empty: "No local skills on this instance yet.",
+    edit: "Edit",
+    toggleAria: "Enable or disable {name}",
+    deleteConfirm: {
+      title: "Delete skill",
+      message: "Delete skill {name}?",
+    },
+    editor: {
+      label: "SKILL.md content",
+    },
+    toasts: {
+      installed: "Installed skills: {names}.",
+      saved: "Saved {name}.",
+      deleted: "Deleted {name}.",
     },
   },
 } satisfies typeof zhCN;
