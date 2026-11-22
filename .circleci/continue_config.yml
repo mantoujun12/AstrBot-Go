@@ -76,7 +76,9 @@ jobs:
   frontend:
     docker:
       - image: cimg/node:24.22
-    resource_class: small
+    # vue-tsc needs more than the ~1 GB heap cap of `resource_class: small`;
+    # the instances list feature pushed the type graph over that limit.
+    resource_class: medium
     retention:
       caches: 3d
     steps:
