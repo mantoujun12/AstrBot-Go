@@ -1297,7 +1297,9 @@ async function sendCurrentMessage(viewText?: string) {
     const sessionId = currSessionId.value;
     await nextTick();
 
-    const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    const messageId =
+      crypto.randomUUID?.() ||
+      `${Date.now()}-${crypto.getRandomValues(new Uint32Array(1))[0]}`;
     const selection = getSelectedProviderSelection();
     writeSessionProviderSelection(sessionId, selection);
     const { userRecord, botRecord } = createLocalExchange({
