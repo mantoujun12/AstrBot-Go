@@ -679,6 +679,30 @@ const zhCN = {
       },
       "meta": "版本 {version} · 端口 {port}",
       "empty": "暂无实例",
+      "search": "搜索实例",
+      "filter": {
+        "state": "状态",
+        "stateAll": "全部",
+        "stateRunning": "运行中",
+        "stateStopped": "已停止",
+        "source": "来源",
+        "sourceAll": "全部",
+        "sourceLauncher": "启动器",
+        "sourceExternal": "外部"
+      },
+      "sort": {
+        "nameAsc": "名称 A-Z",
+        "nameDesc": "名称 Z-A",
+        "state": "按状态",
+        "versionDesc": "版本（新→旧）",
+        "portAsc": "端口（小→大）"
+      },
+      "view": {
+        "table": "表格视图",
+        "cards": "卡片视图"
+      },
+      "emptyFiltered": "没有符合筛选条件的实例",
+      "clearFilters": "清除筛选",
       "pidWarning": "WebUI 未启用，无法跟踪进程状态",
       "lastExit": "上次退出：{reason}",
       "restartAttempts": "已自动重启 {attempt}/{max} 次",
