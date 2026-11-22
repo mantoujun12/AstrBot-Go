@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
 
 .log-line__mark {
   padding: 0 1px;
-  border-radius: 2px;
+  border-radius: 4px;
   background: rgba(255, 213, 79, 0.32);
   color: #ffe082;
 }

@@ -212,7 +212,6 @@ function errorText(task: TaskRecord): string {
                 :color="statusColor(task.status)"
                 size="x-small"
                 variant="tonal"
-                label
               >
                 {{ t(`tasks.status.${task.status}`) }}
               </v-chip>

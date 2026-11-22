@@ -38,7 +38,7 @@ const emit = defineEmits<{
         </template>
         <v-list-item-title>{{ label }}</v-list-item-title>
         <template v-if="beta || appendIcon" #append>
-          <v-chip v-if="beta" size="x-small" color="purple" variant="tonal" label>
+          <v-chip v-if="beta" size="x-small" color="purple" variant="tonal">
             Beta
           </v-chip>
           <v-icon v-if="appendIcon" :icon="appendIcon" size="16" class="sidebar-nav-append" />

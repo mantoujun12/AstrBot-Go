@@ -746,7 +746,6 @@ function retry(): void {
                     :color="component.installed ? 'success' : 'secondary'"
                     size="x-small"
                     variant="tonal"
-                    label
                   >
                     {{
                       component.installed
