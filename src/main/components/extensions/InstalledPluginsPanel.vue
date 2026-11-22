@@ -14,6 +14,7 @@ import {
 } from "../../services/plugins";
 import { useLauncherStore } from "../../stores/launcher";
 import { showErrorToast, showToast } from "../../stores/toast";
+import { isSamePlugin } from "../../utils/plugins";
 import type { InstanceStatus } from "../../types/launcher";
 import type { InstancePlugin } from "../../types/plugins";
 
@@ -114,7 +115,7 @@ async function checkUpdate(plugin: InstancePlugin): Promise<void> {
   updatingDir.value = plugin.dir_name;
   try {
     const page = await fetchPluginMarket(1, 20, plugin.name);
-    const match = page.items.find((item) => item.plugin_id === plugin.plugin_id);
+    const match = page.items.find((item) => isSamePlugin(plugin, item));
     if (!match?.download_url) {
       showToast(t("plugins.toasts.marketMissing"), "warning");
       return;
@@ -124,7 +125,6 @@ async function checkUpdate(plugin: InstancePlugin): Promise<void> {
       return;
     }
     await installInstancePlugin(instanceId.value, {
-      plugin_id: match.plugin_id,
       download_url: match.download_url,
     });
     showToast(
@@ -231,7 +231,7 @@ watch(instanceId, () => {
               variant="text"
               size="small"
               :loading="updatingDir === plugin.dir_name"
-              :disabled="!canManage || updatingDir !== null || !plugin.plugin_id"
+              :disabled="!canManage || updatingDir !== null"
               @click="checkUpdate(plugin)"
             >
               {{ t("plugins.update") }}

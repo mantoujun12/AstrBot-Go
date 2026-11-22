@@ -46,12 +46,14 @@ export interface InstancePlugin {
   desc: string | null;
   repo: string | null;
   astrbot_version: string | null;
-  plugin_id: string | null;
   enabled: boolean;
   has_metadata: boolean;
 }
 
+/**
+ * The archive's own metadata decides the installed identity; the launcher
+ * only needs the download URL, matching the upstream install flow.
+ */
 export interface PluginInstallRequest {
-  plugin_id: string;
   download_url: string;
 }

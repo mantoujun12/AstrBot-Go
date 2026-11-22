@@ -146,9 +146,6 @@ pub struct InstancePlugin {
     pub repo: Option<String>,
     #[serde(default)]
     pub astrbot_version: Option<String>,
-    /// `author/name` in lowercase, used to match market records.
-    #[serde(default)]
-    pub plugin_id: Option<String>,
     pub enabled: bool,
     #[serde(default)]
     pub has_metadata: bool,
@@ -156,8 +153,8 @@ pub struct InstancePlugin {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PluginInstallRequest {
-    /// Market identity `author/name`; checked against the archive metadata.
-    pub plugin_id: String,
+    /// Market download archive URL. Identity is decided by the archive's own
+    /// `metadata.yaml`, matching the upstream install flow.
     pub download_url: String,
 }
 
@@ -274,9 +271,6 @@ pub fn list_plugins(data_dir: &Path) -> Result<Vec<InstancePlugin>> {
             .as_ref()
             .and_then(|m| m.author.clone())
             .filter(|a| !a.trim().is_empty());
-        let plugin_id = author
-            .as_deref()
-            .map(|author| format!("{}/{}", author.trim(), name.trim()).to_lowercase());
         plugins.push(InstancePlugin {
             dir_name,
             name,
@@ -285,7 +279,6 @@ pub fn list_plugins(data_dir: &Path) -> Result<Vec<InstancePlugin>> {
             desc: metadata.as_ref().and_then(|m| m.desc.clone()),
             repo: metadata.as_ref().and_then(|m| m.repo.clone()),
             astrbot_version: metadata.as_ref().and_then(|m| m.astrbot_version.clone()),
-            plugin_id,
             enabled: !inactivated.contains(&module_path),
             has_metadata: metadata.is_some(),
         });
@@ -397,8 +390,10 @@ fn forget_disabled_marker(data_dir: &Path, dir_name: &str) {
     }
 }
 
-/// Download a market plugin archive, verify its identity, and move it into
-/// `data/plugins/<metadata.name>`. Existing directories are replaced.
+/// Download a market plugin archive and move it into `data/plugins/<name>`,
+/// matching upstream: the archive's own `metadata.yaml` decides the plugin
+/// identity, and an existing directory is only replaced when it is the same
+/// plugin.
 pub async fn install_plugin(
     client: &Client,
     data_dir: &Path,
@@ -410,7 +405,6 @@ pub async fn install_plugin(
     if parsed.scheme() != "https" {
         return Err(AppError::network("插件下载地址必须为 HTTPS。"));
     }
-    let expected_id = normalize_plugin_id(&request.plugin_id)?;
 
     let staging = data_dir
         .join("plugins")
@@ -423,7 +417,7 @@ pub async fn install_plugin(
     let blocking_data_dir = data_dir.to_path_buf();
     let blocking_staging = staging.clone();
     let join = tokio::task::spawn_blocking(move || {
-        finalize_install(&blocking_data_dir, &blocking_staging, &expected_id)
+        finalize_install(&blocking_data_dir, &blocking_staging)
     })
     .await
     .map_err(|e| AppError::process(format!("插件安装后台任务失败：{e}")));
@@ -439,7 +433,25 @@ pub async fn install_plugin(
     result
 }
 
-fn finalize_install(data_dir: &Path, staging: &Path, expected_id: &str) -> Result<InstancePlugin> {
+/// Mirrors upstream's install guard: only replace a `data/plugins/<name>`
+/// directory whose own metadata identifies the same plugin.
+fn ensure_replaceable(target: &Path, new_name: &str) -> Result<()> {
+    if !target.is_dir() {
+        return Ok(());
+    }
+    let existing_name = read_metadata(target)?
+        .and_then(|metadata| metadata.name)
+        .map(|name| name.trim().to_string())
+        .filter(|name| !name.is_empty());
+    if existing_name.as_deref() == Some(new_name) {
+        return Ok(());
+    }
+    Err(AppError::io(format!(
+        "安装失败：目录 {new_name} 已存在，且不是同一插件。"
+    )))
+}
+
+fn finalize_install(data_dir: &Path, staging: &Path) -> Result<InstancePlugin> {
     let zip_path = staging.join("plugin.zip");
     validate_zip_archive(&zip_path)?;
     let extracted = staging.join("extracted");
@@ -454,18 +466,6 @@ fn finalize_install(data_dir: &Path, staging: &Path, expected_id: &str) -> Resul
         .map(str::trim)
         .filter(|n| !n.is_empty())
         .ok_or_else(|| AppError::io("插件 metadata.yaml 缺少 name 字段。"))?;
-    let author = metadata
-        .author
-        .as_deref()
-        .map(str::trim)
-        .filter(|a| !a.is_empty())
-        .ok_or_else(|| AppError::io("插件 metadata.yaml 缺少 author 字段。"))?;
-    let actual_id = format!("{author}/{name}").to_lowercase();
-    if actual_id != expected_id {
-        return Err(AppError::io(format!(
-            "插件身份校验失败：压缩包为 {actual_id}，与市场记录 {expected_id} 不一致。"
-        )));
-    }
     validate_plugin_dir_name(name)?;
 
     let target = data_dir.join("plugins").join(name);
@@ -474,6 +474,7 @@ fn finalize_install(data_dir: &Path, staging: &Path, expected_id: &str) -> Resul
         return Err(AppError::io("插件目录路径无效。"));
     };
     fs::create_dir_all(parent).map_err(|e| AppError::io(format!("创建插件目录失败：{e}")))?;
+    ensure_replaceable(&target, name)?;
 
     // Replace an existing install behind a backup so a failure can roll back.
     let backup = data_dir
@@ -494,15 +495,20 @@ fn finalize_install(data_dir: &Path, staging: &Path, expected_id: &str) -> Resul
     }
 
     let inactivated = read_inactivated(data_dir);
+    let author = metadata
+        .author
+        .as_deref()
+        .map(str::trim)
+        .filter(|author| !author.is_empty())
+        .map(str::to_string);
     Ok(InstancePlugin {
         dir_name: name.to_string(),
         name: name.to_string(),
-        author: Some(author.to_string()),
+        author,
         version: metadata.version,
         desc: metadata.desc,
         repo: metadata.repo,
         astrbot_version: metadata.astrbot_version,
-        plugin_id: Some(actual_id),
         enabled: !inactivated.contains(&module_path_for(&target, name)),
         has_metadata: true,
     })
@@ -564,17 +570,6 @@ fn locate_plugin_root(extracted: &Path) -> Result<PathBuf> {
         )),
         _ => Err(AppError::io("压缩包内包含多个插件目录，无法确定安装目标。")),
     }
-}
-
-fn normalize_plugin_id(plugin_id: &str) -> Result<String> {
-    let plugin_id = plugin_id.trim().to_lowercase();
-    let Some((author, name)) = plugin_id.split_once('/') else {
-        return Err(AppError::config("插件标识格式错误，应为 author/name。"));
-    };
-    if author.trim().is_empty() || name.trim().is_empty() {
-        return Err(AppError::config("插件标识格式错误，应为 author/name。"));
-    }
-    Ok(plugin_id)
 }
 
 // === Preference storage ======================================================
@@ -706,17 +701,6 @@ mod tests {
     }
 
     #[test]
-    fn plugin_ids_are_normalized() {
-        assert!(normalize_plugin_id("Anka/Meme_Manager").is_ok());
-        assert_eq!(
-            normalize_plugin_id("anka/meme_manager").unwrap_or_default(),
-            "anka/meme_manager"
-        );
-        assert!(normalize_plugin_id("anka").is_err());
-        assert!(normalize_plugin_id("/x").is_err());
-    }
-
-    #[test]
     fn module_path_follows_entry_file() -> Result<()> {
         let dir = TempDir::new("module-path")?;
         let plain = dir.path().join("plugins/a_plugin");
@@ -750,7 +734,6 @@ mod tests {
         assert_eq!(plugin.name, "my_plugin");
         assert_eq!(plugin.author.as_deref(), Some("anka"));
         assert_eq!(plugin.version.as_deref(), Some("1.0.0"));
-        assert_eq!(plugin.plugin_id.as_deref(), Some("anka/my_plugin"));
         assert!(!plugin.enabled);
         Ok(())
     }
@@ -811,6 +794,29 @@ mod tests {
         for bad in ["..", "real/../other", "../outside"] {
             assert!(find_plugin_dir(dir.path(), bad).is_err(), "{bad}");
         }
+        Ok(())
+    }
+
+    #[test]
+    fn replacement_requires_the_same_plugin() -> Result<()> {
+        let dir = TempDir::new("replace")?;
+        let target = dir.path().join("plugins").join("my_plugin");
+        fs::create_dir_all(&target)?;
+
+        // Same plugin by metadata name: replaceable.
+        fs::write(target.join("metadata.yaml"), "name: my_plugin\n")?;
+        assert!(ensure_replaceable(&target, "my_plugin").is_ok());
+
+        // A different plugin lives in that directory already.
+        assert!(ensure_replaceable(&target, "other_plugin").is_err());
+
+        // A directory without metadata cannot be verified, matching upstream.
+        let bare = dir.path().join("plugins").join("bare");
+        fs::create_dir_all(&bare)?;
+        assert!(ensure_replaceable(&bare, "bare").is_err());
+
+        // Fresh installs are always fine.
+        assert!(ensure_replaceable(&dir.path().join("plugins").join("new"), "new").is_ok());
         Ok(())
     }
 

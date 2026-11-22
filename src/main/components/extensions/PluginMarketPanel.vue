@@ -14,6 +14,7 @@ import {
 } from "../../services/plugins";
 import { useLauncherStore } from "../../stores/launcher";
 import { showErrorToast, showToast } from "../../stores/toast";
+import { isSamePlugin } from "../../utils/plugins";
 import type { InstanceStatus } from "../../types/launcher";
 import type { PluginMarketItem } from "../../types/plugins";
 
@@ -122,7 +123,7 @@ async function confirmInstall(item: PluginMarketItem): Promise<void> {
       const installed = await listInstancePlugins(instance.id);
       targetInstalled.value.set(
         instance.id,
-        installed.some((plugin) => plugin.plugin_id === item.plugin_id),
+        installed.some((plugin) => isSamePlugin(plugin, item)),
       );
     } catch {
       targetInstalled.value.set(instance.id, false);
@@ -141,7 +142,6 @@ async function performInstall(): Promise<void> {
   installing.value = true;
   try {
     await installInstancePlugin(instanceId, {
-      plugin_id: item.plugin_id,
       download_url: item.download_url ?? "",
     });
     showToast(t("plugins.toasts.installed", { name: pluginTitle(item) }));
