@@ -109,6 +109,7 @@ const portsInUse = computed(() =>
 /* External instances */
 
 const discovered = ref<DiscoveredInstancesSnapshot | null>(null);
+const discoveryLoading = ref(false);
 
 const externalInstances = computed<ExternalInstanceRow[]>(() => {
   if (discovered.value === null) {
@@ -225,10 +226,13 @@ function externalMetaParts(instance: DiscoveredInstance): ExternalMetaPart[] {
 }
 
 async function loadDiscovery(): Promise<void> {
+  discoveryLoading.value = true;
   try {
     discovered.value = await discoverInstances();
   } catch (cause) {
     showErrorToast(cause);
+  } finally {
+    discoveryLoading.value = false;
   }
 }
 
@@ -1178,7 +1182,7 @@ const rowContext = computed<InstanceRowContext>(() => ({
       v-model:source-filter="sourceFilter"
       v-model:sort-key="sortKey"
       v-model:view-mode="viewMode"
-      :refresh-loading="loading || updatesLoading"
+      :refresh-loading="loading || updatesLoading || discoveryLoading"
       :refresh-disabled="batchUpgradeRunning"
       :show-upgrade-all="batchUpgradeRunning || batchUpgradeTargets.length > 0"
       :upgrade-all-loading="batchUpgradeRunning"
@@ -1229,7 +1233,10 @@ const rowContext = computed<InstanceRowContext>(() => ({
       </div>
     </v-alert>
 
-    <div v-if="snapshot === null && !error" class="instances-state page-center">
+    <div
+      v-if="(snapshot === null && !error) || (instanceRows.length === 0 && discoveryLoading)"
+      class="instances-state page-center"
+    >
       <v-progress-circular
         indeterminate
         color="primary"
@@ -1239,7 +1246,7 @@ const rowContext = computed<InstanceRowContext>(() => ({
     </div>
 
     <div
-      v-else-if="snapshot !== null && instanceRows.length === 0"
+      v-else-if="snapshot !== null && instanceRows.length === 0 && !discoveryLoading"
       class="page-table-card"
     >
       <EmptyState :text="t('instances.list.empty')" icon="mdi-server-plus-outline">
