@@ -79,7 +79,7 @@ function actionLabel(action: ScheduledAction): string {
 }
 
 function jobTitle(job: ScheduledJob): string {
-  return job.name.trim() !== "" ? job.name : actionLabel(job.action);
+  return job.name.trim() === "" ? actionLabel(job.action) : job.name;
 }
 
 function instanceName(instanceId: string): string {
@@ -205,14 +205,13 @@ async function retryInit(): Promise<void> {
               <span class="scheduled-item__title page-anywhere">
                 {{ jobTitle(job) }}
               </span>
-              <v-chip size="x-small" variant="tonal" color="primary" label>
+              <v-chip size="x-small" variant="tonal" color="primary">
                 {{ scheduleDescription(job) }}
               </v-chip>
               <v-chip
                 :color="resultColor(job)"
                 size="x-small"
                 variant="tonal"
-                label
               >
                 {{ resultLabel(job) }}
               </v-chip>

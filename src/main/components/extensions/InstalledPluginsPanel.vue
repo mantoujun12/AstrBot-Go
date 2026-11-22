@@ -215,7 +215,7 @@ watch(instanceId, () => {
             <div class="plugin-card__heading">
               <div class="plugin-card__title-row">
                 <p class="plugin-card__title">{{ plugin.name }}</p>
-                <v-chip v-if="plugin.version" size="x-small" variant="tonal" label>
+                <v-chip v-if="plugin.version" size="x-small" variant="tonal">
                   v{{ plugin.version }}
                 </v-chip>
               </div>

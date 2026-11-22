@@ -1592,7 +1592,6 @@ function openWebui(instance: InstanceStatus): void {
                       size="x-small"
                       color="purple"
                       variant="tonal"
-                      label
                     >
                       Beta
                     </v-chip>

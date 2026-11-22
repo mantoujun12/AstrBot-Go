@@ -170,15 +170,30 @@ function handleAuxClick(event: MouseEvent): void {
   width: 100%;
   margin: 0.8em 0;
   overflow-x: auto;
-  border-collapse: collapse;
+  overflow-y: hidden;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: var(--astrbot-radius-control);
   font-size: 0.82rem;
 }
 
 .markdown-content :deep(th),
 .markdown-content :deep(td) {
   padding: 6px 10px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-inline-end: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   text-align: start;
+}
+
+.markdown-content :deep(tr:last-child th),
+.markdown-content :deep(tr:last-child td) {
+  border-bottom: 0;
+}
+
+.markdown-content :deep(th:last-child),
+.markdown-content :deep(td:last-child) {
+  border-inline-end: 0;
 }
 
 .markdown-content :deep(th) {

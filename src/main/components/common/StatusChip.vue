@@ -17,7 +17,6 @@ withDefaults(
     :color="instanceStateColor(state)"
     :size="size"
     variant="tonal"
-    label
     class="status-chip"
   >
     <span

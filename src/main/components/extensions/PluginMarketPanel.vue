@@ -264,7 +264,6 @@ void load();
                   size="x-small"
                   variant="tonal"
                   color="primary"
-                  label
                 >
                   {{ t("plugins.official") }}
                 </v-chip>
@@ -288,7 +287,7 @@ void load();
               <v-icon icon="mdi-star-outline" size="14" aria-hidden="true" />
               {{ formatCount(item.github_stars) }}
             </span>
-            <v-chip v-if="item.latest_version" size="x-small" variant="tonal" label>
+            <v-chip v-if="item.latest_version" size="x-small" variant="tonal">
               v{{ item.latest_version }}
             </v-chip>
             <v-chip
@@ -296,7 +295,6 @@ void load();
               size="x-small"
               variant="tonal"
               color="warning"
-              label
               :title="t('plugins.requiresVersion')"
             >
               {{ item.astrbot_version }}
@@ -363,7 +361,6 @@ void load();
             size="x-small"
             variant="tonal"
             color="success"
-            label
           >
             {{ t("plugins.installed") }}
           </v-chip>
