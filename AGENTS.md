@@ -38,7 +38,7 @@ Repository documentation layout:
 
 ## Directory Responsibilities
 
-- `src/`: Vue frontend code.
+- `src/`: Vue frontend code, split by window: `main/` (launcher), `chatui/` (ported upstream chat island) and `tray/` (tray panel).
 - `src-tauri/src/`: Tauri backend logic and command registration. `lib.rs` handles application assembly, while `main.rs` contains only the startup layer.
 - `src-tauri/capabilities/`: Tauri capability and permission configuration.
 - `src-tauri/tauri.conf.json`: Window, build, bundle, and security configuration.
@@ -88,7 +88,7 @@ cargo clippy --all-targets -- -D warnings
 
 ### Vuetify Control Conventions
 
-Shared control styling lives in `src/styles/controls.css` and `src/scss/components/`. Do not patch the same problem locally in one component when it applies to every instance of a control.
+Shared control styling lives in `src/main/styles/controls.css` and `src/main/scss/components/`. Do not patch the same problem locally in one component when it applies to every instance of a control.
 
 - `v-switch` must set `inset`, `color="primary"`, and `hide-details`. The active track is painted by the `bg-primary` class added by `color="primary"`; omitting `color` leaves the neutral `surface-variant` track and makes the enabled state look disabled. Bind `:loading` and `:disabled` to the saving state. Use `density="compact"` in settings rows, filters, and toolbars; in forms and dialogs keep the density consistent with adjacent fields.
 - Standard option groups (`v-radio`, `v-checkbox`) set `color="primary"` and `density="compact"` on each item. `v-radio-group` sets `hide-details`, plus `inline` when the options fit on one line.
@@ -103,13 +103,13 @@ Shared control styling lives in `src/styles/controls.css` and `src/scss/componen
 - `v-btn-toggle` uses `mandatory`, `divided`, `density="compact"`, `variant="outlined"`, and `color="primary"`, with `size="small"` buttons inside.
 - `v-chip` uses `size="x-small"` or `size="small"` with `variant="tonal"` and a semantic color; add `label` for status text. `v-alert` uses `variant="tonal"`, `density="comfortable"`, and the matching semantic `type`. `v-progress-linear` uses `color="primary"`, `height="5"`, and `rounded`.
 - Use `SettingsItem` for settings rows and `PageHeader`'s actions slot for page-level actions. Let action groups wrap and stay reachable at narrow desktop widths. For any other Vuetify element, follow the closest existing usage in the repository instead of Vuetify defaults.
-- Use the radius tokens (`--astrbot-radius-control`, `--astrbot-radius-card`, and the other tokens in `src/scss/_radius-tokens.scss`) instead of hardcoded radii.
+- Use the radius tokens (`--astrbot-radius-control`, `--astrbot-radius-card`, and the other tokens in `src/main/scss/_radius-tokens.scss`) instead of hardcoded radii.
 
 ### Vuetify Cascade and Stacking Conventions
 
-Project styles in `src/scss/` and component `<style>` blocks are unlayered, so they always beat Vuetify's `@layer` rules. When overriding a Vuetify default, verify the selector wins twice: over Vuetify's layered rule and over any competing unlayered rule in this repository. Count specificity including `:not()` arguments; a lower-specificity "fix" rule placed next to a higher-specificity global rule never takes effect (this is how a `border-radius: 0` group fix silently failed against the global `.v-btn` radius rule).
+Project styles in `src/main/scss/` and component `<style>` blocks are unlayered, so they always beat Vuetify's `@layer` rules. When overriding a Vuetify default, verify the selector wins twice: over Vuetify's layered rule and over any competing unlayered rule in this repository. Count specificity including `:not()` arguments; a lower-specificity "fix" rule placed next to a higher-specificity global rule never takes effect (this is how a `border-radius: 0` group fix silently failed against the global `.v-btn` radius rule).
 
-- Vuetify pins many surface radii (card, menu content, dialog, snackbar, alert, button group) to its 4px root default. Map every surface to a radius token from `src/scss/_radius-tokens.scss` instead of accepting the default, and keep parent and child radii aligned: menu popups carry their radius on `.v-overlay__content` with `v-card`/`v-sheet`/`v-list` children inheriting it, and `v-select` also attaches the elevation class to the content element, so a mismatched child radius lets the elevation shadow's corners show behind the panel.
+- Vuetify pins many surface radii (card, menu content, dialog, snackbar, alert, button group) to its 4px root default. Map every surface to a radius token from `src/main/scss/_radius-tokens.scss` instead of accepting the default, and keep parent and child radii aligned: menu popups carry their radius on `.v-overlay__content` with `v-card`/`v-sheet`/`v-list` children inheriting it, and `v-select` also attaches the elevation class to the content element, so a mismatched child radius lets the elevation shadow's corners show behind the panel.
 - `v-btn-toggle` / `v-btn-group` buttons must stay square and inherit only the container's outer corners. A per-button radius breaks the `divided`/`outlined` border joins and the container's rounded overflow clips the last button.
 - Vuetify teleports overlays to `body` starting at z-index 2400, and `.v-application__wrap` (`backface-visibility: hidden`) as well as any `isolation: isolate` shell create stacking contexts. z-index only competes within its own stacking context, so verify the full ancestor chain before trusting a z-index value. Window chrome that must stay above the dialog scrim, such as the custom title bar with its window controls, must be teleported to `body` and use an opaque chrome background while a scrimmed overlay is active (`:has()` is available in WebView2).
 - Layout animation is scoped: `v-main` has no transition by default (tab switching must not animate); only the sidebar expand/collapse enables a `v-main` padding transition via the `.layout-animating` class in `App.vue`.

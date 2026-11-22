@@ -33,6 +33,11 @@ English | [简体中文](./README_zh.md)
 - Back up and restore instance data
 - Automatically configure Python / Node.js / uv runtime environments
 - Browse instance status from a tray panel, with an optional native tray menu
+- Chat with an instance in a standalone window (Beta)
+- Manage instance personas, scheduled jobs, MCP servers, config files and knowledge bases
+- Manage plugins and Skills from the Extensions page (Beta)
+- Run instance tasks on a schedule and review the run history
+- Sign in to the embedded WebUI automatically
 
 ## Platform Support
 

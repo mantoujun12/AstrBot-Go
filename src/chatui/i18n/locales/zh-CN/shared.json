@@ -141,7 +141,7 @@
     "resetBase": "重置Base",
     "delete": "删除",
     "save": "保存",
-    "livePreview": "实时预览(可能有差异)",
+    "livePreview": "实时预览（可能有差异）",
     "refreshPreview": "刷新预览",
     "previewText": "这是一个示例文本，用于预览模板效果。\n\n这里可以包含多行文本，支持换行和各种格式。",
     "syntaxHint": "支持 jinja2 语法。可用变量：text | safe（要渲染的文本）, version（AstrBot 版本）。如果预览测试内容未加载或显示异常，请点击“重置Base”恢复默认模板。",

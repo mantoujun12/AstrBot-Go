@@ -243,7 +243,7 @@ fn extract_error_message(data: &serde_json::Value) -> Option<String> {
 }
 
 /// Host forms that cannot be dialed directly; mirror of the normalization in
-/// `src/views/InstanceWebuiView.vue`.
+/// `src/main/views/InstanceWebuiView.vue`.
 pub(crate) fn normalize_dashboard_host(host: &str) -> String {
     let value = host.trim();
     if value.is_empty()

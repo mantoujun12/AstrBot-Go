@@ -24,7 +24,8 @@ backend:
 i18n:
   - changed-files:
       - any-glob-to-any-file:
-          - 'src/i18n/**'
+          - 'src/main/i18n/**'
+          - 'src/chatui/i18n/**'
           - 'src-tauri/src/i18n.rs'
 
 dependencies:
