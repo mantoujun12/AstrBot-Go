@@ -532,7 +532,6 @@ function openReleaseNotes(release: GitHubRelease): void {
             </span>
             <v-chip
               size="x-small"
-              label
               :color="row.status.installed ? 'success' : 'secondary'"
               variant="tonal"
             >
@@ -548,7 +547,6 @@ function openReleaseNotes(release: GitHubRelease): void {
               size="x-small"
               color="primary"
               variant="tonal"
-              label
               class="page-mono"
             >
               {{ version }}
@@ -558,7 +556,6 @@ function openReleaseNotes(release: GitHubRelease): void {
               size="x-small"
               color="warning"
               variant="tonal"
-              label
             >
               {{ t("versions.status.versionUnknown") }}
             </v-chip>
@@ -585,7 +582,6 @@ function openReleaseNotes(release: GitHubRelease): void {
                 size="x-small"
                 color="primary"
                 variant="tonal"
-                label
                 class="page-mono"
               >
                 {{ runtime.version }}
@@ -595,7 +591,6 @@ function openReleaseNotes(release: GitHubRelease): void {
                 size="x-small"
                 color="warning"
                 variant="tonal"
-                label
               >
                 {{ t("versions.status.versionUnknown") }}
               </v-chip>
@@ -603,7 +598,6 @@ function openReleaseNotes(release: GitHubRelease): void {
                 size="x-small"
                 :color="runtime.installed ? 'success' : 'secondary'"
                 variant="tonal"
-                label
               >
                 {{
                   runtime.installed
@@ -709,7 +703,6 @@ function openReleaseNotes(release: GitHubRelease): void {
                     :key="instance.id"
                     size="x-small"
                     variant="tonal"
-                    label
                   >
                     {{ instance.name }}
                   </v-chip>
@@ -801,7 +794,6 @@ function openReleaseNotes(release: GitHubRelease): void {
                   size="x-small"
                   color="warning"
                   variant="tonal"
-                  label
                 >
                   {{ t("versions.status.prerelease") }}
                 </v-chip>
@@ -810,7 +802,6 @@ function openReleaseNotes(release: GitHubRelease): void {
                   size="x-small"
                   color="success"
                   variant="tonal"
-                  label
                 >
                   {{ t("versions.status.installed") }}
                 </v-chip>

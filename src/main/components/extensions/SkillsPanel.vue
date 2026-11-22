@@ -611,7 +611,7 @@ defineExpose({ openUpload });
               <template #item.plugin_name="{ item }">
                 <span class="skills-panel__plugin-cell">
                   <span class="page-anywhere">{{ item.plugin_name }}</span>
-                  <v-chip v-if="item.builtin" size="x-small" variant="tonal" label>
+                  <v-chip v-if="item.builtin" size="x-small" variant="tonal">
                     {{ t("skills.pluginSkills.builtin") }}
                   </v-chip>
                 </span>
