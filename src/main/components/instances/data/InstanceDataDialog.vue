@@ -78,6 +78,7 @@ const selectedConfigName = ref<string | null>(null);
 const knowledgeBases = ref<InstanceKnowledgeBase[]>([]);
 const kbsLoaded = ref(false);
 const kbsLoading = ref(false);
+let kbListGeneration = 0;
 const mcpTried = ref(false);
 const mcpMissing = ref(false);
 const mcpLoading = ref(false);
@@ -189,6 +190,8 @@ async function load(): Promise<void> {
     selectedConfigName.value = null;
     knowledgeBases.value = [];
     kbsLoaded.value = false;
+    kbsLoading.value = false;
+    kbListGeneration++;
     mcpTried.value = false;
     mcpMissing.value = false;
   } catch (cause) {
@@ -256,13 +259,21 @@ async function ensureKnowledgeBases(): Promise<void> {
     return;
   }
   kbsLoading.value = true;
+  const generation = ++kbListGeneration;
   try {
-    knowledgeBases.value = await listInstanceKnowledgeBases(instance.id);
-    kbsLoaded.value = true;
+    const result = await listInstanceKnowledgeBases(instance.id);
+    if (generation === kbListGeneration) {
+      knowledgeBases.value = result;
+      kbsLoaded.value = true;
+    }
   } catch (cause) {
-    showErrorToast(cause);
+    if (generation === kbListGeneration) {
+      showErrorToast(cause);
+    }
   } finally {
-    kbsLoading.value = false;
+    if (generation === kbListGeneration) {
+      kbsLoading.value = false;
+    }
   }
 }
 
@@ -284,6 +295,7 @@ async function confirmKbDelete(): Promise<void> {
   kbDeleting.value = true;
   try {
     await deleteInstanceKnowledgeBase(instance.id, kb.kb_id);
+    kbListGeneration++;
     knowledgeBases.value = knowledgeBases.value.filter(
       (item) => item.kb_id !== kb.kb_id,
     );
