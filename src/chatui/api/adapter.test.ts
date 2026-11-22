@@ -4,10 +4,10 @@
 import { AxiosError } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { dashboardApiRequest } from "../../services/chat";
+import { dashboardApiRequest } from "../../main/services/chat";
 import { chatuiAdapter, setChatInstance } from "./adapter";
 
-vi.mock("../../services/chat", () => ({
+vi.mock("../../main/services/chat", () => ({
   dashboardApiRequest: vi.fn(),
 }));
 

@@ -8,16 +8,16 @@
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay, useTheme } from "vuetify";import type { UnlistenFn } from "@tauri-apps/api/event";
-import { applyLanguagePreference, i18n } from "../i18n";
-import { normalizeLocaleTag } from "../i18n/locale";
-import { toUserMessage } from "../services/errors";
+import { applyLanguagePreference, i18n } from "../main/i18n";
+import { normalizeLocaleTag } from "../main/i18n/locale";
+import { toUserMessage } from "../main/services/errors";
 import {
   saveLanguagePreference,
   saveThemePreference,
-} from "../services/config";
-import { listenPreferencesChanged } from "../services/events";
-import type { LanguagePreference, ThemePreference } from "../types/launcher";
-import { readCachedLanguage } from "../utils/languageCache";
+} from "../main/services/config";
+import { listenPreferencesChanged } from "../main/services/events";
+import type { LanguagePreference, ThemePreference } from "../main/types/launcher";
+import { readCachedLanguage } from "../main/utils/languageCache";
 import {
   closeWindow,
   isWindowMaximized,
@@ -26,7 +26,7 @@ import {
   setWindowTitle,
   showSnapOverlay,
   toggleMaximizeWindow,
-} from "../services/windowControls";
+} from "../main/services/windowControls";
 import { setChatInstance } from "./api/adapter";
 import Chat from "./components/chat/Chat.vue";
 import ConfirmDialog from "./components/ConfirmDialog.vue";
@@ -43,7 +43,7 @@ import {
 } from "./stores/customizer";
 import { useChatHeaderStore } from "./stores/chatHeader";
 import { useMobileDrawerStore } from "./stores/mobileDrawer";
-import { useLauncherStore } from "../stores/launcher";
+import { useLauncherStore } from "../main/stores/launcher";
 
 defineOptions({ name: "ChatUIHost", inheritAttrs: false });
 

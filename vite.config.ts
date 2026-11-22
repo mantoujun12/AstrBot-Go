@@ -44,7 +44,7 @@ export default defineConfig(() => ({
     rollupOptions: {
       input: {
         main: "index.html",
-        "tray-panel": "src/tray-panel.html",
+        "tray-panel": "src/tray/tray-panel.html",
       },
     },
   },

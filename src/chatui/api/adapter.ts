@@ -5,7 +5,7 @@
 // envelope; dashboard failures arrive inside it with `status: "error"`.
 
 import { AxiosError, type AxiosAdapter, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
-import { dashboardApiRequest } from "../../services/chat";
+import { dashboardApiRequest } from "../../main/services/chat";
 
 /** Instance the adapter currently serves; set by the host on every change. */
 let currentInstanceId = "";

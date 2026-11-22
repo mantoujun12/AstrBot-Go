@@ -5,13 +5,13 @@ import { en, ja, ru, zhHans } from "vuetify/locale";
 import "@fontsource-variable/outfit";
 import "@mdi/font/css/materialdesignicons.css";
 import "vuetify/styles";
-import "./scss/_radius-tokens.scss";
-import TrayPanel from "./components/tray/TrayPanel.vue";
-import { i18n, initialLocale } from "./i18n";
-import { applyThemeColors, readStoredThemeColors } from "./theme/customColors";
-import { PurpleTheme } from "./theme/LightTheme";
-import { PurpleThemeDark } from "./theme/DarkTheme";
-import { readCachedTheme } from "./utils/themeCache";
+import "../main/scss/_radius-tokens.scss";
+import TrayPanel from "../main/components/tray/TrayPanel.vue";
+import { i18n, initialLocale } from "../main/i18n";
+import { applyThemeColors, readStoredThemeColors } from "../main/theme/customColors";
+import { PurpleTheme } from "../main/theme/LightTheme";
+import { PurpleThemeDark } from "../main/theme/DarkTheme";
+import { readCachedTheme } from "../main/utils/themeCache";
 
 document.documentElement.lang = initialLocale;
 
