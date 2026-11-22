@@ -7,7 +7,7 @@ import {
   sendChatMessage,
   type ChatSendInput,
   type ChatStreamEvent,
-} from "../../services/chat";
+} from "../../main/services/chat";
 import { getChatInstance } from "@/api/adapter";
 import type { Session } from "@/composables/useSessions";
 

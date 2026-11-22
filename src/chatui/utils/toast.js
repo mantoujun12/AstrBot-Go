@@ -1,7 +1,7 @@
 // Ported from AstrBot dashboard (MIT, CodedThemes); see src/chatui/LICENSE.
 // Island port of utils/toast.js: bridges onto the host app's snackbar store.
 
-import { showToast } from "../../stores/toast";
+import { showToast } from "../../main/stores/toast";
 
 export function useToast() {
   const toast = (message, color = "info", _opts = {}) =>

@@ -126,8 +126,8 @@
 
 <script setup lang="ts">
 import { computed, inject, ref, watch } from "vue";
-import { useLauncherStore } from "../../../stores/launcher";
-import type { InstanceStatus } from "../../../types/launcher";
+import { useLauncherStore } from "../../../main/stores/launcher";
+import type { InstanceStatus } from "../../../main/types/launcher";
 import { providerApi } from "@/api/v1";
 import { useProviderModelSelection } from "@/composables/useProviderModelSelection";
 import { useI18n, useModuleI18n } from "@/i18n/composables";

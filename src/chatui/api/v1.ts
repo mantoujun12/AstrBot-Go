@@ -5,7 +5,7 @@
 
 import { apiV1Client } from "./http";
 import { getChatInstance } from "./adapter";
-import { fetchChatMedia } from "../../services/chat";
+import { fetchChatMedia } from "../../main/services/chat";
 
 export interface ApiEnvelope<T> {
   status: "ok" | "error";

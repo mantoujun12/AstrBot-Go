@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import ChatUIHost from "../chatui";
+import ChatUIHost from "../../chatui";
 import {
   getChatWindowTarget,
   listenChatTargetChanged,
