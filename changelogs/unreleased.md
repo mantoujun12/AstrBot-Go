@@ -8,6 +8,9 @@
 - The instances toolbar controls now shrink smoothly at narrow window widths instead of wrapping early.
 - The instances page refresh now runs its three reloads as one coordinated operation with a single busy state.
 
+### Fixed
+- The directory scan no longer descends into symlinks and Windows junctions, silencing access-denied log noise; a deployment behind a link can be added as a scan path instead.
+
 ## 中文
 
 ### 变更
@@ -18,3 +21,7 @@
 - 实例列表在状态筛选下保留启动中/停止中的实例，卡片视图显示加载进度条，排序下拉与 Beta 徽章完成标注与本地化。
 - 实例工具栏控件在窄窗口下平滑收缩，不再过早换行。
 - 实例页面刷新改为一次协调执行三项重载，并统一显示忙碌状态。
+
+### 修复
+
+- 目录扫描不再进入符号链接与 Windows junction，消除拒绝访问的日志噪声；链接后的部署可以改用添加扫描路径的方式发现。
