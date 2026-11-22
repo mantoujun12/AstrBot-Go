@@ -670,7 +670,7 @@ defineExpose({ openUpload });
           <v-btn
             variant="outlined"
             size="small"
-            prepend-icon="mdi-file-archive-outline"
+            prepend-icon="mdi-folder-zip-outline"
             @click="pickFile()"
           >
             {{ t("skills.uploadDialog.pickFile") }}
