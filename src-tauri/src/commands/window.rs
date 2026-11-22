@@ -20,7 +20,7 @@ pub fn notify_tray_panel_ready(app_handle: AppHandle) {
 
 #[tauri::command]
 pub fn quit_app(app_handle: AppHandle) {
-    app_handle.exit(0);
+    crate::exit_app(&app_handle);
 }
 
 #[tauri::command]

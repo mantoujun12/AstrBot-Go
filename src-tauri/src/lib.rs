@@ -108,6 +108,20 @@ fn recreate_main_window(app_handle: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Exits the app, destroying every webview window first.
+///
+/// `AppHandle::exit` stops the event loop without destroying windows, so
+/// WebView2 would still hold live `Chrome_WidgetWin_0` windows when the
+/// process terminates and Chromium fails to unregister that class
+/// (Error 1412). Destroying the windows first runs that teardown while
+/// the event loop still pumps messages.
+pub(crate) fn exit_app(app_handle: &tauri::AppHandle) {
+    for window in app_handle.webview_windows().values() {
+        let _ = window.destroy();
+    }
+    app_handle.exit(0);
+}
+
 #[allow(clippy::expect_used)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[cfg(not(target_os = "macos"))]
@@ -258,7 +272,10 @@ pub fn run() {
                     // Exit explicitly instead. macOS keeps the process alive so
                     // the dock icon can reopen the window.
                     #[cfg(not(target_os = "macos"))]
-                    window.app_handle().exit(0);
+                    {
+                        api.prevent_close();
+                        exit_app(window.app_handle());
+                    }
                 }
             }
         })
