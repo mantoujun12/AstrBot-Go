@@ -110,6 +110,7 @@ const portsInUse = computed(() =>
 
 const discovered = ref<DiscoveredInstancesSnapshot | null>(null);
 const discoveryLoading = ref(false);
+const refreshing = ref(false);
 
 const externalInstances = computed<ExternalInstanceRow[]>(() => {
   if (discovered.value === null) {
@@ -327,10 +328,21 @@ watch(
   { immediate: true },
 );
 
-function handleRefresh(): void {
-  void refresh();
-  void loadDiscovery();
-  void loadUpdateCheck(true);
+async function handleRefresh(): Promise<void> {
+  if (refreshing.value) {
+    return;
+  }
+
+  refreshing.value = true;
+  try {
+    await Promise.allSettled([
+      refresh(),
+      loadDiscovery(),
+      loadUpdateCheck(true),
+    ]);
+  } finally {
+    refreshing.value = false;
+  }
 }
 
 function retryUpdateCheck(): void {
@@ -1182,7 +1194,7 @@ const rowContext = computed<InstanceRowContext>(() => ({
       v-model:source-filter="sourceFilter"
       v-model:sort-key="sortKey"
       v-model:view-mode="viewMode"
-      :refresh-loading="loading || updatesLoading || discoveryLoading"
+      :refresh-loading="loading || updatesLoading || discoveryLoading || refreshing"
       :refresh-disabled="batchUpgradeRunning"
       :show-upgrade-all="batchUpgradeRunning || batchUpgradeTargets.length > 0"
       :upgrade-all-loading="batchUpgradeRunning"
