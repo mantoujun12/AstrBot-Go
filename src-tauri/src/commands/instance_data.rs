@@ -12,7 +12,7 @@ use crate::instance::skills;
 use crate::instance::{
     CopyInstanceDataRequest, InstanceConfigFile, InstanceCronJob, InstanceKnowledgeBase,
     InstancePersona, InstancePersonaFolder, InstancePlugin, InstancePluginSkill, InstanceSkill,
-    PluginInstallRequest, PluginMarketPage, SkillZipInstall,
+    PluginInstallRequest, PluginMarketPage, SkillDirEntry, SkillFileRequest, SkillZipInstall,
 };
 use crate::process::InstanceGuard;
 use crate::utils::paths::get_instance_core_dir;
@@ -275,39 +275,43 @@ pub async fn list_instance_plugin_skills(instance_id: String) -> Result<Vec<Inst
 }
 
 #[tauri::command]
-pub async fn read_instance_plugin_skill(
+pub async fn list_instance_skill_files(
     instance_id: String,
-    plugin_name: String,
-    name: String,
+    request: SkillFileRequest,
+) -> Result<Vec<SkillDirEntry>> {
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        let builtin_root = builtin_stars_dir_of(&instance_id);
+        skills::list_skill_files(&data_dir, &builtin_root, &request)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn read_instance_skill_file(
+    instance_id: String,
+    request: SkillFileRequest,
 ) -> Result<String> {
     off_runtime(move || {
         let data_dir = data_dir_of(&instance_id)?;
         let builtin_root = builtin_stars_dir_of(&instance_id);
-        skills::read_plugin_skill(&data_dir, &builtin_root, &plugin_name, &name)
+        skills::read_skill_file(&data_dir, &builtin_root, &request)
     })
     .await
 }
 
 #[tauri::command]
-pub async fn read_instance_skill(instance_id: String, name: String) -> Result<String> {
-    off_runtime(move || {
-        let data_dir = data_dir_of(&instance_id)?;
-        skills::read_skill(&data_dir, &name)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn write_instance_skill(
+pub async fn write_instance_skill_file(
     instance_id: String,
-    name: String,
+    request: SkillFileRequest,
     content: String,
     state: State<'_, AppState>,
 ) -> Result<()> {
     let _guard = state.process_manager.acquire_guard(&instance_id)?;
     off_runtime(move || {
         let data_dir = data_dir_of(&instance_id)?;
-        skills::write_skill(&data_dir, &name, &content)
+        let builtin_root = builtin_stars_dir_of(&instance_id);
+        skills::write_skill_file(&data_dir, &builtin_root, &request, &content)
     })
     .await
 }

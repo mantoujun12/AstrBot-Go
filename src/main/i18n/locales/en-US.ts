@@ -1151,8 +1151,10 @@ const enUS = {
       title: "Delete skill",
       message: "Delete skill {name}?",
     },
-    editor: {
-      label: "SKILL.md content",
+    viewer: {
+      up: "Go up",
+      noFile: "No file selected",
+      unsaved: "Unsaved",
     },
     toasts: {
       installed: "Installed skills: {names}.",

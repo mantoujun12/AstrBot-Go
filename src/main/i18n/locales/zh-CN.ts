@@ -1131,8 +1131,10 @@ const zhCN = {
       "title": "删除技能",
       "message": "删除技能 {name}？"
     },
-    "editor": {
-      "label": "SKILL.md 内容"
+    "viewer": {
+      "up": "返回上级",
+      "noFile": "未选择文件",
+      "unsaved": "未保存"
     },
     "toasts": {
       "installed": "已安装技能：{names}。",

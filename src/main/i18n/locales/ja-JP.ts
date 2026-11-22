@@ -1150,8 +1150,10 @@ const jaJP = {
       title: "スキルを削除",
       message: "スキル {name} を削除しますか？",
     },
-    editor: {
-      label: "SKILL.md の内容",
+    viewer: {
+      up: "上へ",
+      noFile: "ファイル未選択",
+      unsaved: "未保存",
     },
     toasts: {
       installed: "スキルをインストールしました：{names}。",

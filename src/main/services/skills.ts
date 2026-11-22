@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { InstancePluginSkill, InstanceSkill, SkillZipInstall } from "../types/skills";
+import type {
+  InstancePluginSkill,
+  InstanceSkill,
+  SkillDirEntry,
+  SkillFileRequest,
+  SkillZipInstall,
+} from "../types/skills";
 
 export function listInstanceSkills(instanceId: string): Promise<InstanceSkill[]> {
   return invoke<InstanceSkill[]>("list_instance_skills", { instanceId });
@@ -11,31 +17,29 @@ export function listInstancePluginSkills(
   return invoke<InstancePluginSkill[]>("list_instance_plugin_skills", { instanceId });
 }
 
-export function readInstancePluginSkill(
+export function listInstanceSkillFiles(
   instanceId: string,
-  pluginName: string,
-  name: string,
-): Promise<string> {
-  return invoke<string>("read_instance_plugin_skill", {
+  request: SkillFileRequest,
+): Promise<SkillDirEntry[]> {
+  return invoke<SkillDirEntry[]>("list_instance_skill_files", {
     instanceId,
-    pluginName,
-    name,
+    request,
   });
 }
 
-export function readInstanceSkill(
+export function readInstanceSkillFile(
   instanceId: string,
-  name: string,
+  request: SkillFileRequest,
 ): Promise<string> {
-  return invoke<string>("read_instance_skill", { instanceId, name });
+  return invoke<string>("read_instance_skill_file", { instanceId, request });
 }
 
-export function writeInstanceSkill(
+export function writeInstanceSkillFile(
   instanceId: string,
-  name: string,
+  request: SkillFileRequest,
   content: string,
 ): Promise<void> {
-  return invoke("write_instance_skill", { instanceId, name, content });
+  return invoke("write_instance_skill_file", { instanceId, request, content });
 }
 
 export function setInstanceSkillEnabled(

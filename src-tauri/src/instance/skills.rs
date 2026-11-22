@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 
-use crate::archive::{extract_zip_mapped, validate_zip_archive};
+use crate::archive::{extract_zip_mapped, resolve_within_dir, validate_zip_archive};
 use crate::error::{AppError, Result};
 use crate::instance::plugins::validate_plugin_dir_name;
 use crate::utils::archive_path::parse_entry_rel_path;
@@ -207,18 +207,184 @@ fn find_skill_dir(data_dir: &Path, name: &str) -> Result<PathBuf> {
     Ok(dir)
 }
 
-pub fn read_skill(data_dir: &Path, name: &str) -> Result<String> {
-    let dir = find_skill_dir(data_dir, name)?;
-    let markdown =
-        skill_markdown(&dir).ok_or_else(|| AppError::io(format!("技能 {name} 缺少 SKILL.md。")))?;
-    fs::read_to_string(&markdown).map_err(|e| AppError::io(format!("读取技能失败：{e}")))
+// === Skill file browsing (mirrors the upstream skill editor) ================
+
+/// A skill addressed through the viewer: a local skill, or one provided by a
+/// plugin / builtin star. `path` is relative to the skill root and is a
+/// directory when listing or a file when reading and writing.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SkillFileRequest {
+    pub skill_name: String,
+    /// `None` addresses a local skill; `Some` a plugin-provided one.
+    #[serde(default)]
+    pub plugin_name: Option<String>,
+    #[serde(default)]
+    pub builtin: bool,
+    #[serde(default)]
+    pub path: String,
 }
 
-pub fn write_skill(data_dir: &Path, name: &str, content: &str) -> Result<()> {
-    let dir = find_skill_dir(data_dir, name)?;
-    let markdown =
-        skill_markdown(&dir).ok_or_else(|| AppError::io(format!("技能 {name} 缺少 SKILL.md。")))?;
-    fs::write(&markdown, content).map_err(|e| AppError::io(format!("写入技能失败：{e}")))
+#[derive(Debug, Clone, Serialize)]
+pub struct SkillDirEntry {
+    pub name: String,
+    /// Path relative to the skill root, using forward slashes.
+    pub path: String,
+    pub is_dir: bool,
+    #[serde(default)]
+    pub size: u64,
+}
+
+/// Text preview cap; the viewer never renders anything larger.
+const SKILL_FILE_MAX_BYTES: u64 = 2 * 1024 * 1024;
+
+fn skill_root_dir(
+    data_dir: &Path,
+    builtin_root: &Path,
+    plugin_name: Option<&str>,
+    builtin: bool,
+    skill_name: &str,
+) -> Result<PathBuf> {
+    validate_skill_name(skill_name)?;
+    let Some(plugin) = plugin_name else {
+        let root = skills_root(data_dir).join(skill_name);
+        if !root.is_dir() {
+            return Err(AppError::io(format!("技能 {skill_name} 不存在。")));
+        }
+        return Ok(root);
+    };
+    validate_plugin_dir_name(plugin)?;
+    let plugins_root = if builtin {
+        builtin_root
+    } else {
+        &data_dir.join("plugins")
+    };
+    let skills_dir = plugins_root.join(plugin).join("skills");
+    // Direct layout: the plugin itself is a skill named after its directory.
+    let root = if skill_name == plugin {
+        skills_dir
+    } else {
+        skills_dir.join(skill_name)
+    };
+    if !root.is_dir() {
+        return Err(AppError::io(format!("技能 {skill_name} 不存在。")));
+    }
+    Ok(root)
+}
+
+/// Resolve a viewer path inside the skill root, rejecting traversal and
+/// absolute paths through the archive path guards.
+fn resolve_skill_target(root: &Path, raw: &str) -> Result<PathBuf> {
+    let normalized = raw.replace('\\', "/");
+    if normalized.trim().is_empty() {
+        return Ok(root.to_path_buf());
+    }
+    let relative =
+        parse_entry_rel_path(&normalized).ok_or_else(|| AppError::io("文件路径不合法。"))?;
+    resolve_within_dir(root, &relative)
+}
+
+/// List one directory level of a skill, directories first.
+pub fn list_skill_files(
+    data_dir: &Path,
+    builtin_root: &Path,
+    request: &SkillFileRequest,
+) -> Result<Vec<SkillDirEntry>> {
+    let root = skill_root_dir(
+        data_dir,
+        builtin_root,
+        request.plugin_name.as_deref(),
+        request.builtin,
+        &request.skill_name,
+    )?;
+    let dir = resolve_skill_target(&root, &request.path)?;
+    if !dir.is_dir() {
+        return Err(AppError::io("目录不存在。"));
+    }
+    let prefix = {
+        let trimmed = request.path.trim();
+        (!trimmed.is_empty()).then(|| trimmed.replace('\\', "/"))
+    };
+
+    let mut entries: Vec<SkillDirEntry> = Vec::new();
+    for entry in fs::read_dir(&dir).map_err(|e| AppError::io(format!("读取目录失败：{e}")))?
+    {
+        let entry = entry.map_err(|e| AppError::io(format!("读取目录失败：{e}")))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let file_type = entry
+            .file_type()
+            .map_err(|e| AppError::io(format!("读取目录失败：{e}")))?;
+        let path = match prefix.as_deref() {
+            Some(prefix) => format!("{prefix}/{name}"),
+            None => name.clone(),
+        };
+        let size = if file_type.is_file() {
+            entry.metadata().map(|meta| meta.len()).unwrap_or(0)
+        } else {
+            0
+        };
+        entries.push(SkillDirEntry {
+            name,
+            path,
+            is_dir: file_type.is_dir(),
+            size,
+        });
+    }
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+    Ok(entries)
+}
+
+/// Read one text file of a skill; non-UTF-8 content is refused instead of
+/// rendered as garbage.
+pub fn read_skill_file(
+    data_dir: &Path,
+    builtin_root: &Path,
+    request: &SkillFileRequest,
+) -> Result<String> {
+    let root = skill_root_dir(
+        data_dir,
+        builtin_root,
+        request.plugin_name.as_deref(),
+        request.builtin,
+        &request.skill_name,
+    )?;
+    let file = resolve_skill_target(&root, &request.path)?;
+    if !file.is_file() {
+        return Err(AppError::io("文件不存在。"));
+    }
+    let size = file
+        .metadata()
+        .map_err(|e| AppError::io(format!("读取文件失败：{e}")))?
+        .len();
+    if size > SKILL_FILE_MAX_BYTES {
+        return Err(AppError::io("文件过大，无法预览。"));
+    }
+    let bytes = fs::read(&file).map_err(|e| AppError::io(format!("读取文件失败：{e}")))?;
+    String::from_utf8(bytes).map_err(|_| AppError::io("该文件不是 UTF-8 文本，无法预览。"))
+}
+
+/// Write one text file of a local skill; plugin and builtin skills are
+/// read-only, matching upstream.
+pub fn write_skill_file(
+    data_dir: &Path,
+    builtin_root: &Path,
+    request: &SkillFileRequest,
+    content: &str,
+) -> Result<()> {
+    if request.plugin_name.is_some() || request.builtin {
+        return Err(AppError::io("插件与内置技能为只读，不能修改。"));
+    }
+    let root = skill_root_dir(data_dir, builtin_root, None, false, &request.skill_name)?;
+    let file = resolve_skill_target(&root, &request.path)?;
+    if !file.is_file() {
+        return Err(AppError::io("文件不存在。"));
+    }
+    let temp = file.with_extension("tmp-skill-edit");
+    fs::write(&temp, content).map_err(|e| AppError::io(format!("写入文件失败：{e}")))?;
+    replace_file_atomically(&temp, &file)
 }
 
 pub fn set_skill_active(data_dir: &Path, name: &str, active: bool) -> Result<()> {
@@ -379,39 +545,6 @@ fn description_of(markdown: &Path) -> String {
         .unwrap_or_default()
 }
 
-fn read_plugin_skill_under(plugins_root: &Path, plugin_name: &str, name: &str) -> Result<String> {
-    let skills_dir = plugins_root.join(plugin_name).join("skills");
-    if !skills_dir.is_dir() {
-        return Err(AppError::io(format!("插件 {plugin_name} 没有技能目录。")));
-    }
-    // Direct layout: the plugin itself is a skill named after its directory.
-    let skill_dir = if name == plugin_name {
-        skills_dir
-    } else {
-        skills_dir.join(name)
-    };
-    let markdown = skill_markdown(&skill_dir)
-        .ok_or_else(|| AppError::io(format!("插件 {plugin_name} 没有技能 {name}。")))?;
-    fs::read_to_string(&markdown).map_err(|e| AppError::io(format!("读取技能失败：{e}")))
-}
-
-/// Read a plugin skill's markdown, searching data plugins and then the
-/// builtin stars; the direct layout (the plugin itself as a skill) is
-/// addressed by passing the plugin name as the skill name.
-pub fn read_plugin_skill(
-    data_dir: &Path,
-    builtin_root: &Path,
-    plugin_name: &str,
-    name: &str,
-) -> Result<String> {
-    validate_plugin_dir_name(plugin_name)?;
-    validate_skill_name(name)?;
-    if let Ok(content) = read_plugin_skill_under(&data_dir.join("plugins"), plugin_name, name) {
-        return Ok(content);
-    }
-    read_plugin_skill_under(builtin_root, plugin_name, name)
-}
-
 fn install_skill_dir(data_dir: &Path, source: &Path, name: &str) -> Result<()> {
     let dest = skills_root(data_dir).join(name);
     if dest.exists() {
@@ -527,12 +660,102 @@ mod tests {
         Ok(())
     }
 
+    fn skill_file_request(skill: &str, path: &str) -> SkillFileRequest {
+        SkillFileRequest {
+            skill_name: skill.to_string(),
+            plugin_name: None,
+            builtin: false,
+            path: path.to_string(),
+        }
+    }
+
     #[test]
-    fn write_skill_updates_the_same_file_it_reads() -> Result<()> {
-        let dir = TempDir::new("write")?;
+    fn skill_files_round_trip_and_reject_traversal() -> Result<()> {
+        let dir = TempDir::new("files")?;
         write_skill(dir.path(), "a", "before")?;
-        write_skill(dir.path(), "a", "after")?;
-        assert_eq!(read_skill(dir.path(), "a")?, "after");
+        let builtin_root = dir.path().join("builtin_stars");
+        let request = skill_file_request("a", "SKILL.md");
+
+        write_skill_file(dir.path(), &builtin_root, &request, "after")?;
+        assert_eq!(
+            read_skill_file(dir.path(), &builtin_root, &request)?,
+            "after"
+        );
+
+        let bad = skill_file_request("a", "../../secret.txt");
+        assert!(read_skill_file(dir.path(), &builtin_root, &bad).is_err());
+        let bad = skill_file_request("a", "missing.txt");
+        assert!(read_skill_file(dir.path(), &builtin_root, &bad).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn plugin_and_builtin_skills_stay_read_only() -> Result<()> {
+        let dir = TempDir::new("readonly")?;
+        let builtin_root = dir.path().join("astrbot").join("builtin_stars");
+        write_plugin_skill_under(&builtin_root, "builtin_plugin", Some("helper"), "x")?;
+        let mut request = SkillFileRequest {
+            skill_name: "helper".to_string(),
+            plugin_name: Some("builtin_plugin".to_string()),
+            builtin: true,
+            path: "SKILL.md".to_string(),
+        };
+        assert_eq!(read_skill_file(dir.path(), &builtin_root, &request)?, "x");
+        assert!(write_skill_file(dir.path(), &builtin_root, &request, "y").is_err());
+
+        write_plugin_skill(dir.path(), "my_plugin", Some("inner"), "nested")?;
+        request.skill_name = "inner".to_string();
+        request.plugin_name = Some("my_plugin".to_string());
+        request.builtin = false;
+        assert_eq!(
+            read_skill_file(dir.path(), &builtin_root, &request)?,
+            "nested"
+        );
+        assert!(write_skill_file(dir.path(), &builtin_root, &request, "z").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn skill_file_listing_orders_directories_first_and_walks_subdirs() -> Result<()> {
+        let dir = TempDir::new("listing")?;
+        write_skill(dir.path(), "a", "doc")?;
+        let root = skills_root(dir.path()).join("a");
+        fs::create_dir_all(root.join("scripts"))?;
+        fs::write(root.join("scripts").join("run.py"), "print(1)")?;
+        fs::write(root.join("notes.md"), "n")?;
+        let builtin_root = dir.path().join("builtin_stars");
+
+        let entries = list_skill_files(dir.path(), &builtin_root, &skill_file_request("a", ""))?;
+        assert_eq!(entries.len(), 3);
+        assert!(entries[0].is_dir);
+        assert_eq!(entries[0].name, "scripts");
+
+        let sub = list_skill_files(
+            dir.path(),
+            &builtin_root,
+            &skill_file_request("a", "scripts"),
+        )?;
+        assert_eq!(sub.len(), 1);
+        assert_eq!(sub[0].path, "scripts/run.py");
+        assert_eq!(sub[0].size, 8);
+        Ok(())
+    }
+
+    #[test]
+    fn binary_skill_files_are_refused() -> Result<()> {
+        let dir = TempDir::new("binary")?;
+        write_skill(dir.path(), "a", "doc")?;
+        fs::write(
+            skills_root(dir.path()).join("a").join("SKILL.md"),
+            [0xFF, 0xFE],
+        )?;
+        let builtin_root = dir.path().join("builtin_stars");
+        assert!(read_skill_file(
+            dir.path(),
+            &builtin_root,
+            &skill_file_request("a", "SKILL.md")
+        )
+        .is_err());
         Ok(())
     }
 
@@ -562,7 +785,11 @@ mod tests {
         )?;
         assert_eq!(installed, vec!["weekly-report".to_string()]);
         assert_eq!(
-            read_skill(dir.path(), "weekly-report")?,
+            read_skill_file(
+                dir.path(),
+                &dir.path().join("builtin_stars"),
+                &skill_file_request("weekly-report", "SKILL.md"),
+            )?,
             "---\ndescription: d\n---\nbody"
         );
         Ok(())
@@ -611,7 +838,14 @@ mod tests {
             },
         );
         assert!(error.is_err());
-        assert_eq!(read_skill(dir.path(), "weekly")?, "old");
+        assert_eq!(
+            read_skill_file(
+                dir.path(),
+                &dir.path().join("builtin_stars"),
+                &skill_file_request("weekly", "SKILL.md"),
+            )?,
+            "old"
+        );
         Ok(())
     }
 
@@ -694,7 +928,16 @@ mod tests {
         assert!(skills[0].builtin);
 
         assert_eq!(
-            read_plugin_skill(dir.path(), &builtin_root, "builtin_plugin", "helper")?,
+            read_skill_file(
+                dir.path(),
+                &builtin_root,
+                &SkillFileRequest {
+                    skill_name: "helper".to_string(),
+                    plugin_name: Some("builtin_plugin".to_string()),
+                    builtin: true,
+                    path: "SKILL.md".to_string(),
+                },
+            )?,
             "x"
         );
         Ok(())
@@ -707,12 +950,24 @@ mod tests {
         write_plugin_skill(dir.path(), "my_plugin", None, "direct")?;
         write_plugin_skill(dir.path(), "my_plugin", Some("inner"), "nested")?;
 
+        let direct = SkillFileRequest {
+            skill_name: "my_plugin".to_string(),
+            plugin_name: Some("my_plugin".to_string()),
+            builtin: false,
+            path: "SKILL.md".to_string(),
+        };
+        let nested = SkillFileRequest {
+            skill_name: "inner".to_string(),
+            plugin_name: Some("my_plugin".to_string()),
+            builtin: false,
+            path: "SKILL.md".to_string(),
+        };
         assert_eq!(
-            read_plugin_skill(dir.path(), &builtin_root, "my_plugin", "my_plugin")?,
+            read_skill_file(dir.path(), &builtin_root, &direct)?,
             "direct"
         );
         assert_eq!(
-            read_plugin_skill(dir.path(), &builtin_root, "my_plugin", "inner")?,
+            read_skill_file(dir.path(), &builtin_root, &nested)?,
             "nested"
         );
         Ok(())
@@ -724,14 +979,26 @@ mod tests {
         let builtin_root = dir.path().join("builtin_stars");
         write_plugin_skill(dir.path(), "my_plugin", Some("inner"), "x")?;
         for plugin in ["..", "a/b"] {
+            let request = SkillFileRequest {
+                skill_name: "inner".to_string(),
+                plugin_name: Some(plugin.to_string()),
+                builtin: false,
+                path: "SKILL.md".to_string(),
+            };
             assert!(
-                read_plugin_skill(dir.path(), &builtin_root, plugin, "inner").is_err(),
+                read_skill_file(dir.path(), &builtin_root, &request).is_err(),
                 "{plugin}"
             );
         }
         for skill in ["..", "a/b", "missing"] {
+            let request = SkillFileRequest {
+                skill_name: skill.to_string(),
+                plugin_name: Some("my_plugin".to_string()),
+                builtin: false,
+                path: "SKILL.md".to_string(),
+            };
             assert!(
-                read_plugin_skill(dir.path(), &builtin_root, "my_plugin", skill).is_err(),
+                read_skill_file(dir.path(), &builtin_root, &request).is_err(),
                 "{skill}"
             );
         }

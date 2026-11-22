@@ -1180,8 +1180,10 @@ const ruRU = {
       title: "Удаление навыка",
       message: "Удалить навык {name}?",
     },
-    editor: {
-      label: "Содержимое SKILL.md",
+    viewer: {
+      up: "Вверх",
+      noFile: "Файл не выбран",
+      unsaved: "Не сохранено",
     },
     toasts: {
       installed: "Установлены навыки: {names}.",

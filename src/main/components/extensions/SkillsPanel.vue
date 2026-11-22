@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import type { DataTableHeader } from "vuetify";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
@@ -11,18 +12,23 @@ import {
   deleteInstanceSkill,
   installInstanceSkillZip,
   listInstancePluginSkills,
+  listInstanceSkillFiles,
   listInstanceSkills,
-  readInstancePluginSkill,
-  readInstanceSkill,
+  readInstanceSkillFile,
   setInstanceSkillEnabled,
-  writeInstanceSkill,
+  writeInstanceSkillFile,
 } from "../../services/skills";
 import { useLauncherStore } from "../../stores/launcher";
 import { showErrorToast, showToast } from "../../stores/toast";
 import type { InstanceStatus } from "../../types/launcher";
-import type { InstancePluginSkill, InstanceSkill } from "../../types/skills";
+import type {
+  InstancePluginSkill,
+  InstanceSkill,
+  SkillDirEntry,
+} from "../../types/skills";
 
 const { t } = useI18n();
+const { mdAndDown } = useDisplay();
 const { instances } = useLauncherStore();
 
 const instanceId = ref<string | null>(null);
@@ -49,9 +55,18 @@ const uploadFile = ref<{ path: string; nameHint: string } | null>(null);
 const uploading = ref(false);
 
 const editorOpen = ref(false);
-const editorReadonly = ref(false);
 const editorTitle = ref("");
 const editorSkillName = ref("");
+const editorPluginName = ref<string | null>(null);
+const editorBuiltin = ref(false);
+/** Directory currently listed in the file pane, "" is the skill root. */
+const editorSubPath = ref("");
+const editorEntries = ref<SkillDirEntry[]>([]);
+const editorFilesLoading = ref(false);
+const editorFilesError = ref<string | null>(null);
+const editorFilePath = ref("");
+const editorFileLoading = ref(false);
+const editorFileError = ref<string | null>(null);
 const editorContent = ref("");
 const editorOriginal = ref("");
 const saving = ref(false);
@@ -65,6 +80,15 @@ const selectedInstance = computed<InstanceStatus | null>(() => {
 
 /** Skill edits write instance files, so a running instance rejects them. */
 const canManage = computed(() => selectedInstance.value?.state === "stopped");
+
+/** Plugin and builtin skills are read-only, matching upstream. */
+const editorEditable = computed(
+  () =>
+    editorPluginName.value === null &&
+    !editorBuiltin.value &&
+    canManage.value &&
+    !editorFileLoading.value,
+);
 
 const editorDirty = computed(() => editorContent.value !== editorOriginal.value);
 
@@ -167,57 +191,112 @@ async function toggleSkill(skill: InstanceSkill, enabled: boolean): Promise<void
   }
 }
 
-async function openLocalEditor(skill: InstanceSkill): Promise<void> {
+/** Open the skill viewer, auto-selecting SKILL.md when the root has one. */
+async function openViewer(
+  skillName: string,
+  pluginName: string | null,
+  builtin: boolean,
+): Promise<void> {
   if (!instanceId.value) {
     return;
   }
-  try {
-    const content = await readInstanceSkill(instanceId.value, skill.name);
-    editorReadonly.value = false;
-    editorTitle.value = skill.name;
-    editorSkillName.value = skill.name;
-    editorOriginal.value = content;
-    editorContent.value = content;
-    editorOpen.value = true;
-  } catch (requestError) {
-    showErrorToast(requestError);
+  editorSkillName.value = skillName;
+  editorPluginName.value = pluginName;
+  editorBuiltin.value = builtin;
+  editorTitle.value = pluginName ? `${pluginName} / ${skillName}` : skillName;
+  editorSubPath.value = "";
+  editorFilePath.value = "";
+  editorContent.value = "";
+  editorOriginal.value = "";
+  editorFileError.value = null;
+  editorOpen.value = true;
+  await loadEditorEntries();
+  const skillMd = editorEntries.value.find(
+    (entry) => !entry.is_dir && (entry.name === "SKILL.md" || entry.name === "skill.md"),
+  );
+  if (skillMd) {
+    await openEditorFile(skillMd);
   }
 }
 
-async function openPluginEditor(skill: InstancePluginSkill): Promise<void> {
+function fileRequest(path: string) {
+  return {
+    skill_name: editorSkillName.value,
+    plugin_name: editorPluginName.value,
+    builtin: editorBuiltin.value,
+    path,
+  };
+}
+
+async function loadEditorEntries(): Promise<void> {
   if (!instanceId.value) {
     return;
   }
+  editorFilesLoading.value = true;
+  editorFilesError.value = null;
   try {
-    const content = await readInstancePluginSkill(
-      instanceId.value,
-      skill.plugin_name,
-      skill.name,
-    );
-    editorReadonly.value = true;
-    editorTitle.value = `${skill.plugin_name} / ${skill.name}`;
-    editorSkillName.value = skill.name;
+    editorEntries.value = await listInstanceSkillFiles(instanceId.value, fileRequest(editorSubPath.value));
+  } catch (error) {
+    editorEntries.value = [];
+    editorFilesError.value = toUserMessage(error);
+  } finally {
+    editorFilesLoading.value = false;
+  }
+}
+
+function openEditorEntry(entry: SkillDirEntry): void {
+  if (entry.is_dir) {
+    editorSubPath.value = entry.path;
+    void loadEditorEntries();
+  } else {
+    void openEditorFile(entry);
+  }
+}
+
+async function openEditorFile(entry: SkillDirEntry): Promise<void> {
+  if (!instanceId.value) {
+    return;
+  }
+  editorFileLoading.value = true;
+  editorFileError.value = null;
+  try {
+    const content = await readInstanceSkillFile(instanceId.value, fileRequest(entry.path));
+    editorFilePath.value = entry.path;
     editorOriginal.value = content;
     editorContent.value = content;
-    editorOpen.value = true;
-  } catch (requestError) {
-    showErrorToast(requestError);
+  } catch (error) {
+    editorFileError.value = toUserMessage(error);
+  } finally {
+    editorFileLoading.value = false;
   }
+}
+
+/** Navigate one directory up from the current file pane location. */
+function goUp(): void {
+  const current = editorSubPath.value;
+  editorSubPath.value = current.includes("/")
+    ? current.slice(0, current.lastIndexOf("/"))
+    : "";
+  void loadEditorEntries();
 }
 
 async function saveEditor(): Promise<void> {
-  if (!instanceId.value || editorReadonly.value || !editorDirty.value) {
+  if (!instanceId.value || !editorEditable.value || !editorDirty.value) {
     editorOpen.value = false;
     return;
   }
   saving.value = true;
   try {
-    await writeInstanceSkill(instanceId.value, editorSkillName.value, editorContent.value);
-    showToast(t("skills.toasts.saved", { name: editorSkillName.value }));
+    await writeInstanceSkillFile(
+      instanceId.value,
+      fileRequest(editorFilePath.value),
+      editorContent.value,
+    );
+    showToast(t("skills.toasts.saved", { name: editorFilePath.value || editorSkillName.value }));
     editorOpen.value = false;
     await loadSkills();
-  } catch (requestError) {
-    showErrorToast(requestError);
+  } catch (error) {
+    showErrorToast(error);
   } finally {
     saving.value = false;
   }
@@ -471,7 +550,7 @@ defineExpose({ openUpload });
                         color="primary"
                         :aria-label="t('skills.edit')"
                         :disabled="!canManage"
-                        @click="openLocalEditor(item)"
+                        @click="openViewer(item.name, null, false)"
                       />
                     </template>
                     {{ t("skills.edit") }}
@@ -536,7 +615,7 @@ defineExpose({ openUpload });
                         variant="text"
                         size="small"
                         :aria-label="t('skills.pluginSkills.view')"
-                        @click="openPluginEditor(item)"
+                        @click="openViewer(item.name, item.plugin_name, item.builtin)"
                       />
                     </template>
                     {{ t("skills.pluginSkills.view") }}
@@ -608,42 +687,112 @@ defineExpose({ openUpload });
 
     <v-dialog
       v-model="editorOpen"
-      max-width="720"
+      max-width="1180"
+      :fullscreen="mdAndDown"
       :persistent="saving"
       scroll-strategy="block"
     >
-      <v-card>
-        <v-card-title class="skills-panel__editor-title">
-          {{ editorTitle }}
-        </v-card-title>
-        <v-card-text>
-          <v-textarea
-            v-model="editorContent"
-            :readonly="editorReadonly"
-            :label="t('skills.editor.label')"
-            variant="outlined"
-            rows="18"
-            auto-grow
-            class="skills-panel__editor-textarea"
-            spellcheck="false"
+      <v-card class="skill-viewer">
+        <div class="skill-viewer__header">
+          <p class="skill-viewer__title">{{ editorTitle }}</p>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            :disabled="saving"
+            :aria-label="t('common.actions.cancel')"
+            @click="editorOpen = false"
           />
-        </v-card-text>
-        <v-card-actions>
+        </div>
+
+        <div class="skill-viewer__body">
+          <div class="skill-viewer__files">
+            <div class="skill-viewer__files-header">
+              <v-btn
+                icon="mdi-arrow-up"
+                size="small"
+                variant="text"
+                :disabled="editorSubPath === '' || editorFilesLoading"
+                :aria-label="t('skills.viewer.up')"
+                @click="goUp()"
+              />
+              <span class="skill-viewer__dir">{{ editorSubPath || "/" }}</span>
+            </div>
+            <v-progress-linear
+              v-if="editorFilesLoading"
+              indeterminate
+              color="primary"
+              height="3"
+            />
+            <v-alert
+              v-else-if="editorFilesError"
+              type="error"
+              variant="tonal"
+              density="compact"
+            >
+              {{ editorFilesError }}
+            </v-alert>
+            <div v-else class="skill-viewer__file-list">
+              <button
+                v-for="entry in editorEntries"
+                :key="`${entry.is_dir}:${entry.path}`"
+                type="button"
+                class="skill-viewer__file-row"
+                :class="{ 'skill-viewer__file-row--active': editorFilePath === entry.path }"
+                @click="openEditorEntry(entry)"
+              >
+                <v-icon size="18" aria-hidden="true">
+                  {{ entry.is_dir ? "mdi-folder-outline" : "mdi-file-document-outline" }}
+                </v-icon>
+                <span class="skill-viewer__file-name">{{ entry.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="skill-viewer__content">
+            <div class="skill-viewer__content-header">
+              <span class="skill-viewer__path">
+                {{ editorFilePath || t("skills.viewer.noFile") }}
+              </span>
+              <v-chip v-if="editorDirty" size="small" color="warning" variant="tonal">
+                {{ t("skills.viewer.unsaved") }}
+              </v-chip>
+            </div>
+            <v-alert
+              v-if="editorFileError"
+              type="error"
+              variant="tonal"
+              density="compact"
+            >
+              {{ editorFileError }}
+            </v-alert>
+            <v-textarea
+              v-else
+              v-model="editorContent"
+              :readonly="!editorEditable"
+              variant="outlined"
+              rows="24"
+              no-resize
+              class="skill-viewer__textarea"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+
+        <div class="skill-viewer__actions">
           <v-spacer />
           <v-btn variant="text" :disabled="saving" @click="editorOpen = false">
             {{ t("common.actions.cancel") }}
           </v-btn>
           <v-btn
-            v-if="!editorReadonly"
             color="primary"
             variant="flat"
             :loading="saving"
-            :disabled="!editorDirty"
+            :disabled="!editorEditable || !editorDirty"
             @click="saveEditor()"
           >
             {{ t("common.actions.save") }}
           </v-btn>
-        </v-card-actions>
+        </div>
       </v-card>
     </v-dialog>
   </div>
@@ -712,12 +861,142 @@ defineExpose({ openUpload });
   font-size: 0.8125rem;
 }
 
-.skills-panel__editor-title {
-  font-size: 1rem;
-  font-weight: 600;
+/* Mirrors the upstream skill editor dialog: a capped card with two panes
+ * that each scroll internally instead of growing past the viewport. */
+.skill-viewer {
+  display: flex;
+  flex-direction: column;
+  max-height: min(88vh, 980px);
+  overflow: hidden;
 }
 
-.skills-panel__editor-textarea {
+.skill-viewer__header {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 8px 8px 24px;
+}
+
+.skill-viewer__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.skill-viewer__body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+  padding: 8px 24px 16px;
+  overflow: hidden;
+}
+
+.skill-viewer__files {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: var(--astrbot-radius-control);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.skill-viewer__files-header {
+  align-items: center;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 10px;
+}
+
+.skill-viewer__dir {
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-viewer__file-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.skill-viewer__file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--astrbot-radius-control);
+  background: none;
+  color: rgba(var(--v-theme-on-surface), 0.8);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skill-viewer__file-row:hover {
+  background: rgba(var(--v-theme-on-surface), 0.045);
+}
+
+.skill-viewer__file-row--active {
+  background: rgba(var(--v-theme-on-surface), 0.065);
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.skill-viewer__file-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.skill-viewer__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.skill-viewer__content-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+
+.skill-viewer__path {
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-viewer__textarea {
+  flex: 1;
+  min-height: 0;
   font-family: "Consolas", "Cascadia Mono", monospace;
+}
+
+.skill-viewer__textarea :deep(.v-field__input) {
+  min-height: 340px;
+  overflow-y: auto;
+}
+
+.skill-viewer__actions {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  padding: 12px 24px;
 }
 </style>

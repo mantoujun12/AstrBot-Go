@@ -73,7 +73,7 @@ fn canonicalize_longest_prefix(path: &Path) -> Result<PathBuf> {
 }
 
 /// Verify that `path` resolves to a location within `base_dir`, returning the canonical path.
-pub(super) fn resolve_within_dir(base_dir: &Path, path: &Path) -> Result<PathBuf> {
+pub(crate) fn resolve_within_dir(base_dir: &Path, path: &Path) -> Result<PathBuf> {
     let canonical_base = base_dir
         .canonicalize()
         .map_err(|e| AppError::io(format!("failed to canonicalize base dir: {e}")))?;
