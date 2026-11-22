@@ -377,6 +377,8 @@ pub fn run() {
             commands::uninstall_instance_plugin,
             // Instance skills
             commands::list_instance_skills,
+            commands::list_instance_plugin_skills,
+            commands::read_instance_plugin_skill,
             commands::read_instance_skill,
             commands::write_instance_skill,
             commands::set_instance_skill_enabled,

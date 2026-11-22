@@ -1085,20 +1085,13 @@ const ruRU = {
     },
   },
   extensions: {
-    title: "Расширения",
-    items: {
-      plugins: {
-        title: "Плагины",
-        description: "Магазин плагинов и управление установленными",
-      },
-      skills: {
-        title: "Навыки",
-        description: "Управление пакетами навыков SKILL.md",
-      },
+    tabs: {
+      plugins: "Плагины",
+      skills: "Навыки",
     },
+    running: "Запущен",
   },
   plugins: {
-    title: "Плагины",
     instance: "Целевой экземпляр",
     tabs: {
       market: "Магазин",
@@ -1130,7 +1123,7 @@ const ruRU = {
     },
     installConfirm: {
       title: "Установка плагина",
-      message: "Установить {name} на экземпляр «{instance}»?",
+      pickInstance: "Выберите целевой экземпляр для {name}:",
     },
     uninstallConfirm: {
       title: "Удаление плагина",
@@ -1140,21 +1133,38 @@ const ruRU = {
     },
     toasts: {
       installed: "Установлен {name}.",
+      updated: "{name} обновлён до {version}.",
       uninstalled: "Удалён {name}.",
       upToDate: "Уже актуальная версия ({version}).",
       marketMissing: "Запись об этом плагине в магазине не найдена.",
     },
   },
   skills: {
-    title: "Навыки",
     instance: "Целевой экземпляр",
     upload: "Загрузить навык",
+    localTitle: "Локальные навыки",
     instanceRunning:
       "Экземпляр запущен. Остановите его перед загрузкой, изменением или переключением навыков.",
     noInstance: "Сначала выберите экземпляр.",
     empty: "На этом экземпляре пока нет локальных навыков.",
     edit: "Изменить",
     toggleAria: "Включить или отключить {name}",
+    table: {
+      name: "Название",
+      description: "Описание",
+      enabled: "Включён",
+    },
+    pluginSkills: {
+      title: "Навыки плагинов",
+      plugin: "Плагин",
+      view: "Просмотр",
+      empty: "Ни один установленный плагин не предоставляет навыки.",
+    },
+    uploadDialog: {
+      title: "Загрузка навыка",
+      pickFile: "Выбрать ZIP-файл",
+      noFile: "Файл не выбран",
+    },
     deleteConfirm: {
       title: "Удаление навыка",
       message: "Удалить навык {name}?",

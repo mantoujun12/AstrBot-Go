@@ -1038,20 +1038,13 @@ const zhCN = {
     }
   },
   "extensions": {
-    "title": "扩展",
-    "items": {
-      "plugins": {
-        "title": "插件",
-        "description": "插件市场与已安装插件管理"
-      },
-      "skills": {
-        "title": "技能",
-        "description": "SKILL.md 技能包管理"
-      }
-    }
+    "tabs": {
+      "plugins": "插件",
+      "skills": "技能"
+    },
+    "running": "运行中"
   },
   "plugins": {
-    "title": "插件",
     "instance": "目标实例",
     "tabs": {
       "market": "插件市场",
@@ -1082,7 +1075,7 @@ const zhCN = {
     },
     "installConfirm": {
       "title": "安装插件",
-      "message": "将 {name} 安装到实例「{instance}」？"
+      "pickInstance": "选择安装 {name} 的目标实例："
     },
     "uninstallConfirm": {
       "title": "卸载插件",
@@ -1092,20 +1085,37 @@ const zhCN = {
     },
     "toasts": {
       "installed": "已安装 {name}。",
+      "updated": "已将 {name} 更新到 {version}。",
       "uninstalled": "已卸载 {name}。",
       "upToDate": "已是最新版本 {version}。",
       "marketMissing": "未在插件市场找到该插件的记录。"
     }
   },
   "skills": {
-    "title": "技能",
     "instance": "目标实例",
     "upload": "上传技能",
+    "localTitle": "本地技能",
     "instanceRunning": "实例正在运行，上传、编辑与启停需先停止实例。",
     "noInstance": "请先选择实例。",
     "empty": "该实例还没有本地技能。",
     "edit": "编辑",
     "toggleAria": "启用或停用 {name}",
+    "table": {
+      "name": "名称",
+      "description": "描述",
+      "enabled": "启停"
+    },
+    "pluginSkills": {
+      "title": "插件技能",
+      "plugin": "所属插件",
+      "view": "查看",
+      "empty": "已安装的插件没有提供技能。"
+    },
+    "uploadDialog": {
+      "title": "上传技能",
+      "pickFile": "选择 ZIP 文件",
+      "noFile": "未选择文件"
+    },
     "deleteConfirm": {
       "title": "删除技能",
       "message": "删除技能 {name}？"

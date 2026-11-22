@@ -19,6 +19,7 @@ use serde_json::{json, Value as JsonValue};
 
 use crate::archive::{extract_zip_mapped, validate_zip_archive};
 use crate::error::{AppError, Result};
+use crate::instance::plugins::validate_plugin_dir_name;
 use crate::utils::archive_path::parse_entry_rel_path;
 use crate::utils::fs_ops::replace_file_atomically;
 
@@ -31,6 +32,17 @@ pub struct InstanceSkill {
     #[serde(default)]
     pub description: String,
     pub active: bool,
+}
+
+/// A read-only skill provided by a plugin under `data/plugins/<dir>/skills/`.
+/// Upstream also treats a plugin's own `skills/SKILL.md` as a skill named
+/// after the plugin directory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstancePluginSkill {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub plugin_name: String,
 }
 
 /// Minimal `skills.json` shape written by upstream.
@@ -297,6 +309,86 @@ fn install_zip_staged(
     Ok(installed)
 }
 
+// === Plugin-provided skills (read-only) ======================================
+
+/// List the read-only skills every installed plugin carries in its own
+/// `skills/` directory, mirroring upstream's discovery rules.
+pub fn list_plugin_skills(data_dir: &Path) -> Vec<InstancePluginSkill> {
+    let mut skills = Vec::new();
+    let plugins_dir = data_dir.join("plugins");
+    let Ok(entries) = fs::read_dir(&plugins_dir) else {
+        return skills;
+    };
+    for entry in entries.flatten() {
+        let plugin_name = entry.file_name().to_string_lossy().into_owned();
+        let plugin_dir = entry.path();
+        if !plugin_dir.is_dir()
+            || plugin_name.starts_with('.')
+            || !skill_name_is_valid(&plugin_name)
+        {
+            continue;
+        }
+        let skills_dir = plugin_dir.join("skills");
+        if !skills_dir.is_dir() {
+            continue;
+        }
+        // A markdown directly under `skills/` makes the plugin itself a skill.
+        if let Some(markdown) = skill_markdown(&skills_dir) {
+            skills.push(InstancePluginSkill {
+                name: plugin_name.clone(),
+                description: description_of(&markdown),
+                plugin_name: plugin_name.clone(),
+            });
+        }
+        let Ok(children) = fs::read_dir(&skills_dir) else {
+            continue;
+        };
+        for child in children.flatten() {
+            let name = child.file_name().to_string_lossy().into_owned();
+            let dir = child.path();
+            if !dir.is_dir() || !skill_name_is_valid(&name) {
+                continue;
+            }
+            let Some(markdown) = skill_markdown(&dir) else {
+                continue;
+            };
+            skills.push(InstancePluginSkill {
+                name,
+                description: description_of(&markdown),
+                plugin_name: plugin_name.clone(),
+            });
+        }
+    }
+    skills.sort_by(|a, b| (&a.plugin_name, &a.name).cmp(&(&b.plugin_name, &b.name)));
+    skills
+}
+
+fn description_of(markdown: &Path) -> String {
+    fs::read_to_string(markdown)
+        .map(|content| parse_frontmatter_description(&content))
+        .unwrap_or_default()
+}
+
+/// Read a plugin skill's markdown; the direct layout (the plugin itself as a
+/// skill) is addressed by passing the plugin name as the skill name.
+pub fn read_plugin_skill(data_dir: &Path, plugin_name: &str, name: &str) -> Result<String> {
+    validate_plugin_dir_name(plugin_name)?;
+    validate_skill_name(name)?;
+    let skills_dir = data_dir.join("plugins").join(plugin_name).join("skills");
+    if !skills_dir.is_dir() {
+        return Err(AppError::io(format!("插件 {plugin_name} 没有技能目录。")));
+    }
+    // Direct layout: the plugin itself is a skill named after its directory.
+    let skill_dir = if name == plugin_name {
+        skills_dir
+    } else {
+        skills_dir.join(name)
+    };
+    let markdown = skill_markdown(&skill_dir)
+        .ok_or_else(|| AppError::io(format!("插件 {plugin_name} 没有技能 {name}。")))?;
+    fs::read_to_string(&markdown).map_err(|e| AppError::io(format!("读取技能失败：{e}")))
+}
+
 fn install_skill_dir(data_dir: &Path, source: &Path, name: &str) -> Result<()> {
     let dest = skills_root(data_dir).join(name);
     if dest.exists() {
@@ -506,6 +598,87 @@ mod tests {
         write_skill(dir.path(), "real", "x")?;
         for bad in ["..", "a/../b", "a/b"] {
             assert!(find_skill_dir(dir.path(), bad).is_err(), "{bad}");
+        }
+        Ok(())
+    }
+
+    fn write_plugin_skill(
+        data_dir: &Path,
+        plugin: &str,
+        skill: Option<&str>,
+        markdown: &str,
+    ) -> Result<()> {
+        let skills_dir = data_dir.join("plugins").join(plugin).join("skills");
+        let skill_dir = match skill {
+            Some(name) => skills_dir.join(name),
+            None => skills_dir,
+        };
+        fs::create_dir_all(&skill_dir)?;
+        fs::write(skill_dir.join("SKILL.md"), markdown)?;
+        Ok(())
+    }
+
+    #[test]
+    fn plugin_skills_list_direct_and_nested_layouts() -> Result<()> {
+        let dir = TempDir::new("plugin-skills")?;
+        write_plugin_skill(dir.path(), "my_plugin", None, "---\ndescription: p\n---\nx")?;
+        write_plugin_skill(
+            dir.path(),
+            "my_plugin",
+            Some("inner"),
+            "---\ndescription: i\n---\ny",
+        )?;
+        // Staging dirs without skills content stay invisible.
+        fs::create_dir_all(
+            dir.path()
+                .join("plugins")
+                .join(".plugin-install-x")
+                .join("skills"),
+        )?;
+
+        let skills = list_plugin_skills(dir.path());
+        assert_eq!(skills.len(), 2);
+        // Sorted by (plugin, name): "inner" sorts before the plugin itself.
+        assert_eq!(skills[0].name, "inner");
+        assert_eq!(skills[0].plugin_name, "my_plugin");
+        assert_eq!(skills[0].description, "i");
+        assert_eq!(skills[1].name, "my_plugin");
+        assert_eq!(skills[1].description, "p");
+        Ok(())
+    }
+
+    #[test]
+    fn plugin_skills_are_readable_in_both_layouts() -> Result<()> {
+        let dir = TempDir::new("plugin-read")?;
+        write_plugin_skill(dir.path(), "my_plugin", None, "direct")?;
+        write_plugin_skill(dir.path(), "my_plugin", Some("inner"), "nested")?;
+
+        assert_eq!(
+            read_plugin_skill(dir.path(), "my_plugin", "my_plugin")?,
+            "direct"
+        );
+        assert_eq!(
+            read_plugin_skill(dir.path(), "my_plugin", "inner")?,
+            "nested"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn plugin_skill_reads_reject_bad_names() -> Result<()> {
+        let dir = TempDir::new("plugin-bad")?;
+        write_plugin_skill(dir.path(), "my_plugin", Some("inner"), "x")?;
+        for plugin in ["..", "a/b"] {
+            assert!(
+                read_plugin_skill(dir.path(), plugin, "inner").is_err(),
+                "{plugin}"
+            );
+        }
+        for skill in ["..", "a/b", "missing"] {
+            assert!(
+                read_plugin_skill(dir.path(), "my_plugin", skill).is_err(),
+                "{skill}"
+            );
         }
         Ok(())
     }

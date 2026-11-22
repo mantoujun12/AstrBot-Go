@@ -202,7 +202,7 @@ fn read_metadata(plugin_dir: &Path) -> Result<Option<PluginMetadata>> {
 
 /// Plugin directory names must stay importable module names, matching
 /// upstream's `main.py`/`<dir>.py` discovery and `metadata.yaml.name` rules.
-fn validate_plugin_dir_name(name: &str) -> Result<()> {
+pub(crate) fn validate_plugin_dir_name(name: &str) -> Result<()> {
     let invalid = || {
         AppError::io(format!(
             "插件目录名不合法：{name:?}（应为字母或下划线开头的字母、数字、下划线组合）"

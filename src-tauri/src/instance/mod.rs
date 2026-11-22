@@ -30,7 +30,7 @@ pub use data_manage::{
     InstancePersona, InstancePersonaFolder,
 };
 pub use plugins::{InstancePlugin, PluginInstallRequest, PluginMarketPage};
-pub use skills::{InstanceSkill, SkillZipInstall};
+pub use skills::{InstancePluginSkill, InstanceSkill, SkillZipInstall};
 
 pub(crate) use health::check_instance_health;
 

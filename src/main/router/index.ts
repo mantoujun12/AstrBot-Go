@@ -50,16 +50,6 @@ const routes: RouteRecordRaw[] = [
     component: ExtensionsView,
   },
   {
-    path: "/extensions/plugins",
-    name: "extensions-plugins",
-    component: () => import("../views/PluginsView.vue"),
-  },
-  {
-    path: "/extensions/skills",
-    name: "extensions-skills",
-    component: () => import("../views/SkillsView.vue"),
-  },
-  {
     path: "/settings",
     name: "settings",
     component: SettingsView,

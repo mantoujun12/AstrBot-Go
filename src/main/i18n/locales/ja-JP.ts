@@ -1055,20 +1055,13 @@ const jaJP = {
     },
   },
   extensions: {
-    title: "拡張",
-    items: {
-      plugins: {
-        title: "プラグイン",
-        description: "プラグイン市場とインストール済みプラグインの管理",
-      },
-      skills: {
-        title: "スキル",
-        description: "SKILL.md スキルパックの管理",
-      },
+    tabs: {
+      plugins: "プラグイン",
+      skills: "スキル",
     },
+    running: "実行中",
   },
   plugins: {
-    title: "プラグイン",
     instance: "対象インスタンス",
     tabs: {
       market: "プラグイン市場",
@@ -1100,7 +1093,7 @@ const jaJP = {
     },
     installConfirm: {
       title: "プラグインをインストール",
-      message: "{name} をインスタンス「{instance}」にインストールしますか？",
+      pickInstance: "{name} をインストールする対象インスタンスを選択：",
     },
     uninstallConfirm: {
       title: "プラグインをアンインストール",
@@ -1110,21 +1103,38 @@ const jaJP = {
     },
     toasts: {
       installed: "{name} をインストールしました。",
+      updated: "{name} を {version} に更新しました。",
       uninstalled: "{name} をアンインストールしました。",
       upToDate: "最新バージョンです（{version}）。",
       marketMissing: "このプラグインの市場レコードが見つかりません。",
     },
   },
   skills: {
-    title: "スキル",
     instance: "対象インスタンス",
     upload: "スキルをアップロード",
+    localTitle: "ローカルスキル",
     instanceRunning:
       "インスタンスが実行中です。アップロード、編集、切り替えの前に停止してください。",
     noInstance: "先にインスタンスを選択してください。",
     empty: "このインスタンスにはローカルスキルがありません。",
     edit: "編集",
     toggleAria: "{name} を有効または無効にする",
+    table: {
+      name: "名前",
+      description: "説明",
+      enabled: "有効",
+    },
+    pluginSkills: {
+      title: "プラグインスキル",
+      plugin: "プラグイン",
+      view: "表示",
+      empty: "スキルを提供するプラグインはありません。",
+    },
+    uploadDialog: {
+      title: "スキルをアップロード",
+      pickFile: "ZIP ファイルを選択",
+      noFile: "ファイル未選択",
+    },
     deleteConfirm: {
       title: "スキルを削除",
       message: "スキル {name} を削除しますか？",

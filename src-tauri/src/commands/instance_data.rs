@@ -11,8 +11,8 @@ use crate::instance::plugins;
 use crate::instance::skills;
 use crate::instance::{
     CopyInstanceDataRequest, InstanceConfigFile, InstanceCronJob, InstanceKnowledgeBase,
-    InstancePersona, InstancePersonaFolder, InstancePlugin, InstanceSkill, PluginInstallRequest,
-    PluginMarketPage, SkillZipInstall,
+    InstancePersona, InstancePersonaFolder, InstancePlugin, InstancePluginSkill, InstanceSkill,
+    PluginInstallRequest, PluginMarketPage, SkillZipInstall,
 };
 use crate::process::InstanceGuard;
 use std::path::PathBuf;
@@ -252,6 +252,28 @@ pub async fn list_instance_skills(instance_id: String) -> Result<Vec<InstanceSki
     off_runtime(move || {
         let data_dir = data_dir_of(&instance_id)?;
         Ok(skills::list_skills(&data_dir))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn list_instance_plugin_skills(instance_id: String) -> Result<Vec<InstancePluginSkill>> {
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        Ok(skills::list_plugin_skills(&data_dir))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn read_instance_plugin_skill(
+    instance_id: String,
+    plugin_name: String,
+    name: String,
+) -> Result<String> {
+    off_runtime(move || {
+        let data_dir = data_dir_of(&instance_id)?;
+        skills::read_plugin_skill(&data_dir, &plugin_name, &name)
     })
     .await
 }

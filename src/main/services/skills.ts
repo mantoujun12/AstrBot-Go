@@ -1,8 +1,26 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { InstanceSkill, SkillZipInstall } from "../types/skills";
+import type { InstancePluginSkill, InstanceSkill, SkillZipInstall } from "../types/skills";
 
 export function listInstanceSkills(instanceId: string): Promise<InstanceSkill[]> {
   return invoke<InstanceSkill[]>("list_instance_skills", { instanceId });
+}
+
+export function listInstancePluginSkills(
+  instanceId: string,
+): Promise<InstancePluginSkill[]> {
+  return invoke<InstancePluginSkill[]>("list_instance_plugin_skills", { instanceId });
+}
+
+export function readInstancePluginSkill(
+  instanceId: string,
+  pluginName: string,
+  name: string,
+): Promise<string> {
+  return invoke<string>("read_instance_plugin_skill", {
+    instanceId,
+    pluginName,
+    name,
+  });
 }
 
 export function readInstanceSkill(

@@ -1056,20 +1056,13 @@ const enUS = {
     },
   },
   extensions: {
-    title: "Extensions",
-    items: {
-      plugins: {
-        title: "Plugins",
-        description: "Plugin market and installed plugin management",
-      },
-      skills: {
-        title: "Skills",
-        description: "SKILL.md skill pack management",
-      },
+    tabs: {
+      plugins: "Plugins",
+      skills: "Skills",
     },
+    running: "Running",
   },
   plugins: {
-    title: "Plugins",
     instance: "Target instance",
     tabs: {
       market: "Market",
@@ -1101,7 +1094,7 @@ const enUS = {
     },
     installConfirm: {
       title: "Install plugin",
-      message: "Install {name} to instance \"{instance}\"?",
+      pickInstance: "Pick the target instance for {name}:",
     },
     uninstallConfirm: {
       title: "Uninstall plugin",
@@ -1111,21 +1104,38 @@ const enUS = {
     },
     toasts: {
       installed: "Installed {name}.",
+      updated: "Updated {name} to {version}.",
       uninstalled: "Uninstalled {name}.",
       upToDate: "Already up to date ({version}).",
       marketMissing: "No market record was found for this plugin.",
     },
   },
   skills: {
-    title: "Skills",
     instance: "Target instance",
     upload: "Upload skill",
+    localTitle: "Local skills",
     instanceRunning:
       "The instance is running. Stop it before uploading, editing, or toggling skills.",
     noInstance: "Select an instance first.",
     empty: "No local skills on this instance yet.",
     edit: "Edit",
     toggleAria: "Enable or disable {name}",
+    table: {
+      name: "Name",
+      description: "Description",
+      enabled: "Enabled",
+    },
+    pluginSkills: {
+      title: "Plugin skills",
+      plugin: "Plugin",
+      view: "View",
+      empty: "No installed plugin provides skills.",
+    },
+    uploadDialog: {
+      title: "Upload skill",
+      pickFile: "Choose ZIP file",
+      noFile: "No file selected",
+    },
     deleteConfirm: {
       title: "Delete skill",
       message: "Delete skill {name}?",

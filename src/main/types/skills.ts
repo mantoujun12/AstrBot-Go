@@ -9,6 +9,13 @@ export interface InstanceSkill {
   active: boolean;
 }
 
+/** Read-only skill shipped inside a plugin's own `skills/` directory. */
+export interface InstancePluginSkill {
+  name: string;
+  description: string;
+  plugin_name: string;
+}
+
 export interface SkillZipInstall {
   zip_path: string;
   name_hint: string | null;
