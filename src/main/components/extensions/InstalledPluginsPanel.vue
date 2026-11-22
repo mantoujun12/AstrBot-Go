@@ -44,20 +44,31 @@ const selectedInstance = computed<InstanceStatus | null>(() => {
 /** Installs write instance files, so a running instance rejects them. */
 const canManage = computed(() => selectedInstance.value?.state === "stopped");
 
+let loadGeneration = 0;
+
 async function loadInstalled(): Promise<void> {
   if (!instanceId.value) {
     installed.value = [];
     return;
   }
+  // A fast instance switch can overlap loads; only the newest one may win.
+  const generation = ++loadGeneration;
   loading.value = true;
   error.value = null;
   try {
-    installed.value = await listInstancePlugins(instanceId.value);
+    const result = await listInstancePlugins(instanceId.value);
+    if (generation === loadGeneration) {
+      installed.value = result;
+    }
   } catch (requestError) {
-    installed.value = [];
-    error.value = toUserMessage(requestError);
+    if (generation === loadGeneration) {
+      installed.value = [];
+      error.value = toUserMessage(requestError);
+    }
   } finally {
-    loading.value = false;
+    if (generation === loadGeneration) {
+      loading.value = false;
+    }
   }
 }
 

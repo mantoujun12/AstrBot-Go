@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import EmptyState from "../common/EmptyState.vue";
@@ -64,8 +64,12 @@ function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
+let loadGeneration = 0;
+
 /** Fetch the current page, replacing the grid instead of appending. */
 async function load(): Promise<void> {
+  // Paging and search debounce can overlap; only the newest request may win.
+  const generation = ++loadGeneration;
   loading.value = true;
   error.value = null;
   try {
@@ -75,6 +79,9 @@ async function load(): Promise<void> {
       search.value.trim() || undefined,
       category.value || undefined,
     );
+    if (generation !== loadGeneration) {
+      return;
+    }
     categories.value = result.categories.map((entry) => ({
       name: entry.name,
       icon: entry.icon,
@@ -83,9 +90,13 @@ async function load(): Promise<void> {
     total.value = result.total;
     items.value = result.items;
   } catch (requestError) {
-    error.value = toUserMessage(requestError);
+    if (generation === loadGeneration) {
+      error.value = toUserMessage(requestError);
+    }
   } finally {
-    loading.value = false;
+    if (generation === loadGeneration) {
+      loading.value = false;
+    }
   }
 }
 
@@ -94,9 +105,14 @@ function goToPage(target: number): void {
   void load();
 }
 
-function openRepo(url: string | null): void {
-  if (url) {
-    void openExternalUrl(url);
+async function openRepo(url: string | null): Promise<void> {
+  if (!url) {
+    return;
+  }
+  try {
+    await openExternalUrl(url);
+  } catch (cause) {
+    showErrorToast(cause);
   }
 }
 
@@ -164,6 +180,10 @@ watch(search, () => {
 
 watch(category, () => {
   goToPage(1);
+});
+
+onBeforeUnmount(() => {
+  clearTimeout(searchTimer);
 });
 
 void load();
