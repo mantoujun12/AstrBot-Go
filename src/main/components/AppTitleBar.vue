@@ -110,49 +110,49 @@ onBeforeUnmount(() => {
       data-tauri-decorum-tb
       :aria-label="t('shell.titleBar.label')"
     >
-    <TitleBarTabs />
-    <div
-      class="app-titlebar__drag"
-      data-tauri-drag-region
-      aria-hidden="true"
-    ></div>
-    <div v-if="!isMac" class="app-titlebar__controls">
-      <button
-        id="decorum-tb-minimize"
-        class="decorum-tb-btn app-titlebar__control"
-        type="button"
-        :aria-label="t('shell.titleBar.minimize')"
-        @click="minimize"
-      >
-        <span class="app-titlebar__glyph" aria-hidden="true">&#xE921;</span>
-      </button>
-      <button
-        id="decorum-tb-maximize"
-        class="decorum-tb-btn app-titlebar__control"
-        type="button"
-        :aria-label="
-          isMaximized
-            ? t('shell.titleBar.restore')
-            : t('shell.titleBar.maximize')
-        "
-        @click="toggleMaximize"
-        @mouseenter="scheduleSnapOverlay"
-        @mouseleave="cancelSnapOverlay"
-      >
-        <span class="app-titlebar__glyph" aria-hidden="true">
-          {{ isMaximized ? "\uE923" : "\uE922" }}
-        </span>
-      </button>
-      <button
-        id="decorum-tb-close"
-        class="decorum-tb-btn app-titlebar__control app-titlebar__control--close"
-        type="button"
-        :aria-label="t('shell.titleBar.close')"
-        @click="close"
-      >
-        <span class="app-titlebar__glyph" aria-hidden="true">&#xE8BB;</span>
-      </button>
-    </div>
+      <TitleBarTabs />
+      <div
+        class="app-titlebar__drag"
+        data-tauri-drag-region
+        aria-hidden="true"
+      ></div>
+      <div v-if="!isMac" class="app-titlebar__controls">
+        <button
+          id="decorum-tb-minimize"
+          class="decorum-tb-btn app-titlebar__control"
+          type="button"
+          :aria-label="t('shell.titleBar.minimize')"
+          @click="minimize"
+        >
+          <span class="app-titlebar__glyph" aria-hidden="true">&#xE921;</span>
+        </button>
+        <button
+          id="decorum-tb-maximize"
+          class="decorum-tb-btn app-titlebar__control"
+          type="button"
+          :aria-label="
+            isMaximized
+              ? t('shell.titleBar.restore')
+              : t('shell.titleBar.maximize')
+          "
+          @click="toggleMaximize"
+          @mouseenter="scheduleSnapOverlay"
+          @mouseleave="cancelSnapOverlay"
+        >
+          <span class="app-titlebar__glyph" aria-hidden="true">
+            {{ isMaximized ? "\uE923" : "\uE922" }}
+          </span>
+        </button>
+        <button
+          id="decorum-tb-close"
+          class="decorum-tb-btn app-titlebar__control app-titlebar__control--close"
+          type="button"
+          :aria-label="t('shell.titleBar.close')"
+          @click="close"
+        >
+          <span class="app-titlebar__glyph" aria-hidden="true">&#xE8BB;</span>
+        </button>
+      </div>
     </header>
   </Teleport>
 </template>
