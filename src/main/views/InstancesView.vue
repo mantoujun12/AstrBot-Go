@@ -1586,7 +1586,18 @@ function openWebui(instance: InstanceStatus): void {
                   prepend-icon="mdi-database-cog-outline"
                   :title="t('instances.actions.manageData')"
                   @click="openData(item)"
-                />
+                >
+                  <template #append>
+                    <v-chip
+                      size="x-small"
+                      color="purple"
+                      variant="tonal"
+                      label
+                    >
+                      Beta
+                    </v-chip>
+                  </template>
+                </v-list-item>
                 <v-list-item
                   prepend-icon="mdi-archive-arrow-down-outline"
                   :title="t('instances.actions.createBackup')"

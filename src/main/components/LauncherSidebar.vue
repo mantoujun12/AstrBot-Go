@@ -48,6 +48,7 @@ async function handleOpenChat(): Promise<void> {
         <SidebarNavItem
           icon="mdi-chat-outline"
           :label="t('shell.nav.chat')"
+          beta
           append-icon="mdi-chevron-right"
           :tooltip-disabled="!props.rail"
           :active="false"
@@ -104,6 +105,7 @@ async function handleOpenChat(): Promise<void> {
         <SidebarNavItem
           icon="mdi-puzzle-outline"
           :label="t('shell.nav.extensions')"
+          beta
           to="/extensions"
           :tooltip-disabled="!props.rail"
           :active="props.homeActive ? undefined : false"
