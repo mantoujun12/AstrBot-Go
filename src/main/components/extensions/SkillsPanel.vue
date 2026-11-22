@@ -424,7 +424,7 @@ defineExpose({ openUpload });
           <EmptyState
             v-if="skills.length === 0"
             :text="t('skills.empty')"
-            icon="mdi-school-outline"
+            icon="mdi-lightning-bolt-outline"
           />
           <div v-else class="page-table-card">
             <v-data-table

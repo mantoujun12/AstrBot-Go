@@ -12,7 +12,7 @@ const { t } = useI18n();
 
 const tabs = [
   { value: "plugins", icon: "mdi-puzzle-outline", label: "extensions.tabs.plugins" },
-  { value: "skills", icon: "mdi-school-outline", label: "extensions.tabs.skills" },
+  { value: "skills", icon: "mdi-lightning-bolt-outline", label: "extensions.tabs.skills" },
 ] as const satisfies readonly { value: ExtensionTab; icon: string; label: string }[];
 
 const activeTab = ref<ExtensionTab>("plugins");
