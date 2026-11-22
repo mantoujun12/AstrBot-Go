@@ -1,5 +1,5 @@
 {
-  "title": "聊天吧!",
+  "title": "聊天吧！",
   "subtitle": "与AI助手进行对话",
   "settings": {
     "general": "通用",
@@ -21,7 +21,7 @@
     "upload": "上传文件",
     "voice": "语音输入",
     "recordingPrompt": "录音中，请说话...",
-    "chatPrompt": "聊天吧!",
+    "chatPrompt": "聊天吧！",
     "dropToUpload": "松开鼠标上传文件",
     "stopGenerating": "停止生成"
   },
