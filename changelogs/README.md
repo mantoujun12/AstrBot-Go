@@ -10,6 +10,8 @@ Versions follow [Semantic Versioning](https://semver.org/), and the changelog fo
 
 Each user-facing PR should produce one logical entry. In `unreleased.md`, choose the single most appropriate section—Added, Changed, Deprecated, Removed, Fixed, or Security—and write one English entry and its corresponding Chinese entry. Do not split a change into multiple entries or sections just because it covers multiple aspects. Purely internal refactoring, CI, and documentation changes may be omitted.
 
+Section headings use each language's own words: under `## English`, keep the Keep a Changelog originals (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`); under `## 中文`, use `新增`, `变更`, `弃用`, `移除`, `修复`, `安全`.
+
 Keep entries brief and describe only user-visible changes. Do not add empty sections.
 
 `unreleased.md` is a working draft and is not used directly as release notes. Leave entries untagged during development; add PR links only in the release PR.
@@ -43,6 +45,8 @@ After releasing, continue development by adding changes to the new `unreleased.m
 ### 待发布
 
 每个面向用户的 PR 只产生一条逻辑条目：在 `unreleased.md` 的“新增”“变更”“弃用”“移除”“修复”“安全”中选择最合适的一个分节，写入一条英文条目和对应的中文条目。不要因为改动涉及多个方面就拆成多条，也不要分散到多个分节。纯内部重构、CI 和文档改动可以省略。
+
+分节标题两种语言各用各的：`## English` 分节下使用 Keep a Changelog 原文的英文标题（`Added`、`Changed`、`Deprecated`、`Removed`、`Fixed`、`Security`）；`## 中文` 分节下使用中文标题（`新增`、`变更`、`弃用`、`移除`、`修复`、`安全`），不要沿用英文标题。
 
 条目应简短，只描述用户可感知的变化。没有的分节（空分节）就不要添加。
 
