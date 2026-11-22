@@ -2071,7 +2071,7 @@ async function stopCurrentSession() {
   font-size: 18px;
   /* Upstream serves a single 400-weight font (faux bold); our bundled
      variable font renders true weights, so 700 matches their look. */
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .chat-sidebar-brand-toggle {
