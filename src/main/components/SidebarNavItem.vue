@@ -5,6 +5,7 @@ defineProps<{
   to?: string;
   /** Right-edge arrow hint for entries that open something instead of navigating. */
   appendIcon?: string;
+  beta?: boolean;
   tooltipDisabled: boolean;
   active?: boolean;
 }>();
@@ -36,8 +37,11 @@ const emit = defineEmits<{
           <v-icon :icon="icon" size="18" />
         </template>
         <v-list-item-title>{{ label }}</v-list-item-title>
-        <template v-if="appendIcon" #append>
-          <v-icon :icon="appendIcon" size="16" class="sidebar-nav-append" />
+        <template v-if="beta || appendIcon" #append>
+          <v-chip v-if="beta" size="x-small" color="purple" variant="tonal" label>
+            Beta
+          </v-chip>
+          <v-icon v-if="appendIcon" :icon="appendIcon" size="16" class="sidebar-nav-append" />
         </template>
       </v-list-item>
     </template>

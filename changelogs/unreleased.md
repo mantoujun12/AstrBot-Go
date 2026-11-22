@@ -25,6 +25,7 @@
 - Chat code blocks highlight a fixed whitelist of common languages; fences for other languages render as plain text.
 - Update frontend and Rust dependencies, including rusqlite (0.37 to 0.43), shiki (3 to 4), Tauri libraries and the release workflow actions.
 - Chat error cards now state that model configuration is done in the instance's WebUI instead of showing a button that cannot open a configuration page.
+- The sidebar's Chat and Extensions entries and the "Manage data" action in the instance more menu now carry a purple Beta badge.
 
 ### Fixed
 
@@ -60,6 +61,7 @@
 - 聊天代码块只对固定的常用语言白名单进行语法高亮，其他语言的代码块以纯文本显示。
 - 更新前端与 Rust 依赖，包括 rusqlite（0.37 至 0.43）、shiki（3 至 4）、Tauri 相关库及发布工作流 Actions。
 - 聊天错误卡片提示模型配置需在实例的 WebUI 中完成，不再显示无法打开配置页的“配置模型”按钮。
+- 侧边栏的“聊天”“扩展”入口及实例“更多”菜单中的“管理数据”项现在带有紫色 Beta 标记。
 
 ### 修复
 
