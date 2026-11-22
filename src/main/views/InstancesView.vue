@@ -1298,6 +1298,7 @@ const rowContext = computed<InstanceRowContext>(() => ({
       v-else
       :rows="filteredRows"
       :ctx="rowContext"
+      :loading="loading"
       @start="handleStart"
       @stop="handleStop"
       @restart="handleRestart"

@@ -340,13 +340,18 @@ const headers = computed<DataTableHeader[]>(() => [
 
           <v-menu location="bottom end" :disabled="ctx.batchUpgradeRunning">
             <template #activator="{ props }">
-              <v-btn
-                v-bind="props"
-                icon="mdi-dots-horizontal"
-                variant="text"
-                size="small"
-                :aria-label="t('instances.list.aria.moreActions')"
-              />
+              <v-tooltip location="top">
+                <template #activator="{ props: tooltipProps }">
+                  <v-btn
+                    v-bind="{ ...props, ...tooltipProps }"
+                    icon="mdi-dots-horizontal"
+                    variant="text"
+                    size="small"
+                    :aria-label="t('instances.list.aria.moreActions')"
+                  />
+                </template>
+                {{ t("instances.list.aria.moreActions") }}
+              </v-tooltip>
             </template>
             <v-list density="compact" class="instance-menu">
               <v-list-item
@@ -374,7 +379,7 @@ const headers = computed<DataTableHeader[]>(() => [
                     color="purple"
                     variant="tonal"
                   >
-                    Beta
+                    {{ t("instances.actions.beta") }}
                   </v-chip>
                 </template>
               </v-list-item>

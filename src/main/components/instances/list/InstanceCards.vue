@@ -15,6 +15,7 @@ import type {
 defineProps<{
   rows: InstanceRow[];
   ctx: InstanceRowContext;
+  loading: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -43,6 +44,15 @@ const { t } = useI18n();
 
 <template>
   <div class="instance-cards">
+    <v-progress-linear
+      v-if="loading"
+      class="instance-cards__loading"
+      indeterminate
+      color="primary"
+      height="5"
+      rounded
+      :aria-label="t('instances.loading')"
+    />
     <div v-for="row in rows" :key="row.id" class="page-card instance-card">
       <div class="instance-card__header">
         <v-tooltip location="top">
@@ -290,13 +300,18 @@ const { t } = useI18n();
 
         <v-menu location="bottom end" :disabled="ctx.batchUpgradeRunning">
           <template #activator="{ props }">
-            <v-btn
-              v-bind="props"
-              icon="mdi-dots-horizontal"
-              variant="text"
-              size="small"
-              :aria-label="t('instances.list.aria.moreActions')"
-            />
+            <v-tooltip location="top">
+              <template #activator="{ props: tooltipProps }">
+                <v-btn
+                  v-bind="{ ...props, ...tooltipProps }"
+                  icon="mdi-dots-horizontal"
+                  variant="text"
+                  size="small"
+                  :aria-label="t('instances.list.aria.moreActions')"
+                />
+              </template>
+              {{ t("instances.list.aria.moreActions") }}
+            </v-tooltip>
           </template>
           <v-list density="compact" class="instance-menu">
             <v-list-item
@@ -324,7 +339,7 @@ const { t } = useI18n();
                   color="purple"
                   variant="tonal"
                 >
-                  Beta
+                  {{ t("instances.actions.beta") }}
                 </v-chip>
               </template>
             </v-list-item>
@@ -418,9 +433,21 @@ const { t } = useI18n();
 
 <style scoped>
 .instance-cards {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 16px;
+}
+
+/*
+ * Pinned in the toolbar's bottom margin: an absolutely positioned grid child
+ * so a refresh does not push the cards down when the bar appears.
+ */
+.instance-cards__loading {
+  position: absolute;
+  top: -12px;
+  left: 0;
+  right: 0;
 }
 
 .instance-card {
