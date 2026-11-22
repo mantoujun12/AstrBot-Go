@@ -43,8 +43,8 @@ const stoppedInstances = computed<InstanceStatus[]>(() =>
   instances.value.filter((instance) => instance.state === "stopped"),
 );
 
-const canLoadMore = computed(
-  () => items.value.length < total.value && !loading.value,
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(total.value / MARKET_PAGE_SIZE)),
 );
 
 const categoryItems = computed(() => [
@@ -63,11 +63,8 @@ function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
-async function load(reset: boolean): Promise<void> {
-  if (reset) {
-    page.value = 1;
-    items.value = [];
-  }
+/** Fetch the current page, replacing the grid instead of appending. */
+async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
@@ -83,11 +80,7 @@ async function load(reset: boolean): Promise<void> {
       count: result.category_counts[entry.name] ?? 0,
     }));
     total.value = result.total;
-    if (reset) {
-      items.value = result.items;
-    } else {
-      items.value.push(...result.items);
-    }
+    items.value = result.items;
   } catch (requestError) {
     error.value = toUserMessage(requestError);
   } finally {
@@ -95,16 +88,9 @@ async function load(reset: boolean): Promise<void> {
   }
 }
 
-async function loadMore(): Promise<void> {
-  page.value += 1;
-  await load(false);
-}
-
-/** Load the next page when the bottom sentinel scrolls into view. */
-function onIntersect(isIntersecting: boolean): void {
-  if (isIntersecting && canLoadMore.value && !loading.value) {
-    void loadMore();
-  }
+function goToPage(target: number): void {
+  page.value = Math.min(Math.max(target, 1), totalPages.value);
+  void load();
 }
 
 function openRepo(url: string | null): void {
@@ -172,15 +158,15 @@ let searchTimer: ReturnType<typeof setTimeout> | undefined;
 watch(search, () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
-    void load(true);
+    goToPage(1);
   }, 300);
 });
 
 watch(category, () => {
-  void load(true);
+  goToPage(1);
 });
 
-void load(true);
+void load();
 </script>
 
 <template>
@@ -319,17 +305,13 @@ void load(true);
           </div>
         </article>
       </div>
-      <div
-        v-if="canLoadMore || loading"
-        v-intersect="onIntersect"
-        class="plugin-market__sentinel"
-      >
-        <v-progress-circular
-          v-if="loading"
-          indeterminate
-          size="22"
-          width="2"
-          color="primary"
+      <div v-if="totalPages > 1" class="plugin-market__pagination">
+        <v-pagination
+          :model-value="page"
+          :length="totalPages"
+          :total-visible="7"
+          size="small"
+          @update:model-value="goToPage"
         />
       </div>
     </template>
@@ -398,11 +380,9 @@ void load(true);
   gap: 12px;
 }
 
-.plugin-market__sentinel {
+.plugin-market__pagination {
   display: flex;
-  align-items: center;
   justify-content: center;
-  min-height: 40px;
-  margin-top: 8px;
+  margin-top: 16px;
 }
 </style>
