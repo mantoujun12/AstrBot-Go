@@ -1056,24 +1056,112 @@ const enUS = {
     },
   },
   extensions: {
-    title: "Extensions",
-    items: {
-      hue: {
-        title: "Hue",
-        description: "Material You color picker",
-      },
-      palette: {
-        title: "Palette",
-        description: "Curated color palettes",
-      },
-      converter: {
-        title: "Converter",
-        description: "Format conversion tools",
-      },
-      playground: {
-        title: "Playground",
-        description: "Quick snippet sandbox",
-      },
+    tabs: {
+      plugins: "Plugins",
+      skills: "Skills",
+    },
+    running: "Running",
+  },
+  plugins: {
+    instance: "Target instance",
+    tabs: {
+      market: "Market",
+      installed: "Installed",
+    },
+    search: "Search plugins",
+    category: "Category",
+    allCategories: "All categories",
+    official: "Official",
+    installed: "Installed",
+    downloads: "Downloads {count}",
+    stars: "Stars {count}",
+    requiresVersion: "Required AstrBot version",
+    repo: "Repo",
+    openRepo: "Open the plugin repository",
+    install: "Install",
+    update: "Check update",
+    uninstall: "Uninstall",
+    toggleAria: "Enable or disable {name}",
+    instanceRunning:
+      "The instance is running. Stop it before installing, uninstalling, or toggling plugins.",
+    noInstance: "Select an instance first.",
+    market: {
+      empty: "No plugins matched.",
+    },
+    installedList: {
+      empty: "No plugins are installed on this instance.",
+    },
+    installConfirm: {
+      title: "Install plugin",
+      pickInstance: "Pick the target instance for {name}:",
+    },
+    uninstallConfirm: {
+      title: "Uninstall plugin",
+      message: "Uninstall {name}?",
+      deleteConfig: "Also delete the plugin config file",
+      deleteData: "Also delete the plugin persistent data",
+    },
+    toasts: {
+      installed: "Installed {name}.",
+      updated: "Updated {name} to {version}.",
+      uninstalled: "Uninstalled {name}.",
+      upToDate: "Already up to date ({version}).",
+      marketMissing: "No market record was found for this plugin.",
+    },
+  },
+  skills: {
+    instance: "Target instance",
+    upload: "Upload skill",
+    search: "Search skills",
+    localTitle: "Local skills",
+    instanceRunning:
+      "The instance is running. Stop it before uploading, editing, or toggling skills.",
+    noInstance: "Select an instance first.",
+    empty: "No local skills on this instance yet.",
+    searchEmpty: "No skills matched.",
+    edit: "Edit",
+    toggleAria: "Enable or disable {name}",
+    batch: {
+      select: "Select",
+      cancel: "Cancel selection",
+      deleteSelected: "Delete selected ({count})",
+    },
+    batchConfirm: {
+      title: "Delete skills",
+      message: "Delete {count} selected skills?",
+    },
+    table: {
+      name: "Name",
+      description: "Description",
+      enabled: "Enabled",
+    },
+    pluginSkills: {
+      title: "Plugin skills",
+      plugin: "Plugin",
+      view: "View",
+      builtin: "Built-in",
+      empty: "No installed plugin provides skills.",
+    },
+    uploadDialog: {
+      title: "Upload skill",
+      pickFile: "Choose ZIP file",
+      noFile: "No file selected",
+    },
+    deleteConfirm: {
+      title: "Delete skill",
+      message: "Delete skill {name}?",
+    },
+    viewer: {
+      up: "Go up",
+      noFile: "No file selected",
+      unsaved: "Unsaved",
+    },
+    toasts: {
+      installed: "Installed skills: {names}.",
+      saved: "Saved {name}.",
+      deleted: "Deleted {name}.",
+      batchDeleted: "Deleted {count} skills.",
+      batchPartial: "Failed to delete {count} skills.",
     },
   },
 } satisfies typeof zhCN;

@@ -1038,24 +1038,110 @@ const zhCN = {
     }
   },
   "extensions": {
-    "title": "扩展",
-    "items": {
-      "hue": {
-        "title": "Hue",
-        "description": "Material You 取色器"
-      },
-      "palette": {
-        "title": "Palette",
-        "description": "精选配色方案"
-      },
-      "converter": {
-        "title": "Converter",
-        "description": "格式转换工具"
-      },
-      "playground": {
-        "title": "Playground",
-        "description": "代码片段沙盒"
-      }
+    "tabs": {
+      "plugins": "插件",
+      "skills": "技能"
+    },
+    "running": "运行中"
+  },
+  "plugins": {
+    "instance": "目标实例",
+    "tabs": {
+      "market": "插件市场",
+      "installed": "已安装"
+    },
+    "search": "搜索插件",
+    "category": "分类",
+    "allCategories": "全部分类",
+    "official": "官方",
+    "installed": "已安装",
+    "downloads": "下载 {count}",
+    "stars": "Star {count}",
+    "requiresVersion": "要求的 AstrBot 版本",
+    "repo": "仓库",
+    "openRepo": "打开插件仓库",
+    "install": "安装",
+    "update": "检查更新",
+    "uninstall": "卸载",
+    "toggleAria": "启用或停用 {name}",
+    "instanceRunning": "实例正在运行，安装、卸载与启用停用需先停止实例。",
+    "noInstance": "请先选择实例。",
+    "market": {
+      "empty": "没有匹配的插件。"
+    },
+    "installedList": {
+      "empty": "该实例还没有安装插件。"
+    },
+    "installConfirm": {
+      "title": "安装插件",
+      "pickInstance": "选择安装 {name} 的目标实例："
+    },
+    "uninstallConfirm": {
+      "title": "卸载插件",
+      "message": "卸载 {name}？",
+      "deleteConfig": "同时删除插件配置文件",
+      "deleteData": "同时删除插件持久化数据"
+    },
+    "toasts": {
+      "installed": "已安装 {name}。",
+      "updated": "已将 {name} 更新到 {version}。",
+      "uninstalled": "已卸载 {name}。",
+      "upToDate": "已是最新版本 {version}。",
+      "marketMissing": "未在插件市场找到该插件的记录。"
+    }
+  },
+  "skills": {
+    "instance": "目标实例",
+    "upload": "上传技能",
+    "search": "搜索技能",
+    "localTitle": "本地技能",
+    "instanceRunning": "实例正在运行，上传、编辑与启用停用需先停止实例。",
+    "noInstance": "请先选择实例。",
+    "empty": "该实例还没有本地技能。",
+    "searchEmpty": "没有匹配的技能。",
+    "edit": "编辑",
+    "toggleAria": "启用或停用 {name}",
+    "batch": {
+      "select": "选择",
+      "cancel": "取消选择",
+      "deleteSelected": "删除所选（{count}）"
+    },
+    "batchConfirm": {
+      "title": "批量删除",
+      "message": "删除选中的 {count} 个技能？"
+    },
+    "table": {
+      "name": "名称",
+      "description": "描述",
+      "enabled": "启用"
+    },
+    "pluginSkills": {
+      "title": "插件技能",
+      "plugin": "所属插件",
+      "view": "查看",
+      "builtin": "内置",
+      "empty": "已安装的插件没有提供技能。"
+    },
+    "uploadDialog": {
+      "title": "上传技能",
+      "pickFile": "选择 ZIP 文件",
+      "noFile": "未选择文件"
+    },
+    "deleteConfirm": {
+      "title": "删除技能",
+      "message": "删除技能 {name}？"
+    },
+    "viewer": {
+      "up": "返回上级",
+      "noFile": "未选择文件",
+      "unsaved": "未保存"
+    },
+    "toasts": {
+      "installed": "已安装技能：{names}。",
+      "saved": "已保存 {name}。",
+      "deleted": "已删除 {name}。",
+      "batchDeleted": "已删除 {count} 个技能。",
+      "batchPartial": "{count} 个技能删除失败。"
     }
   }
 };

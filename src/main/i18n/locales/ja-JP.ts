@@ -1055,24 +1055,112 @@ const jaJP = {
     },
   },
   extensions: {
-    title: "拡張",
-    items: {
-      hue: {
-        title: "Hue",
-        description: "Material You カラーピッカー",
-      },
-      palette: {
-        title: "Palette",
-        description: "厳選カラーパレット",
-      },
-      converter: {
-        title: "Converter",
-        description: "フォーマット変換ツール",
-      },
-      playground: {
-        title: "Playground",
-        description: "スニペットサンドボックス",
-      },
+    tabs: {
+      plugins: "プラグイン",
+      skills: "スキル",
+    },
+    running: "実行中",
+  },
+  plugins: {
+    instance: "対象インスタンス",
+    tabs: {
+      market: "プラグイン市場",
+      installed: "インストール済み",
+    },
+    search: "プラグインを検索",
+    category: "カテゴリー",
+    allCategories: "すべてのカテゴリー",
+    official: "公式",
+    installed: "インストール済み",
+    downloads: "ダウンロード {count}",
+    stars: "スター {count}",
+    requiresVersion: "必要な AstrBot バージョン",
+    repo: "リポジトリ",
+    openRepo: "プラグインのリポジトリを開く",
+    install: "インストール",
+    update: "更新を確認",
+    uninstall: "アンインストール",
+    toggleAria: "{name} を有効または無効にする",
+    instanceRunning:
+      "インスタンスが実行中です。インストール、アンインストール、切り替えの前に停止してください。",
+    noInstance: "先にインスタンスを選択してください。",
+    market: {
+      empty: "一致するプラグインがありません。",
+    },
+    installedList: {
+      empty: "このインスタンスにプラグインはありません。",
+    },
+    installConfirm: {
+      title: "プラグインをインストール",
+      pickInstance: "{name} をインストールする対象インスタンスを選択：",
+    },
+    uninstallConfirm: {
+      title: "プラグインをアンインストール",
+      message: "{name} をアンインストールしますか？",
+      deleteConfig: "プラグイン設定ファイルも削除する",
+      deleteData: "プラグインの永続データも削除する",
+    },
+    toasts: {
+      installed: "{name} をインストールしました。",
+      updated: "{name} を {version} に更新しました。",
+      uninstalled: "{name} をアンインストールしました。",
+      upToDate: "最新バージョンです（{version}）。",
+      marketMissing: "このプラグインの市場レコードが見つかりません。",
+    },
+  },
+  skills: {
+    instance: "対象インスタンス",
+    upload: "スキルをアップロード",
+    search: "スキルを検索",
+    localTitle: "ローカルスキル",
+    instanceRunning:
+      "インスタンスが実行中です。アップロード、編集、切り替えの前に停止してください。",
+    noInstance: "先にインスタンスを選択してください。",
+    empty: "このインスタンスにはローカルスキルがありません。",
+    searchEmpty: "一致するスキルがありません。",
+    edit: "編集",
+    toggleAria: "{name} を有効または無効にする",
+    batch: {
+      select: "選択",
+      cancel: "選択を解除",
+      deleteSelected: "選択項目を削除（{count}）",
+    },
+    batchConfirm: {
+      title: "スキルを一括削除",
+      message: "選択した {count} 個のスキルを削除しますか？",
+    },
+    table: {
+      name: "名前",
+      description: "説明",
+      enabled: "有効",
+    },
+    pluginSkills: {
+      title: "プラグインスキル",
+      plugin: "プラグイン",
+      view: "表示",
+      builtin: "内蔵",
+      empty: "スキルを提供するプラグインはありません。",
+    },
+    uploadDialog: {
+      title: "スキルをアップロード",
+      pickFile: "ZIP ファイルを選択",
+      noFile: "ファイル未選択",
+    },
+    deleteConfirm: {
+      title: "スキルを削除",
+      message: "スキル {name} を削除しますか？",
+    },
+    viewer: {
+      up: "上へ",
+      noFile: "ファイル未選択",
+      unsaved: "未保存",
+    },
+    toasts: {
+      installed: "スキルをインストールしました：{names}。",
+      saved: "{name} を保存しました。",
+      deleted: "{name} を削除しました。",
+      batchDeleted: "{count} 個のスキルを削除しました。",
+      batchPartial: "{count} 個のスキルを削除できませんでした。",
     },
   },
 } satisfies typeof zhCN;

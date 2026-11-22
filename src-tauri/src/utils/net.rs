@@ -498,11 +498,22 @@ pub(crate) async fn send_get(
     url: &str,
     accept_json: bool,
 ) -> std::result::Result<reqwest::Response, reqwest::Error> {
+    send_get_opt(client, url, accept_json, None).await
+}
+
+/// Like `send_get` with an optional per-request total timeout, used for
+/// bounded downloads that must not hang while holding an instance guard.
+pub(crate) async fn send_get_opt(
+    client: &Client,
+    url: &str,
+    accept_json: bool,
+    timeout: Option<Duration>,
+) -> std::result::Result<reqwest::Response, reqwest::Error> {
     let mut current = url.to_string();
     let mut redirects = 0;
 
     loop {
-        let request = if accept_json {
+        let mut request = if accept_json {
             client
                 .get(&current)
                 .header("User-Agent", USER_AGENT)
@@ -510,6 +521,9 @@ pub(crate) async fn send_get(
         } else {
             client.get(&current).header("User-Agent", USER_AGENT)
         };
+        if let Some(timeout) = timeout {
+            request = request.timeout(timeout);
+        }
         let resp = request.send().await?;
 
         // The API client disables automatic redirects; keep following them here so

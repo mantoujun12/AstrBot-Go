@@ -369,6 +369,21 @@ pub fn run() {
             commands::list_instance_knowledge_bases,
             commands::delete_instance_knowledge_base,
             commands::copy_instance_data,
+            // Instance plugins
+            commands::fetch_plugin_market,
+            commands::list_instance_plugins,
+            commands::install_instance_plugin,
+            commands::set_instance_plugin_enabled,
+            commands::uninstall_instance_plugin,
+            // Instance skills
+            commands::list_instance_skills,
+            commands::list_instance_plugin_skills,
+            commands::list_instance_skill_files,
+            commands::read_instance_skill_file,
+            commands::write_instance_skill_file,
+            commands::set_instance_skill_enabled,
+            commands::delete_instance_skill,
+            commands::install_instance_skill_zip,
             // Resource Monitoring
             commands::get_instance_resource_history,
             commands::set_resource_alert_threshold,

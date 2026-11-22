@@ -50,7 +50,7 @@ impl AppState {
     ///
     /// Downloads must not keep the 30 s total timeout used by API requests,
     /// otherwise long transfers (and paused ones) would be aborted.
-    fn download_client(&self) -> Result<Client> {
+    pub(crate) fn download_client(&self) -> Result<Client> {
         let config = load_config()?;
         network_config::build_download_client_from_config(config.as_ref())
     }

@@ -16,7 +16,9 @@ mod discovery_docker;
 pub mod discovery_uv;
 mod health;
 pub(crate) mod lifecycle;
+pub(crate) mod plugins;
 mod rebuild;
+pub(crate) mod skills;
 mod types;
 
 // Re-export types
@@ -26,6 +28,10 @@ pub use types::InstanceStatus;
 pub use data_manage::{
     CopyInstanceDataRequest, InstanceConfigFile, InstanceCronJob, InstanceKnowledgeBase,
     InstancePersona, InstancePersonaFolder,
+};
+pub use plugins::{InstancePlugin, PluginInstallRequest, PluginMarketPage};
+pub use skills::{
+    InstancePluginSkill, InstanceSkill, SkillDirEntry, SkillFileRequest, SkillZipInstall,
 };
 
 pub(crate) use health::check_instance_health;

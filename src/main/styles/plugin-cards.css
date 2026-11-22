@@ -1,0 +1,93 @@
+/* Shared market/installed plugin card styling for the Extensions page panels. */
+
+.plugin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+
+.plugin-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.plugin-card__logo {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--astrbot-radius-control);
+  object-fit: cover;
+  flex: none;
+}
+
+.plugin-card__heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.plugin-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.plugin-card__title {
+  margin: 0;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plugin-card__author {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plugin-card__desc {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.4em;
+}
+
+.plugin-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 0.75rem;
+}
+
+.plugin-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.plugin-card__switch {
+  flex: none;
+}
+
+.plugin-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+}

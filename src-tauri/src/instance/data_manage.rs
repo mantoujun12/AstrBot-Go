@@ -26,7 +26,7 @@ use crate::utils::validation::validate_instance_id;
 
 const DB_FILE: &str = "data_v4.db";
 /// SQLite can stay locked for a moment after a shutdown flush.
-const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+pub(crate) const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// A persona row from the AstrBot `personas` table.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,11 +163,11 @@ pub(crate) fn get_instance_data_dir(instance_id: &str) -> Result<PathBuf> {
     Ok(dir)
 }
 
-fn db_err(error: rusqlite::Error) -> AppError {
+pub(crate) fn db_err(error: rusqlite::Error) -> AppError {
     AppError::io(format!("数据库操作失败：{error}"))
 }
 
-fn open_db(data_dir: &Path) -> Result<Connection> {
+pub(crate) fn open_db(data_dir: &Path) -> Result<Connection> {
     let path = data_dir.join(DB_FILE);
     if !path.is_file() {
         return Err(AppError::config(
@@ -192,7 +192,7 @@ fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
     stmt.exists(rusqlite::params![table]).map_err(db_err)
 }
 
-fn ensure_table(conn: &Connection, table: &str) -> Result<()> {
+pub(crate) fn ensure_table(conn: &Connection, table: &str) -> Result<()> {
     if table_exists(conn, table)? {
         Ok(())
     } else {

@@ -1085,24 +1085,112 @@ const ruRU = {
     },
   },
   extensions: {
-    title: "Расширения",
-    items: {
-      hue: {
-        title: "Hue",
-        description: "Инструмент выбора цветов Material You",
-      },
-      palette: {
-        title: "Palette",
-        description: "Подборки цветовых палитр",
-      },
-      converter: {
-        title: "Converter",
-        description: "Инструменты конвертации форматов",
-      },
-      playground: {
-        title: "Playground",
-        description: "Песочница для фрагментов кода",
-      },
+    tabs: {
+      plugins: "Плагины",
+      skills: "Навыки",
+    },
+    running: "Запущен",
+  },
+  plugins: {
+    instance: "Целевой экземпляр",
+    tabs: {
+      market: "Магазин",
+      installed: "Установленные",
+    },
+    search: "Поиск плагинов",
+    category: "Категория",
+    allCategories: "Все категории",
+    official: "Официальный",
+    installed: "Установлен",
+    downloads: "Загрузки {count}",
+    stars: "Звёзды {count}",
+    requiresVersion: "Требуемая версия AstrBot",
+    repo: "Репозиторий",
+    openRepo: "Открыть репозиторий плагина",
+    install: "Установить",
+    update: "Проверить обновления",
+    uninstall: "Удалить",
+    toggleAria: "Включить или отключить {name}",
+    instanceRunning:
+      "Экземпляр запущен. Остановите его перед установкой, удалением или переключением плагинов.",
+    noInstance: "Сначала выберите экземпляр.",
+    market: {
+      empty: "Подходящих плагинов нет.",
+    },
+    installedList: {
+      empty: "На этом экземпляре нет установленных плагинов.",
+    },
+    installConfirm: {
+      title: "Установка плагина",
+      pickInstance: "Выберите целевой экземпляр для {name}:",
+    },
+    uninstallConfirm: {
+      title: "Удаление плагина",
+      message: "Удалить {name}?",
+      deleteConfig: "Также удалить файл конфигурации плагина",
+      deleteData: "Также удалить постоянные данные плагина",
+    },
+    toasts: {
+      installed: "Установлен {name}.",
+      updated: "{name} обновлён до {version}.",
+      uninstalled: "Удалён {name}.",
+      upToDate: "Уже актуальная версия ({version}).",
+      marketMissing: "Запись об этом плагине в магазине не найдена.",
+    },
+  },
+  skills: {
+    instance: "Целевой экземпляр",
+    upload: "Загрузить навык",
+    search: "Поиск навыков",
+    localTitle: "Локальные навыки",
+    instanceRunning:
+      "Экземпляр запущен. Остановите его перед загрузкой, изменением или переключением навыков.",
+    noInstance: "Сначала выберите экземпляр.",
+    empty: "На этом экземпляре пока нет локальных навыков.",
+    searchEmpty: "Подходящих навыков нет.",
+    edit: "Изменить",
+    toggleAria: "Включить или отключить {name}",
+    batch: {
+      select: "Выбрать",
+      cancel: "Отменить выбор",
+      deleteSelected: "Удалить выбранные ({count})",
+    },
+    batchConfirm: {
+      title: "Удаление навыков",
+      message: "Удалить выбранные навыки ({count})?",
+    },
+    table: {
+      name: "Название",
+      description: "Описание",
+      enabled: "Включён",
+    },
+    pluginSkills: {
+      title: "Навыки плагинов",
+      plugin: "Плагин",
+      view: "Просмотр",
+      builtin: "Встроенный",
+      empty: "Ни один установленный плагин не предоставляет навыки.",
+    },
+    uploadDialog: {
+      title: "Загрузка навыка",
+      pickFile: "Выбрать ZIP-файл",
+      noFile: "Файл не выбран",
+    },
+    deleteConfirm: {
+      title: "Удаление навыка",
+      message: "Удалить навык {name}?",
+    },
+    viewer: {
+      up: "Вверх",
+      noFile: "Файл не выбран",
+      unsaved: "Не сохранено",
+    },
+    toasts: {
+      installed: "Установлены навыки: {names}.",
+      saved: "Сохранён {name}.",
+      deleted: "Удалён {name}.",
+      batchDeleted: "Удалено навыков: {count}.",
+      batchPartial: "Не удалось удалить навыков: {count}.",
     },
   },
 } satisfies typeof zhCN;
