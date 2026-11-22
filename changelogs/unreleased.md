@@ -8,7 +8,7 @@
 - Manage an instance's personas, scheduled jobs, MCP servers, config files and knowledge bases directly in the launcher, including copying them to other instances.
 - Add the Extensions page with a card grid, reachable from a new sidebar entry.
 - Manage plugins on the Extensions page, which now shows the plugin market and installed plugins directly with tab switching: browse and search the official AstrBot plugin market, pick the target instance when installing (running instances are listed but disabled), and enable, disable, update-check or uninstall installed plugins with optional cleanup of their config and data.
-- Manage an instance's local Skills on the Extensions page with a compact table: upload SKILL.md ZIP packs (choosing the target instance in the dialog), view and edit the markdown, toggle skills, and delete them while the instance is stopped; skills shipped by plugins are listed read-only in a separate section.
+- Manage an instance's local Skills on the Extensions page with a compact table: upload SKILL.md ZIP packs (choosing the target instance in the dialog), view and edit the markdown, toggle skills, and delete them while the instance is stopped; skills shipped by plugins and AstrBot's builtin stars are listed read-only, and local skills support search and batch deletion.
 - Add a standalone chat window opened from the entry at the top of the sidebar; it opens directly into the conversation, with the target instance and model chosen inside the window.
 - The chat window's "Instance & Model" sidebar panel switches the target instance and picks the model (also selectable at the bottom-left of the composer), and the window uses a custom title bar on Windows and Linux with minimize, maximize/restore and close controls that stay usable while its settings dialog is open (macOS keeps the native traffic lights).
 - Rename and delete chat sessions from the sidebar; when the target instance is not running or has no WebUI login configured, the window states the reason instead of a generic load error and blocks sending until the instance is ready.
@@ -40,7 +40,7 @@
 - 在启动器中直接管理实例的人格、定时任务、MCP 服务器、配置文件与知识库，并支持复制到其他实例。
 - 新增扩展功能页面，以卡片网格呈现，侧边栏增加对应入口。
 - 在扩展页管理实例插件：页面直接展示插件市场与已安装插件并支持标签切换；可浏览、搜索官方插件市场，安装时选择目标实例（运行中的实例列出但不可选），并支持启停、检查更新与卸载（可选同时删除配置与持久化数据）。
-- 在扩展页以紧凑表格管理实例的本地技能：上传 SKILL.md 技能 ZIP 包时在弹窗中选择目标实例，可查看与编辑技能内容，启停或删除技能，均需实例处于停止状态；插件自带的技能在独立的只读分区列出。
+- 在扩展页以紧凑表格管理实例的本地技能：上传 SKILL.md 技能 ZIP 包时在弹窗中选择目标实例，可查看与编辑技能内容，启停或删除技能，均需实例处于停止状态；插件与 AstrBot 内置技能以只读分区列出，本地技能支持搜索与批量删除。
 - 新增独立聊天窗口，入口位于侧边栏顶部；打开后直接进入聊天界面，目标实例与模型在窗口内选择。
 - 聊天窗口侧边栏新增“实例与模型”面板，可切换目标实例并选择模型（输入框底部左侧亦可选择）；Windows 和 Linux 上改用自定义标题栏，提供最小化、最大化/还原和关闭按钮，设置对话框打开时按钮仍可点击（macOS 保留原生红绿灯按钮）。
 - 侧边栏支持重命名和删除会话；目标实例未运行或未配置 WebUI 登录凭据时，窗口会直接说明原因，不再显示通用的加载失败提示，并在实例就绪前禁用发送。

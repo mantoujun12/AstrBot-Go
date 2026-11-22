@@ -26,6 +26,7 @@ const { t } = useI18n();
 const { instances } = useLauncherStore();
 
 const instanceId = ref<string | null>(null);
+const search = ref("");
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 const skills = ref<InstanceSkill[]>([]);
@@ -33,6 +34,11 @@ const pluginSkills = ref<InstancePluginSkill[]>([]);
 const pluginSkillsLoaded = ref(false);
 
 const togglingName = ref<string | null>(null);
+
+const batchMode = ref(false);
+const selectedNames = ref<string[]>([]);
+const batchConfirm = ref(false);
+const batchDeleting = ref(false);
 
 const pendingDelete = ref<InstanceSkill | null>(null);
 const deleting = ref(false);
@@ -45,7 +51,6 @@ const uploading = ref(false);
 const editorOpen = ref(false);
 const editorReadonly = ref(false);
 const editorTitle = ref("");
-const editorPluginName = ref<string | null>(null);
 const editorSkillName = ref("");
 const editorContent = ref("");
 const editorOriginal = ref("");
@@ -63,18 +68,50 @@ const canManage = computed(() => selectedInstance.value?.state === "stopped");
 
 const editorDirty = computed(() => editorContent.value !== editorOriginal.value);
 
-const localHeaders = computed<DataTableHeader[]>(() => [
-  { title: t("skills.table.name"), key: "name", sortable: false },
-  { title: t("skills.table.description"), key: "description", sortable: false },
-  { title: t("skills.table.enabled"), key: "enabled", sortable: false, width: 90 },
-  {
-    title: t("instanceData.actionsColumn"),
-    key: "actions",
-    sortable: false,
-    align: "end",
-    width: 90,
-  },
-]);
+function matchesQuery(haystacks: string[]): boolean {
+  const query = search.value.trim().toLowerCase();
+  return haystacks.some((value) => value.toLowerCase().includes(query));
+}
+
+const filteredSkills = computed(() => {
+  const query = search.value.trim();
+  if (!query) {
+    return skills.value;
+  }
+  return skills.value.filter((skill) =>
+    matchesQuery([skill.name, skill.description]),
+  );
+});
+
+const filteredPluginSkills = computed(() => {
+  const query = search.value.trim();
+  if (!query) {
+    return pluginSkills.value;
+  }
+  return pluginSkills.value.filter((skill) =>
+    matchesQuery([skill.name, skill.description, skill.plugin_name]),
+  );
+});
+
+const localHeaders = computed<DataTableHeader[]>(() => {
+  const headers: DataTableHeader[] = [
+    { title: t("skills.table.name"), key: "name", sortable: false },
+    { title: t("skills.table.description"), key: "description", sortable: false },
+  ];
+  if (!batchMode.value) {
+    headers.push(
+      { title: t("skills.table.enabled"), key: "enabled", sortable: false, width: 90 },
+      {
+        title: t("instanceData.actionsColumn"),
+        key: "actions",
+        sortable: false,
+        align: "end",
+        width: 90,
+      },
+    );
+  }
+  return headers;
+});
 
 const pluginHeaders = computed<DataTableHeader[]>(() => [
   { title: t("skills.table.name"), key: "name", sortable: false },
@@ -137,7 +174,6 @@ async function openLocalEditor(skill: InstanceSkill): Promise<void> {
   try {
     const content = await readInstanceSkill(instanceId.value, skill.name);
     editorReadonly.value = false;
-    editorPluginName.value = null;
     editorTitle.value = skill.name;
     editorSkillName.value = skill.name;
     editorOriginal.value = content;
@@ -159,7 +195,6 @@ async function openPluginEditor(skill: InstancePluginSkill): Promise<void> {
       skill.name,
     );
     editorReadonly.value = true;
-    editorPluginName.value = skill.plugin_name;
     editorTitle.value = `${skill.plugin_name} / ${skill.name}`;
     editorSkillName.value = skill.name;
     editorOriginal.value = content;
@@ -211,6 +246,43 @@ async function performDelete(): Promise<void> {
   } finally {
     deleting.value = false;
   }
+}
+
+function toggleBatchMode(): void {
+  batchMode.value = !batchMode.value;
+  selectedNames.value = [];
+}
+
+function confirmBatchDelete(): void {
+  if (selectedNames.value.length > 0) {
+    batchConfirm.value = true;
+  }
+}
+
+async function performBatchDelete(): Promise<void> {
+  if (!instanceId.value || batchDeleting.value) {
+    return;
+  }
+  batchDeleting.value = true;
+  const names = [...selectedNames.value];
+  let failed = 0;
+  for (const name of names) {
+    try {
+      await deleteInstanceSkill(instanceId.value, name);
+    } catch {
+      failed += 1;
+    }
+  }
+  batchDeleting.value = false;
+  batchConfirm.value = false;
+  batchMode.value = false;
+  selectedNames.value = [];
+  if (failed > 0) {
+    showToast(t("skills.toasts.batchPartial", { count: failed }), "warning");
+  } else {
+    showToast(t("skills.toasts.batchDeleted", { count: names.length }));
+  }
+  await loadSkills();
 }
 
 function openUpload(): void {
@@ -274,6 +346,16 @@ defineExpose({ openUpload });
         hide-details
         class="skills-panel__instance"
       />
+      <v-text-field
+        v-model="search"
+        :label="t('skills.search')"
+        prepend-inner-icon="mdi-magnify"
+        variant="outlined"
+        density="compact"
+        hide-details
+        clearable
+        class="skills-panel__search"
+      />
     </div>
 
     <v-alert
@@ -307,6 +389,37 @@ defineExpose({ openUpload });
         <div class="page-section">
           <div class="page-section-head">
             <span class="page-section-title">{{ t("skills.localTitle") }}</span>
+            <div class="page-actions">
+              <v-btn
+                v-if="!batchMode"
+                variant="text"
+                size="small"
+                color="primary"
+                :disabled="!canManage || skills.length === 0"
+                @click="toggleBatchMode()"
+              >
+                {{ t("skills.batch.select") }}
+              </v-btn>
+              <template v-else>
+                <v-btn
+                  variant="text"
+                  size="small"
+                  :disabled="batchDeleting"
+                  @click="toggleBatchMode()"
+                >
+                  {{ t("skills.batch.cancel") }}
+                </v-btn>
+                <v-btn
+                  variant="text"
+                  size="small"
+                  color="error"
+                  :disabled="selectedNames.length === 0"
+                  @click="confirmBatchDelete()"
+                >
+                  {{ t("skills.batch.deleteSelected", { count: selectedNames.length }) }}
+                </v-btn>
+              </template>
+            </div>
           </div>
           <EmptyState
             v-if="skills.length === 0"
@@ -315,14 +428,16 @@ defineExpose({ openUpload });
           />
           <div v-else class="page-table-card">
             <v-data-table
+              v-model:selected="selectedNames"
               :headers="localHeaders"
-              :items="skills"
+              :items="filteredSkills"
               item-value="name"
+              :show-select="batchMode"
               hide-default-footer
               :items-per-page="-1"
               disable-sort
               hover
-              :no-data-text="t('skills.empty')"
+              :no-data-text="t('skills.searchEmpty')"
             >
               <template #item.name="{ item }">
                 <span class="page-anywhere">{{ item.name }}</span>
@@ -389,7 +504,7 @@ defineExpose({ openUpload });
           <div class="page-table-card">
             <v-data-table
               :headers="pluginHeaders"
-              :items="pluginSkills"
+              :items="filteredPluginSkills"
               item-value="name"
               hide-default-footer
               :items-per-page="-1"
@@ -401,7 +516,12 @@ defineExpose({ openUpload });
                 <span class="page-anywhere">{{ item.name }}</span>
               </template>
               <template #item.plugin_name="{ item }">
-                <span class="page-anywhere">{{ item.plugin_name }}</span>
+                <span class="skills-panel__plugin-cell">
+                  <span class="page-anywhere">{{ item.plugin_name }}</span>
+                  <v-chip v-if="item.builtin" size="x-small" variant="tonal" label>
+                    {{ t("skills.pluginSkills.builtin") }}
+                  </v-chip>
+                </span>
               </template>
               <template #item.description="{ item }">
                 <span class="page-anywhere">{{ item.description || "—" }}</span>
@@ -442,6 +562,17 @@ defineExpose({ openUpload });
       :loading="deleting"
       @update:model-value="(value: boolean) => !value && (pendingDelete = null)"
       @confirm="performDelete"
+    />
+
+    <ConfirmDialog
+      :model-value="batchConfirm"
+      :title="t('skills.batchConfirm.title')"
+      :message="t('skills.batchConfirm.message', { count: selectedNames.length })"
+      :confirm-label="t('common.actions.delete')"
+      color="error"
+      :loading="batchDeleting"
+      @update:model-value="(value: boolean) => !value && (batchConfirm = false)"
+      @confirm="performBatchDelete"
     />
 
     <ConfirmDialog
@@ -533,6 +664,11 @@ defineExpose({ openUpload });
   flex: 1 1 200px;
 }
 
+.skills-panel__search {
+  max-width: 280px;
+  flex: 1 1 200px;
+}
+
 .skills-panel__banner {
   margin-bottom: 12px;
 }
@@ -544,6 +680,13 @@ defineExpose({ openUpload });
 .skills-panel__row-actions {
   justify-content: flex-end;
   gap: 2px;
+}
+
+.skills-panel__plugin-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .skills-panel__upload {

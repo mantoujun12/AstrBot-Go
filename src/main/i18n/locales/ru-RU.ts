@@ -1108,7 +1108,6 @@ const ruRU = {
     repo: "Репозиторий",
     openRepo: "Открыть репозиторий плагина",
     install: "Установить",
-    loadMore: "Показать ещё",
     update: "Проверить обновления",
     uninstall: "Удалить",
     toggleAria: "Включить или отключить {name}",
@@ -1142,13 +1141,24 @@ const ruRU = {
   skills: {
     instance: "Целевой экземпляр",
     upload: "Загрузить навык",
+    search: "Поиск навыков",
     localTitle: "Локальные навыки",
     instanceRunning:
       "Экземпляр запущен. Остановите его перед загрузкой, изменением или переключением навыков.",
     noInstance: "Сначала выберите экземпляр.",
     empty: "На этом экземпляре пока нет локальных навыков.",
+    searchEmpty: "Подходящих навыков нет.",
     edit: "Изменить",
     toggleAria: "Включить или отключить {name}",
+    batch: {
+      select: "Выбрать",
+      cancel: "Отменить выбор",
+      deleteSelected: "Удалить выбранные ({count})",
+    },
+    batchConfirm: {
+      title: "Удаление навыков",
+      message: "Удалить выбранные навыки ({count})?",
+    },
     table: {
       name: "Название",
       description: "Описание",
@@ -1158,6 +1168,7 @@ const ruRU = {
       title: "Навыки плагинов",
       plugin: "Плагин",
       view: "Просмотр",
+      builtin: "Встроенный",
       empty: "Ни один установленный плагин не предоставляет навыки.",
     },
     uploadDialog: {
@@ -1176,6 +1187,8 @@ const ruRU = {
       installed: "Установлены навыки: {names}.",
       saved: "Сохранён {name}.",
       deleted: "Удалён {name}.",
+      batchDeleted: "Удалено навыков: {count}.",
+      batchPartial: "Не удалось удалить навыков: {count}.",
     },
   },
 } satisfies typeof zhCN;

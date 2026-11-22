@@ -36,13 +36,16 @@ pub struct InstanceSkill {
 
 /// A read-only skill provided by a plugin under `data/plugins/<dir>/skills/`.
 /// Upstream also treats a plugin's own `skills/SKILL.md` as a skill named
-/// after the plugin directory.
+/// after the plugin directory. Builtin-star skills live in the instance's
+/// AstrBot core (`astrbot/builtin_stars/*/skills`) and are flagged as builtin.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstancePluginSkill {
     pub name: String,
     #[serde(default)]
     pub description: String,
     pub plugin_name: String,
+    #[serde(default)]
+    pub builtin: bool,
 }
 
 /// Minimal `skills.json` shape written by upstream.
@@ -311,12 +314,9 @@ fn install_zip_staged(
 
 // === Plugin-provided skills (read-only) ======================================
 
-/// List the read-only skills every installed plugin carries in its own
-/// `skills/` directory, mirroring upstream's discovery rules.
-pub fn list_plugin_skills(data_dir: &Path) -> Vec<InstancePluginSkill> {
+fn plugin_skills_under(plugins_root: &Path, builtin: bool) -> Vec<InstancePluginSkill> {
     let mut skills = Vec::new();
-    let plugins_dir = data_dir.join("plugins");
-    let Ok(entries) = fs::read_dir(&plugins_dir) else {
+    let Ok(entries) = fs::read_dir(plugins_root) else {
         return skills;
     };
     for entry in entries.flatten() {
@@ -338,6 +338,7 @@ pub fn list_plugin_skills(data_dir: &Path) -> Vec<InstancePluginSkill> {
                 name: plugin_name.clone(),
                 description: description_of(&markdown),
                 plugin_name: plugin_name.clone(),
+                builtin,
             });
         }
         let Ok(children) = fs::read_dir(&skills_dir) else {
@@ -356,9 +357,18 @@ pub fn list_plugin_skills(data_dir: &Path) -> Vec<InstancePluginSkill> {
                 name,
                 description: description_of(&markdown),
                 plugin_name: plugin_name.clone(),
+                builtin,
             });
         }
     }
+    skills
+}
+
+/// List the read-only skills from installed plugins plus the builtin stars
+/// shipped with the instance's AstrBot core.
+pub fn list_plugin_skills(data_dir: &Path, builtin_root: &Path) -> Vec<InstancePluginSkill> {
+    let mut skills = plugin_skills_under(&data_dir.join("plugins"), false);
+    skills.extend(plugin_skills_under(builtin_root, true));
     skills.sort_by(|a, b| (&a.plugin_name, &a.name).cmp(&(&b.plugin_name, &b.name)));
     skills
 }
@@ -369,12 +379,8 @@ fn description_of(markdown: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// Read a plugin skill's markdown; the direct layout (the plugin itself as a
-/// skill) is addressed by passing the plugin name as the skill name.
-pub fn read_plugin_skill(data_dir: &Path, plugin_name: &str, name: &str) -> Result<String> {
-    validate_plugin_dir_name(plugin_name)?;
-    validate_skill_name(name)?;
-    let skills_dir = data_dir.join("plugins").join(plugin_name).join("skills");
+fn read_plugin_skill_under(plugins_root: &Path, plugin_name: &str, name: &str) -> Result<String> {
+    let skills_dir = plugins_root.join(plugin_name).join("skills");
     if !skills_dir.is_dir() {
         return Err(AppError::io(format!("插件 {plugin_name} 没有技能目录。")));
     }
@@ -387,6 +393,23 @@ pub fn read_plugin_skill(data_dir: &Path, plugin_name: &str, name: &str) -> Resu
     let markdown = skill_markdown(&skill_dir)
         .ok_or_else(|| AppError::io(format!("插件 {plugin_name} 没有技能 {name}。")))?;
     fs::read_to_string(&markdown).map_err(|e| AppError::io(format!("读取技能失败：{e}")))
+}
+
+/// Read a plugin skill's markdown, searching data plugins and then the
+/// builtin stars; the direct layout (the plugin itself as a skill) is
+/// addressed by passing the plugin name as the skill name.
+pub fn read_plugin_skill(
+    data_dir: &Path,
+    builtin_root: &Path,
+    plugin_name: &str,
+    name: &str,
+) -> Result<String> {
+    validate_plugin_dir_name(plugin_name)?;
+    validate_skill_name(name)?;
+    if let Ok(content) = read_plugin_skill_under(&data_dir.join("plugins"), plugin_name, name) {
+        return Ok(content);
+    }
+    read_plugin_skill_under(builtin_root, plugin_name, name)
 }
 
 fn install_skill_dir(data_dir: &Path, source: &Path, name: &str) -> Result<()> {
@@ -608,7 +631,16 @@ mod tests {
         skill: Option<&str>,
         markdown: &str,
     ) -> Result<()> {
-        let skills_dir = data_dir.join("plugins").join(plugin).join("skills");
+        write_plugin_skill_under(&data_dir.join("plugins"), plugin, skill, markdown)
+    }
+
+    fn write_plugin_skill_under(
+        plugins_root: &Path,
+        plugin: &str,
+        skill: Option<&str>,
+        markdown: &str,
+    ) -> Result<()> {
+        let skills_dir = plugins_root.join(plugin).join("skills");
         let skill_dir = match skill {
             Some(name) => skills_dir.join(name),
             None => skills_dir,
@@ -635,8 +667,9 @@ mod tests {
                 .join(".plugin-install-x")
                 .join("skills"),
         )?;
+        let builtin_root = dir.path().join("builtin_stars");
 
-        let skills = list_plugin_skills(dir.path());
+        let skills = list_plugin_skills(dir.path(), &builtin_root);
         assert_eq!(skills.len(), 2);
         // Sorted by (plugin, name): "inner" sorts before the plugin itself.
         assert_eq!(skills[0].name, "inner");
@@ -644,21 +677,42 @@ mod tests {
         assert_eq!(skills[0].description, "i");
         assert_eq!(skills[1].name, "my_plugin");
         assert_eq!(skills[1].description, "p");
+        assert!(!skills[0].builtin);
+        Ok(())
+    }
+
+    #[test]
+    fn builtin_star_skills_are_listed_and_flagged() -> Result<()> {
+        let dir = TempDir::new("builtin-skills")?;
+        let builtin_root = dir.path().join("astrbot").join("builtin_stars");
+        write_plugin_skill_under(&builtin_root, "builtin_plugin", Some("helper"), "x")?;
+
+        let skills = list_plugin_skills(dir.path(), &builtin_root);
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].plugin_name, "builtin_plugin");
+        assert_eq!(skills[0].name, "helper");
+        assert!(skills[0].builtin);
+
+        assert_eq!(
+            read_plugin_skill(dir.path(), &builtin_root, "builtin_plugin", "helper")?,
+            "x"
+        );
         Ok(())
     }
 
     #[test]
     fn plugin_skills_are_readable_in_both_layouts() -> Result<()> {
         let dir = TempDir::new("plugin-read")?;
+        let builtin_root = dir.path().join("builtin_stars");
         write_plugin_skill(dir.path(), "my_plugin", None, "direct")?;
         write_plugin_skill(dir.path(), "my_plugin", Some("inner"), "nested")?;
 
         assert_eq!(
-            read_plugin_skill(dir.path(), "my_plugin", "my_plugin")?,
+            read_plugin_skill(dir.path(), &builtin_root, "my_plugin", "my_plugin")?,
             "direct"
         );
         assert_eq!(
-            read_plugin_skill(dir.path(), "my_plugin", "inner")?,
+            read_plugin_skill(dir.path(), &builtin_root, "my_plugin", "inner")?,
             "nested"
         );
         Ok(())
@@ -667,16 +721,17 @@ mod tests {
     #[test]
     fn plugin_skill_reads_reject_bad_names() -> Result<()> {
         let dir = TempDir::new("plugin-bad")?;
+        let builtin_root = dir.path().join("builtin_stars");
         write_plugin_skill(dir.path(), "my_plugin", Some("inner"), "x")?;
         for plugin in ["..", "a/b"] {
             assert!(
-                read_plugin_skill(dir.path(), plugin, "inner").is_err(),
+                read_plugin_skill(dir.path(), &builtin_root, plugin, "inner").is_err(),
                 "{plugin}"
             );
         }
         for skill in ["..", "a/b", "missing"] {
             assert!(
-                read_plugin_skill(dir.path(), "my_plugin", skill).is_err(),
+                read_plugin_skill(dir.path(), &builtin_root, "my_plugin", skill).is_err(),
                 "{skill}"
             );
         }

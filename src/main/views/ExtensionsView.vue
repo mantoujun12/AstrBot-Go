@@ -131,9 +131,19 @@ const skillsPanel = ref<InstanceType<typeof SkillsPanel> | null>(null);
   color: rgba(var(--v-theme-on-surface), 0.78);
 }
 
+.extensions-view__tab:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
 .extensions-view__tab--active {
-  background: rgba(var(--v-theme-primary), 0.12);
-  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-on-surface), 0.065);
+  color: rgba(var(--v-theme-on-surface), 0.86);
+}
+
+.extensions-view__tab--active:hover {
+  background: rgba(var(--v-theme-on-surface), 0.09);
+  color: rgba(var(--v-theme-on-surface), 0.9);
 }
 
 .extensions-view__switch-row {

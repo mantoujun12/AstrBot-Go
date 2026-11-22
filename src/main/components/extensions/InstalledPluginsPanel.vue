@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import EmptyState from "../common/EmptyState.vue";
+import faviconUrl from "../../assets/favicon.svg";
 import { toUserMessage } from "../../services/errors";
 import {
   fetchPluginMarket,
@@ -199,9 +200,7 @@ watch(instanceId, () => {
           class="plugin-card page-card"
         >
           <div class="plugin-card__head">
-            <v-avatar size="32" class="plugin-card__fallback">
-              <span>{{ plugin.name.charAt(0).toUpperCase() }}</span>
-            </v-avatar>
+            <img :src="faviconUrl" alt="" class="plugin-card__logo" />
             <div class="plugin-card__heading">
               <div class="plugin-card__title-row">
                 <p class="plugin-card__title">{{ plugin.name }}</p>

@@ -14,6 +14,7 @@ export interface InstancePluginSkill {
   name: string;
   description: string;
   plugin_name: string;
+  builtin: boolean;
 }
 
 export interface SkillZipInstall {

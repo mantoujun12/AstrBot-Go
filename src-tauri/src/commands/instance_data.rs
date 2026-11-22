@@ -15,6 +15,7 @@ use crate::instance::{
     PluginInstallRequest, PluginMarketPage, SkillZipInstall,
 };
 use crate::process::InstanceGuard;
+use crate::utils::paths::get_instance_core_dir;
 use std::path::PathBuf;
 use tauri::State;
 
@@ -30,6 +31,13 @@ where
 
 fn data_dir_of(instance_id: &str) -> Result<PathBuf> {
     data_manage::get_instance_data_dir(instance_id)
+}
+
+/// AstrBot's builtin star plugins, read-only skill providers.
+fn builtin_stars_dir_of(instance_id: &str) -> PathBuf {
+    get_instance_core_dir(instance_id)
+        .join("astrbot")
+        .join("builtin_stars")
 }
 
 // === Instance Data ===
@@ -260,7 +268,8 @@ pub async fn list_instance_skills(instance_id: String) -> Result<Vec<InstanceSki
 pub async fn list_instance_plugin_skills(instance_id: String) -> Result<Vec<InstancePluginSkill>> {
     off_runtime(move || {
         let data_dir = data_dir_of(&instance_id)?;
-        Ok(skills::list_plugin_skills(&data_dir))
+        let builtin_root = builtin_stars_dir_of(&instance_id);
+        Ok(skills::list_plugin_skills(&data_dir, &builtin_root))
     })
     .await
 }
@@ -273,7 +282,8 @@ pub async fn read_instance_plugin_skill(
 ) -> Result<String> {
     off_runtime(move || {
         let data_dir = data_dir_of(&instance_id)?;
-        skills::read_plugin_skill(&data_dir, &plugin_name, &name)
+        let builtin_root = builtin_stars_dir_of(&instance_id);
+        skills::read_plugin_skill(&data_dir, &builtin_root, &plugin_name, &name)
     })
     .await
 }

@@ -1079,7 +1079,6 @@ const enUS = {
     repo: "Repo",
     openRepo: "Open the plugin repository",
     install: "Install",
-    loadMore: "Load more",
     update: "Check update",
     uninstall: "Uninstall",
     toggleAria: "Enable or disable {name}",
@@ -1113,13 +1112,24 @@ const enUS = {
   skills: {
     instance: "Target instance",
     upload: "Upload skill",
+    search: "Search skills",
     localTitle: "Local skills",
     instanceRunning:
       "The instance is running. Stop it before uploading, editing, or toggling skills.",
     noInstance: "Select an instance first.",
     empty: "No local skills on this instance yet.",
+    searchEmpty: "No skills matched.",
     edit: "Edit",
     toggleAria: "Enable or disable {name}",
+    batch: {
+      select: "Select",
+      cancel: "Cancel selection",
+      deleteSelected: "Delete selected ({count})",
+    },
+    batchConfirm: {
+      title: "Delete skills",
+      message: "Delete {count} selected skills?",
+    },
     table: {
       name: "Name",
       description: "Description",
@@ -1129,6 +1139,7 @@ const enUS = {
       title: "Plugin skills",
       plugin: "Plugin",
       view: "View",
+      builtin: "Built-in",
       empty: "No installed plugin provides skills.",
     },
     uploadDialog: {
@@ -1147,6 +1158,8 @@ const enUS = {
       installed: "Installed skills: {names}.",
       saved: "Saved {name}.",
       deleted: "Deleted {name}.",
+      batchDeleted: "Deleted {count} skills.",
+      batchPartial: "Failed to delete {count} skills.",
     },
   },
 } satisfies typeof zhCN;

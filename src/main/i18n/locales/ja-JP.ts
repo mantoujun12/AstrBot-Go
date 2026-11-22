@@ -1078,7 +1078,6 @@ const jaJP = {
     repo: "リポジトリ",
     openRepo: "プラグインのリポジトリを開く",
     install: "インストール",
-    loadMore: "さらに読み込む",
     update: "更新を確認",
     uninstall: "アンインストール",
     toggleAria: "{name} を有効または無効にする",
@@ -1112,13 +1111,24 @@ const jaJP = {
   skills: {
     instance: "対象インスタンス",
     upload: "スキルをアップロード",
+    search: "スキルを検索",
     localTitle: "ローカルスキル",
     instanceRunning:
       "インスタンスが実行中です。アップロード、編集、切り替えの前に停止してください。",
     noInstance: "先にインスタンスを選択してください。",
     empty: "このインスタンスにはローカルスキルがありません。",
+    searchEmpty: "一致するスキルがありません。",
     edit: "編集",
     toggleAria: "{name} を有効または無効にする",
+    batch: {
+      select: "選択",
+      cancel: "選択を解除",
+      deleteSelected: "選択項目を削除（{count}）",
+    },
+    batchConfirm: {
+      title: "スキルを一括削除",
+      message: "選択した {count} 個のスキルを削除しますか？",
+    },
     table: {
       name: "名前",
       description: "説明",
@@ -1128,6 +1138,7 @@ const jaJP = {
       title: "プラグインスキル",
       plugin: "プラグイン",
       view: "表示",
+      builtin: "内蔵",
       empty: "スキルを提供するプラグインはありません。",
     },
     uploadDialog: {
@@ -1146,6 +1157,8 @@ const jaJP = {
       installed: "スキルをインストールしました：{names}。",
       saved: "{name} を保存しました。",
       deleted: "{name} を削除しました。",
+      batchDeleted: "{count} 個のスキルを削除しました。",
+      batchPartial: "{count} 個のスキルを削除できませんでした。",
     },
   },
 } satisfies typeof zhCN;

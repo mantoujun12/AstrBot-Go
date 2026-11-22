@@ -21,14 +21,6 @@
   flex: none;
 }
 
-.plugin-card__logo--broken {
-  display: none;
-}
-
-.plugin-card__fallback {
-  flex: none;
-}
-
 .plugin-card__heading {
   min-width: 0;
   flex: 1;
@@ -81,6 +73,12 @@
   flex-wrap: wrap;
   color: rgba(var(--v-theme-on-surface), 0.55);
   font-size: 0.75rem;
+}
+
+.plugin-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .plugin-card__switch {

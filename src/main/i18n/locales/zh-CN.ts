@@ -1061,7 +1061,6 @@ const zhCN = {
     "repo": "仓库",
     "openRepo": "打开插件仓库",
     "install": "安装",
-    "loadMore": "加载更多",
     "update": "检查更新",
     "uninstall": "卸载",
     "toggleAria": "启用或停用 {name}",
@@ -1094,12 +1093,23 @@ const zhCN = {
   "skills": {
     "instance": "目标实例",
     "upload": "上传技能",
+    "search": "搜索技能",
     "localTitle": "本地技能",
     "instanceRunning": "实例正在运行，上传、编辑与启停需先停止实例。",
     "noInstance": "请先选择实例。",
     "empty": "该实例还没有本地技能。",
+    "searchEmpty": "没有匹配的技能。",
     "edit": "编辑",
     "toggleAria": "启用或停用 {name}",
+    "batch": {
+      "select": "选择",
+      "cancel": "取消选择",
+      "deleteSelected": "删除所选（{count}）"
+    },
+    "batchConfirm": {
+      "title": "批量删除",
+      "message": "删除选中的 {count} 个技能？"
+    },
     "table": {
       "name": "名称",
       "description": "描述",
@@ -1109,6 +1119,7 @@ const zhCN = {
       "title": "插件技能",
       "plugin": "所属插件",
       "view": "查看",
+      "builtin": "内置",
       "empty": "已安装的插件没有提供技能。"
     },
     "uploadDialog": {
@@ -1126,7 +1137,9 @@ const zhCN = {
     "toasts": {
       "installed": "已安装技能：{names}。",
       "saved": "已保存 {name}。",
-      "deleted": "已删除 {name}。"
+      "deleted": "已删除 {name}。",
+      "batchDeleted": "已删除 {count} 个技能。",
+      "batchPartial": "{count} 个技能删除失败。"
     }
   }
 };

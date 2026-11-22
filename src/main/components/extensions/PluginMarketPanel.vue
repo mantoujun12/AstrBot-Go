@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import EmptyState from "../common/EmptyState.vue";
 import TargetInstanceList from "./TargetInstanceList.vue";
+import faviconUrl from "../../assets/favicon.svg";
 import { openExternalUrl } from "../../services/app";
 import { toUserMessage } from "../../services/errors";
 import {
@@ -99,15 +100,25 @@ async function loadMore(): Promise<void> {
   await load(false);
 }
 
+/** Load the next page when the bottom sentinel scrolls into view. */
+function onIntersect(isIntersecting: boolean): void {
+  if (isIntersecting && canLoadMore.value && !loading.value) {
+    void loadMore();
+  }
+}
+
 function openRepo(url: string | null): void {
   if (url) {
     void openExternalUrl(url);
   }
 }
 
-/** Hide a broken market logo so the letter avatar shows instead. */
+/** Fall back to the app favicon when a market logo fails to load. */
 function onLogoError(event: Event): void {
-  (event.target as Element).classList.add("plugin-card__logo--broken");
+  const target = event.target as HTMLImageElement;
+  if (!target.src.endsWith(faviconUrl)) {
+    target.src = faviconUrl;
+  }
 }
 
 async function confirmInstall(item: PluginMarketItem): Promise<void> {
@@ -233,9 +244,12 @@ void load(true);
               loading="lazy"
               @error="onLogoError"
             />
-            <v-avatar v-else size="32" class="plugin-card__fallback">
-              <span>{{ pluginTitle(item).charAt(0).toUpperCase() }}</span>
-            </v-avatar>
+            <img
+              v-else
+              :src="faviconUrl"
+              alt=""
+              class="plugin-card__logo"
+            />
             <div class="plugin-card__heading">
               <div class="plugin-card__title-row">
                 <p class="plugin-card__title">{{ pluginTitle(item) }}</p>
@@ -254,11 +268,19 @@ void load(true);
           </div>
           <p class="plugin-card__desc">{{ item.description }}</p>
           <div class="plugin-card__meta">
-            <span class="page-nums">
-              {{ t("plugins.downloads", { count: formatCount(item.downloads) }) }}
+            <span
+              class="page-nums plugin-card__stat"
+              :title="t('plugins.downloads', { count: formatCount(item.downloads) })"
+            >
+              <v-icon icon="mdi-download-outline" size="14" aria-hidden="true" />
+              {{ formatCount(item.downloads) }}
             </span>
-            <span class="page-nums">
-              {{ t("plugins.stars", { count: formatCount(item.github_stars) }) }}
+            <span
+              class="page-nums plugin-card__stat"
+              :title="t('plugins.stars', { count: formatCount(item.github_stars) })"
+            >
+              <v-icon icon="mdi-star-outline" size="14" aria-hidden="true" />
+              {{ formatCount(item.github_stars) }}
             </span>
             <v-chip v-if="item.latest_version" size="x-small" variant="tonal" label>
               v{{ item.latest_version }}
@@ -297,15 +319,18 @@ void load(true);
           </div>
         </article>
       </div>
-      <div v-if="canLoadMore || loading" class="plugin-market__more">
-        <v-btn
-          variant="outlined"
-          :loading="loading"
-          :disabled="!canLoadMore"
-          @click="loadMore()"
-        >
-          {{ t("plugins.loadMore") }}
-        </v-btn>
+      <div
+        v-if="canLoadMore || loading"
+        v-intersect="onIntersect"
+        class="plugin-market__sentinel"
+      >
+        <v-progress-circular
+          v-if="loading"
+          indeterminate
+          size="22"
+          width="2"
+          color="primary"
+        />
       </div>
     </template>
 
@@ -373,9 +398,11 @@ void load(true);
   gap: 12px;
 }
 
-.plugin-market__more {
+.plugin-market__sentinel {
   display: flex;
+  align-items: center;
   justify-content: center;
-  margin-top: 16px;
+  min-height: 40px;
+  margin-top: 8px;
 }
 </style>
