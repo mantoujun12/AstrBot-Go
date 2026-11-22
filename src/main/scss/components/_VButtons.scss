@@ -64,3 +64,12 @@
   width: calc(var(--v-btn-height) + 6px);
   height: calc(var(--v-btn-height) + 6px);
 }
+
+// Icon buttons inside v-btn-toggle/v-btn-group inherit the group's density
+// and an inline height: auto stretch to the group's fixed height, but Vuetify
+// keeps the standalone compact width (calc(var(--v-btn-height) - 8px)), so
+// small buttons render 20px wide against the 36px compact group height.
+// Match the stretched height instead (small: 28px + 8px = 36px).
+.v-btn-group .v-btn--icon.v-btn--density-compact {
+  width: calc(var(--v-btn-height) + 8px);
+}
