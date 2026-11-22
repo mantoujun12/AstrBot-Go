@@ -284,9 +284,11 @@ async function confirmKbDelete(): Promise<void> {
   kbDeleting.value = true;
   try {
     await deleteInstanceKnowledgeBase(instance.id, kb.kb_id);
+    knowledgeBases.value = knowledgeBases.value.filter(
+      (item) => item.kb_id !== kb.kb_id,
+    );
     showToast(t("instanceData.knowledgeBases.deleted"));
     kbDeleteOpen.value = false;
-    await ensureKnowledgeBases();
   } catch (cause) {
     showErrorToast(cause);
   } finally {
