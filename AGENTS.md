@@ -150,9 +150,16 @@ Project styles in `src/main/scss/` and component `<style>` blocks are unlayered,
 - For frontend changes, run at least `pnpm build` to confirm that `vue-tsc` and the Vite build pass. If the run fails on the pnpm supply-chain pre-check instead of on TypeScript or Vite, rerun with `--registry=https://registry.npmjs.org/` and report the real tool result; the policy error is an environment issue, not a code failure.
 - For Rust or Tauri configuration changes, run at least `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo check`.
 - For UI interaction, Tauri commands, permissions, filesystem operations, or process behavior, document the relevant manual verification. Run `pnpm tauri dev` for desktop integration testing when possible.
-- Add unit tests for new critical pure logic, prioritizing path validation, version comparison, backup manifests, error conversion, and repeated execution.
 - If the repository has no configured frontend lint or test script, do not invent commands or claim that they were run.
 - Report only the commands that were actually run and their results during verification. Clearly disclose checks that were not run, platform behavior that could not be reproduced, and any remaining risks.
+
+### Testing Requirements
+
+- Add tests only where a wrong result is hard to notice and expensive to undo: path validation, version comparison, backup manifests, error conversion, repeated execution, and security boundaries. The build, `cargo clippy`, and the manual checks above cover the rest.
+- In normal cases, do not create extra tests or probes. Do not test code that already has equivalent coverage, repeat the same assertion per branch, test framework or library behavior, or add fixtures, helpers, and test-only hooks that exist for a single case.
+- A bug fix needs a regression test only when the bug sits in the list above and no existing test reaches it. Otherwise verify the fix with the existing checks and say what was run.
+- Do not write throwaway probe scripts, temporary debug commands, debug prints, or ad-hoc assertion runs to confirm a change. Read the code and run the existing commands instead.
+- Reserve probes for extreme cases that code review and the normal checks cannot judge: concurrency, timing, external process or hardware behavior, or data loss that reproduces only under real load. Keep the probe minimal, delete it and its artifacts before handing off, and report what it proved.
 
 ## Changelog and Release
 
