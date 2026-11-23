@@ -11,8 +11,10 @@
 # - the backend job runs fmt and clippy serially, reusing one dependency compilation.
 # - clippy runs before the cache save, so new crates compiled for all targets stay cached.
 # - the frontend job caches the pnpm store; the cache key is bumped when the store layout changes.
-# - caches only the cargo registry and git, not target/: caches are billed as size x retention
-#   and a debug Tauri target directory would exceed the free storage allowance.
+# - caches the cargo registry, git, and the clippy target directory keyed by Cargo.lock;
+#   incremental compilation is disabled so the cached target stays small. This cut the
+#   warm backend job from ~4m10 to ~1m10; a full debug build target is far larger, so keep
+#   it out of the cache.
 #
 # References:
 # - cimg/rust image and tagging scheme: https://circleci.com/developer/images/image/cimg/rust
@@ -111,6 +113,10 @@ jobs:
           keys:
             - cargo-v4-{{ checksum "src-tauri/Cargo.lock" }}
             - cargo-v4-
+      - restore_cache:
+          keys:
+            - cargo-target-v1-{{ checksum "src-tauri/Cargo.lock" }}
+            - cargo-target-v1-
       - run:
           name: Check formatting
           command: cargo fmt --all --check
@@ -119,6 +125,12 @@ jobs:
           name: Run clippy
           command: cargo clippy --workspace --all-targets --locked
           working_directory: src-tauri
+          environment:
+            CARGO_INCREMENTAL: "0"
+      - save_cache:
+          key: cargo-target-v1-{{ checksum "src-tauri/Cargo.lock" }}
+          paths:
+            - src-tauri/target
       - save_cache:
           key: cargo-v4-{{ checksum "src-tauri/Cargo.lock" }}
           paths:
