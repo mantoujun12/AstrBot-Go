@@ -12,7 +12,6 @@
 # - the backend job runs fmt, clippy, and unit tests serially against the cached target;
 #   a warm run is around 2 minutes instead of the ~4 minute cold build.
 # - clippy and tests run before the cache save, so compiled test binaries stay cached.
-# Probe: warm cached tests run.
 # - the frontend job caches the pnpm store; the cache key is bumped when the store layout changes.
 # - caches the cargo registry, git, and the clippy/test target directory keyed by Cargo.lock;
 #   incremental compilation is disabled so the cached target stays small. A full debug build
@@ -130,8 +129,13 @@ jobs:
           environment:
             CARGO_INCREMENTAL: "0"
       - run:
+          name: Install cargo-nextest
+          command: |
+            curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ~/.cargo/bin
+            cargo nextest --version
+      - run:
           name: Run unit tests
-          command: cargo test --workspace --locked
+          command: cargo nextest run --workspace --locked
           working_directory: src-tauri
           environment:
             CARGO_INCREMENTAL: "0"
