@@ -42,7 +42,6 @@ Repository documentation layout:
 - `src-tauri/src/`: Tauri backend logic and command registration. `lib.rs` handles application assembly, while `main.rs` contains only the startup layer.
 - `src-tauri/capabilities/`: Tauri capability and permission configuration.
 - `src-tauri/tauri.conf.json`: Window, build, bundle, and security configuration.
-- `public/`: Static assets that do not need to pass through the module graph.
 
 When extending functionality, separate pages, components, services, and state logic by responsibility. Do not put downloads, process management, backup and restore logic, or complex `invoke` calls into `App.vue`.
 
