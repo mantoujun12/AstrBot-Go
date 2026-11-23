@@ -1,6 +1,6 @@
 # Codecov configuration for AstrBot-Go.
 # Only the frontend (Vitest) uploads coverage;
-# see .github/workflows/coverage.yml.
+# see .github/workflows/test.yml.
 # Reference: https://docs.codecov.com/docs/codecovyml-reference
 
 codecov:

@@ -3,18 +3,16 @@
 # The frontend and backend parameters are set by the path-filtering setup job.
 # A job is skipped when its parameter is false, so unrelated changes do not use build credits.
 #
-# Changes in this revision:
-# - the backend job now runs fmt, clippy, and `cargo test --workspace --locked` serially,
-#   reusing one dependency compilation instead of paying for two parallel ones.
-# - clippy and test run before the cache save, so new crates compiled for tests stay cached.
+# CircleCI is the build gate only. Unit tests run in GitHub Actions
+# (.github/workflows/test.yml), and clippy SARIF analysis runs in
+# .github/workflows/rust-clippy.yml; CircleCI keeps only the blocking build,
+# format, and clippy checks so no test work is paid for twice.
+#
+# - the backend job runs fmt and clippy serially, reusing one dependency compilation.
+# - clippy runs before the cache save, so new crates compiled for all targets stay cached.
 # - the frontend job caches the pnpm store; the cache key is bumped when the store layout changes.
-# - the frontend job now runs `pnpm test` (vitest unit tests). The GitHub
-#   Actions tests workflow was removed so CircleCI stays the check gate.
 # - caches only the cargo registry and git, not target/: caches are billed as size x retention
 #   and a debug Tauri target directory would exceed the free storage allowance.
-# - `cargo test` was verified locally on Windows: 137 tests pass in ~3s and compilation
-#   succeeds without a dist/ directory (generate_context! does not require frontendDist).
-#   The Linux test run (cfg(not(windows)) paths) is validated by the first CI run.
 #
 # References:
 # - cimg/rust image and tagging scheme: https://circleci.com/developer/images/image/cimg/rust
@@ -98,9 +96,6 @@ jobs:
       - run:
           name: Type check and build frontend
           command: pnpm build
-      - run:
-          name: Unit tests
-          command: pnpm test
 
   backend:
     docker:
@@ -123,10 +118,6 @@ jobs:
       - run:
           name: Run clippy
           command: cargo clippy --workspace --all-targets --locked
-          working_directory: src-tauri
-      - run:
-          name: Run unit tests
-          command: cargo test --workspace --locked
           working_directory: src-tauri
       - save_cache:
           key: cargo-v4-{{ checksum "src-tauri/Cargo.lock" }}
