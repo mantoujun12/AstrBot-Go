@@ -129,13 +129,8 @@ jobs:
           environment:
             CARGO_INCREMENTAL: "0"
       - run:
-          name: Install cargo-nextest
-          command: |
-            curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ~/.cargo/bin
-            cargo nextest --version
-      - run:
           name: Run unit tests
-          command: cargo nextest run --workspace --locked
+          command: cargo test --workspace --locked
           working_directory: src-tauri
           environment:
             CARGO_INCREMENTAL: "0"
