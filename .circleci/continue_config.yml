@@ -3,18 +3,19 @@
 # The frontend and backend parameters are set by the path-filtering setup job.
 # A job is skipped when its parameter is false, so unrelated changes do not use build credits.
 #
-# CircleCI is the build gate only. Unit tests run in GitHub Actions
-# (.github/workflows/test.yml), and clippy SARIF analysis runs in
-# .github/workflows/rust-clippy.yml; CircleCI keeps only the blocking build,
-# format, and clippy checks so no test work is paid for twice.
+# CircleCI runs the blocking build, format, clippy, and unit test checks.
+# GitHub Actions produces coverage and test analytics (.github/workflows/test.yml),
+# and clippy SARIF analysis lives in .github/workflows/rust-clippy.yml. The target
+# cache keeps the extra CircleCI checks cheap instead of paying for a cold dependency
+# build on every run.
 #
-# - the backend job runs fmt and clippy serially, reusing one dependency compilation.
-# - clippy runs before the cache save, so new crates compiled for all targets stay cached.
+# - the backend job runs fmt, clippy, and unit tests serially against the cached target;
+#   a warm run is around 2 minutes instead of the ~4 minute cold build.
+# - clippy and tests run before the cache save, so compiled test binaries stay cached.
 # - the frontend job caches the pnpm store; the cache key is bumped when the store layout changes.
-# - caches the cargo registry, git, and the clippy target directory keyed by Cargo.lock;
-#   incremental compilation is disabled so the cached target stays small. This cut the
-#   warm backend job from ~4m10 to ~1m10; a full debug build target is far larger, so keep
-#   it out of the cache.
+# - caches the cargo registry, git, and the clippy/test target directory keyed by Cargo.lock;
+#   incremental compilation is disabled so the cached target stays small. A full debug build
+#   target is far larger, so keep it out of the cache.
 #
 # References:
 # - cimg/rust image and tagging scheme: https://circleci.com/developer/images/image/cimg/rust
@@ -115,8 +116,8 @@ jobs:
             - cargo-v4-
       - restore_cache:
           keys:
-            - cargo-target-v1-{{ checksum "src-tauri/Cargo.lock" }}
-            - cargo-target-v1-
+            - cargo-target-v2-{{ checksum "src-tauri/Cargo.lock" }}
+            - cargo-target-v2-
       - run:
           name: Check formatting
           command: cargo fmt --all --check
@@ -127,8 +128,14 @@ jobs:
           working_directory: src-tauri
           environment:
             CARGO_INCREMENTAL: "0"
+      - run:
+          name: Run unit tests
+          command: cargo test --workspace --locked
+          working_directory: src-tauri
+          environment:
+            CARGO_INCREMENTAL: "0"
       - save_cache:
-          key: cargo-target-v1-{{ checksum "src-tauri/Cargo.lock" }}
+          key: cargo-target-v2-{{ checksum "src-tauri/Cargo.lock" }}
           paths:
             - src-tauri/target
       - save_cache:
