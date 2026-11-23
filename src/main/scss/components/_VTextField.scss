@@ -1,3 +1,15 @@
-.v-text-field input {
+/*
+ * Field text is 0.8rem everywhere, not only in <input>: v-select renders its
+ * selection as a .v-select__selection-text span and v-textarea uses a
+ * <textarea>, both of which would otherwise inherit Vuetify's 16px .v-field
+ * font-size and end up visibly larger than adjacent v-text-field values.
+ * Field labels are untouched: the floating label keeps Vuetify's 0.75em
+ * scale so the focus animation stays smooth.
+ */
+.v-text-field input,
+.v-text-field textarea,
+.v-select .v-select__selection-text,
+.v-text-field .v-text-field__prefix,
+.v-text-field .v-text-field__suffix {
   font-size: 0.8rem;
 }

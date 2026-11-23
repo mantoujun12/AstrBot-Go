@@ -1,4 +1,8 @@
-.v-label {
+/* Selection-control labels (v-switch/v-checkbox/v-radio) only. Field labels
+ * are excluded on purpose: this file is unlayered and would otherwise beat
+ * Vuetify's layered .v-field-label--floating font-size rule, breaking the
+ * 0.75 scale the label float animation targets (visible size jump on focus). */
+.v-label:not(.v-field-label) {
   font-size: 0.975rem;
 }
 .v-switch .v-label,
