@@ -676,7 +676,13 @@ const zhCN = {
       "columns": {
         "name": "名称",
         "state": "状态",
-        "actions": "操作"
+        "actions": "操作",
+        "version": "版本",
+        "port": "端口"
+      },
+      "columnSettings": {
+        "buttonAria": "列设置",
+        "title": "列"
       },
       "meta": "版本 {version} · 端口 {port}",
       "empty": "暂无实例",

@@ -8,17 +8,20 @@ import InstanceRowActions from "./InstanceRowActions.vue";
 import type { InstanceStatus } from "../../../types/launcher";
 import type {
   ExternalInstanceRow,
+  InstanceColumnName,
   InstanceRow,
 } from "../../../composables/useInstanceList";
+import { externalRunningPort } from "../../../composables/useInstanceList";
 import type {
   ClearKind,
   InstanceRowContext,
 } from "./instanceRowContext";
 
-defineProps<{
+const props = defineProps<{
   rows: InstanceRow[];
   loading: boolean;
   ctx: InstanceRowContext;
+  hiddenColumns: InstanceColumnName[];
 }>();
 
 const emit = defineEmits<{
@@ -44,27 +47,46 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const headers = computed<DataTableHeader[]>(() => [
-  {
-    title: t("instances.list.columns.name"),
-    key: "name",
-    sortable: false,
-    minWidth: 200,
-  },
-  {
-    title: t("instances.list.columns.state"),
-    key: "state",
-    sortable: false,
-    width: 220,
-  },
-  {
+const headers = computed<DataTableHeader[]>(() => {
+  const visible: DataTableHeader[] = [
+    {
+      title: t("instances.list.columns.name"),
+      key: "name",
+      sortable: false,
+      minWidth: 200,
+    },
+    {
+      title: t("instances.list.columns.state"),
+      key: "state",
+      sortable: false,
+      width: 220,
+    },
+  ];
+  if (!props.hiddenColumns.includes("version")) {
+    visible.push({
+      title: t("instances.list.columns.version"),
+      key: "version",
+      sortable: false,
+      width: 110,
+    });
+  }
+  if (!props.hiddenColumns.includes("port")) {
+    visible.push({
+      title: t("instances.list.columns.port"),
+      key: "port",
+      sortable: false,
+      width: 90,
+    });
+  }
+  visible.push({
     title: t("instances.list.columns.actions"),
     key: "actions",
     sortable: false,
     align: "end",
     minWidth: 240,
-  },
-]);
+  });
+  return visible;
+});
 </script>
 
 <template>
@@ -145,6 +167,20 @@ const headers = computed<DataTableHeader[]>(() => [
           :state="item.state"
         />
         <InstanceStatusCell v-else :instance="item" />
+      </template>
+
+      <template #item.version="{ item }">
+        <span v-if="item.external" class="page-cell page-muted">—</span>
+        <span v-else class="page-cell page-nums">{{ item.version }}</span>
+      </template>
+
+      <template #item.port="{ item }">
+        <span v-if="item.external" class="page-cell page-nums">{{
+          externalRunningPort(item) ?? "—"
+        }}</span>
+        <span v-else class="page-cell page-nums">{{
+          item.state === "running" ? item.port : item.configured_port
+        }}</span>
       </template>
 
       <template #item.actions="{ item }">

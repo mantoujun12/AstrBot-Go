@@ -7,11 +7,16 @@ import type {
 import {
   cacheListPrefs,
   readCachedListPrefs,
+  type InstanceColumnName,
   type InstanceSortKey,
   type InstanceViewMode,
 } from "../utils/instanceListCache";
 
-export type { InstanceSortKey, InstanceViewMode };
+export type {
+  InstanceColumnName,
+  InstanceSortKey,
+  InstanceViewMode,
+};
 
 export type InstanceStateFilter = "all" | "running" | "stopped";
 export type InstanceSourceFilter = "all" | "launcher" | "external";
@@ -189,18 +194,20 @@ export function filterInstanceRows(
 }
 
 /**
- * Sorting, filtering, and view state for the instance list. `viewMode` and
- * `sortKey` persist to localStorage; `search` and both filters are ephemeral
+ * Sorting, filtering, and view state for the instance list. `viewMode`,
+ * `sortKey`, and `hiddenColumns` persist to localStorage; `search` and both
+ * filters are ephemeral
  * (fresh refs per page mount, so they reset when the page is left).
  */
 export function useInstanceList(getRows: () => readonly InstanceRow[]) {
   const search = ref("");
   const stateFilter = ref<InstanceStateFilter>("all");
   const sourceFilter = ref<InstanceSourceFilter>("all");
-  const { viewMode: cachedViewMode, sortKey: cachedSortKey } =
+  const { viewMode: cachedViewMode, sortKey: cachedSortKey, hiddenColumns: cachedHiddenColumns } =
     readCachedListPrefs();
   const sortKey = ref<InstanceSortKey>(cachedSortKey);
   const viewMode = ref<InstanceViewMode>(cachedViewMode);
+  const hiddenColumns = ref<InstanceColumnName[]>(cachedHiddenColumns);
 
   const filteredRows = computed(() =>
     sortInstanceRows(
@@ -213,10 +220,11 @@ export function useInstanceList(getRows: () => readonly InstanceRow[]) {
     ),
   );
 
-  watch([viewMode, sortKey], () => {
+  watch([viewMode, sortKey, hiddenColumns], () => {
     cacheListPrefs({
       viewMode: viewMode.value,
       sortKey: sortKey.value,
+      hiddenColumns: hiddenColumns.value,
     });
   });
 
@@ -232,6 +240,7 @@ export function useInstanceList(getRows: () => readonly InstanceRow[]) {
     sourceFilter,
     sortKey,
     viewMode,
+    hiddenColumns,
     filteredRows,
     resetFilters,
   };

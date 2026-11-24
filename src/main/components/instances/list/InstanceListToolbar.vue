@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
+  InstanceColumnName,
   InstanceSortKey,
   InstanceStateFilter,
   InstanceSourceFilter,
@@ -17,6 +18,9 @@ const sourceFilter = defineModel<InstanceSourceFilter>("sourceFilter", {
 });
 const sortKey = defineModel<InstanceSortKey>("sortKey", { required: true });
 const viewMode = defineModel<InstanceViewMode>("viewMode", { required: true });
+const hiddenColumns = defineModel<InstanceColumnName[]>("hiddenColumns", {
+  required: true,
+});
 
 defineProps<{
   refreshLoading: boolean;
@@ -54,6 +58,20 @@ const sortItems = computed(() => [
   { title: t("instances.list.sort.versionDesc"), value: "versionDesc" },
   { title: t("instances.list.sort.portAsc"), value: "portAsc" },
 ]);
+
+const hideableColumns = computed<
+  { title: string; value: InstanceColumnName }[]
+>(() => [
+  { title: t("instances.list.columns.version"), value: "version" },
+  { title: t("instances.list.columns.port"), value: "port" },
+]);
+
+function toggleColumn(column: InstanceColumnName, visible: boolean | null): void {
+  // `null` (indeterminate) counts as hidden; the menu never sets it.
+  hiddenColumns.value = visible
+    ? hiddenColumns.value.filter((entry) => entry !== column)
+    : [...hiddenColumns.value, column];
+}
 </script>
 
 <template>
@@ -131,6 +149,42 @@ const sortItems = computed(() => [
         {{ t("instances.list.view.cards") }}
       </v-tooltip>
     </v-btn-toggle>
+    <v-menu location="bottom end">
+      <template #activator="{ props: menuProps }">
+        <v-tooltip location="bottom">
+          <template #activator="{ props: tooltipProps }">
+            <v-btn
+              v-bind="{ ...menuProps, ...tooltipProps }"
+              icon="mdi-view-column-outline"
+              variant="text"
+              size="small"
+              :aria-label="t('instances.list.columnSettings.buttonAria')"
+            />
+          </template>
+          {{ t("instances.list.columnSettings.buttonAria") }}
+        </v-tooltip>
+      </template>
+      <v-list density="compact" class="instance-columns-menu">
+        <v-list-subheader>
+          {{ t("instances.list.columnSettings.title") }}
+        </v-list-subheader>
+        <v-list-item
+          v-for="column in hideableColumns"
+          :key="column.value"
+        >
+          <v-checkbox
+            :model-value="!hiddenColumns.includes(column.value)"
+            :label="column.title"
+            color="primary"
+            density="compact"
+            hide-details
+            @update:model-value="
+              (visible) => toggleColumn(column.value, visible)
+            "
+          />
+        </v-list-item>
+      </v-list>
+    </v-menu>
     <div class="instance-list-toolbar__actions">
       <v-btn
         variant="text"
@@ -210,5 +264,9 @@ const sortItems = computed(() => [
   flex-wrap: wrap;
   gap: 8px;
   margin-left: auto;
+}
+
+.instance-columns-menu {
+  min-width: 180px;
 }
 </style>

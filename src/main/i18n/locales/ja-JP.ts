@@ -692,6 +692,12 @@ const jaJP = {
         name: "名前",
         state: "状態",
         actions: "操作",
+        version: "バージョン",
+        port: "ポート",
+      },
+      columnSettings: {
+        buttonAria: "列設定",
+        title: "列",
       },
       meta: "バージョン {version} · ポート {port}",
       empty: "インスタンスはありません",

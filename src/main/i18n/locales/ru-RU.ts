@@ -710,6 +710,12 @@ const ruRU = {
         name: "Название",
         state: "Состояние",
         actions: "Действия",
+        version: "Версия",
+        port: "Порт",
+      },
+      columnSettings: {
+        buttonAria: "Настройки столбцов",
+        title: "Столбцы",
       },
       meta: "Версия {version} · Порт {port}",
       empty: "Экземпляров нет",
