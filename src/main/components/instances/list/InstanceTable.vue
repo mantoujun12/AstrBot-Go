@@ -24,6 +24,13 @@ const props = defineProps<{
   hiddenColumns: InstanceColumnName[];
 }>();
 
+const selected = defineModel<string[]>("selected", { required: true });
+
+/** External rows cannot be started or stopped, so they never join batch selection. */
+function isSelectable(item: InstanceRow): boolean {
+  return !item.external;
+}
+
 const emit = defineEmits<{
   start: [instance: InstanceStatus];
   stop: [instance: InstanceStatus];
@@ -92,9 +99,12 @@ const headers = computed<DataTableHeader[]>(() => {
 <template>
   <div class="page-table-card">
     <v-data-table
+      v-model:selected="selected"
       :headers="headers"
       :items="rows"
+      :item-selectable="isSelectable"
       item-value="id"
+      show-select
       :loading="loading"
       hide-default-footer
       :items-per-page="-1"
