@@ -719,6 +719,18 @@ fn regenerate_payload(provider: Option<&str>, model: Option<&str>) -> Value {
     body
 }
 
+/// True for dot segments in both literal and percent-encoded form.
+///
+/// URL parsers normalize `%2e` to `.` before resolving the path, so
+/// `%2e%2e` is equivalent to `..` and would escape an allowlisted prefix.
+fn is_dot_segment(segment: &str) -> bool {
+    let lower = segment.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "." | ".." | "%2e" | "%2e%2e" | ".%2e" | "%2e."
+    )
+}
+
 /// Percent-encode one path segment (RFC 3986 unreserved characters stay
 /// plain) so a session or message id cannot escape the chat route prefix.
 fn encode_path_segment(value: &str) -> String {
@@ -819,12 +831,9 @@ fn validate_proxy_target(method: &str, path: &str, locale: Locale) -> Result<()>
     if !path.starts_with('/') || path.starts_with("//") {
         return Err(rejected());
     }
-    // Dot segments would be normalized away by the URL parser and escape the
-    // allowlisted prefix.
-    if path_only
-        .split('/')
-        .any(|segment| segment == "." || segment == "..")
-    {
+    // Dot segments — literal or percent-encoded — are normalized away by URL
+    // parsers and would escape the allowlisted prefix.
+    if path_only.split('/').any(is_dot_segment) {
         return Err(rejected());
     }
 
@@ -858,10 +867,7 @@ fn validate_media_path(path: &str, locale: Locale) -> Result<()> {
     if !path.starts_with('/') || path.starts_with("//") {
         return Err(rejected());
     }
-    if path_only
-        .split('/')
-        .any(|segment| segment == "." || segment == "..")
-    {
+    if path_only.split('/').any(is_dot_segment) {
         return Err(rejected());
     }
 
@@ -1615,6 +1621,11 @@ mod tests {
             "/api/v1/chat/sessions",
             "api/v1/files/abc/content",
             "//api/v1/files/abc/content",
+            // Percent-encoded dot segments must be blocked like their literal equivalents.
+            "/api/v1/files/%2e%2e/content",
+            "/api/v1/files/%2E%2E/content",
+            "/api/v1/files/.%2e/content",
+            "/api/v1/files/%2e./content",
         ] {
             assert!(validate_media_path(path, locale).is_err(), "{path}");
         }
@@ -1825,6 +1836,12 @@ mod tests {
             ("GET", "/api/v1/chat/../plugins"),
             ("GET", "/api/v1/chat/sessions/../../plugins"),
             ("GET", ""),
+            // Percent-encoded dot segments must be treated the same as literal ones.
+            ("GET", "/api/v1/chat/%2e%2e/plugins"),
+            ("GET", "/api/v1/chat/%2E%2E/plugins"),
+            ("GET", "/api/v1/chat/.%2e/plugins"),
+            ("GET", "/api/v1/chat/%2e./plugins"),
+            ("GET", "/api/v1/chat/%2e/plugins"),
         ] {
             assert!(
                 validate_proxy_target(method, path, locale).is_err(),
