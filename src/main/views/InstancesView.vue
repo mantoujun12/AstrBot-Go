@@ -1179,7 +1179,14 @@ async function runBatch(action: BatchAction): Promise<void> {
   let failed = 0;
   try {
     for (const target of targets) {
-      if (isInstanceBusy(target.id)) {
+      /* Smart skip: each action only applies to a matching steady state —
+         running instances ignore start, stopped ones ignore restart/stop,
+         and transient states never match. */
+      const stateMatches =
+        action === "start"
+          ? target.state === "stopped"
+          : target.state === "running";
+      if (!stateMatches || isInstanceBusy(target.id)) {
         skipped += 1;
         continue;
       }

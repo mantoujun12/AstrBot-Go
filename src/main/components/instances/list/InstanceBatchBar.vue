@@ -33,36 +33,51 @@ const { t } = useI18n();
           {{ t("instances.list.batch.selected", { count: selectedCount }) }}
         </span>
         <div class="instance-batch-bar__actions">
-          <v-btn
-            color="primary"
-            variant="tonal"
-            size="small"
-            prepend-icon="mdi-play"
-            :disabled="disabled"
-            @click="emit('start')"
-          >
+          <v-tooltip location="top">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                icon="mdi-play"
+                color="success"
+                variant="tonal"
+                size="small"
+                :aria-label="t('instances.list.batch.start')"
+                :disabled="disabled"
+                @click="emit('start')"
+              />
+            </template>
             {{ t("instances.list.batch.start") }}
-          </v-btn>
-          <v-btn
-            color="warning"
-            variant="tonal"
-            size="small"
-            prepend-icon="mdi-restart"
-            :disabled="disabled"
-            @click="emit('restart')"
-          >
+          </v-tooltip>
+          <v-tooltip location="top">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                icon="mdi-restart"
+                color="primary"
+                variant="tonal"
+                size="small"
+                :aria-label="t('instances.list.batch.restart')"
+                :disabled="disabled"
+                @click="emit('restart')"
+              />
+            </template>
             {{ t("instances.list.batch.restart") }}
-          </v-btn>
-          <v-btn
-            color="warning"
-            variant="tonal"
-            size="small"
-            prepend-icon="mdi-stop"
-            :disabled="disabled"
-            @click="emit('stop')"
-          >
+          </v-tooltip>
+          <v-tooltip location="top">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                icon="mdi-stop"
+                color="warning"
+                variant="tonal"
+                size="small"
+                :aria-label="t('instances.list.batch.stop')"
+                :disabled="disabled"
+                @click="emit('stop')"
+              />
+            </template>
             {{ t("instances.list.batch.stop") }}
-          </v-btn>
+          </v-tooltip>
         </div>
       </div>
     </Transition>
