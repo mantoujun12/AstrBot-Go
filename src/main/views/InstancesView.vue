@@ -1316,14 +1316,9 @@ const rowContext = computed<InstanceRowContext>(() => ({
       :upgrade-all-loading="batchUpgradeRunning"
       :upgrade-all-disabled="batchUpgradeRunning || updatesLoading"
       :create-disabled="snapshot === null || batchUpgradeRunning"
-      :selected-count="selectedInstances.length"
-      :batch-disabled="batchDisabled"
       @refresh="handleRefresh"
       @upgrade-all="askUpgradeAll"
       @create="openCreate"
-      @batch-start="askBatch('start')"
-      @batch-restart="askBatch('restart')"
-      @batch-stop="askBatch('stop')"
     />
 
     <v-alert
@@ -1518,6 +1513,15 @@ const rowContext = computed<InstanceRowContext>(() => ({
       color="warning"
       :loading="batchUpgradeRunning"
       @confirm="handleUpgradeAll"
+    />
+
+    <InstanceBatchBar
+      v-if="selectedInstances.length > 0"
+      :selected-count="selectedInstances.length"
+      :disabled="batchDisabled"
+      @start="askBatch('start')"
+      @restart="askBatch('restart')"
+      @stop="askBatch('stop')"
     />
 
     <ConfirmDialog

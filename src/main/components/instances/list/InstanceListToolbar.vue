@@ -29,17 +29,12 @@ defineProps<{
   upgradeAllLoading: boolean;
   upgradeAllDisabled: boolean;
   createDisabled: boolean;
-  selectedCount: number;
-  batchDisabled: boolean;
 }>();
 
 const emit = defineEmits<{
   refresh: [];
   upgradeAll: [];
   create: [];
-  batchStart: [];
-  batchRestart: [];
-  batchStop: [];
 }>();
 
 const { t } = useI18n();
@@ -191,44 +186,6 @@ function toggleColumn(column: InstanceColumnName, visible: boolean | null): void
       </v-list>
     </v-menu>
     <div class="instance-list-toolbar__actions">
-      <div
-        v-if="selectedCount > 0"
-        class="instance-list-toolbar__batch"
-      >
-        <span class="page-muted">
-          {{ t("instances.list.batch.selected", { count: selectedCount }) }}
-        </span>
-        <v-btn
-          color="primary"
-          variant="tonal"
-          size="small"
-          prepend-icon="mdi-play"
-          :disabled="batchDisabled"
-          @click="emit('batchStart')"
-        >
-          {{ t("instances.list.batch.start") }}
-        </v-btn>
-        <v-btn
-          color="warning"
-          variant="tonal"
-          size="small"
-          prepend-icon="mdi-restart"
-          :disabled="batchDisabled"
-          @click="emit('batchRestart')"
-        >
-          {{ t("instances.list.batch.restart") }}
-        </v-btn>
-        <v-btn
-          color="warning"
-          variant="tonal"
-          size="small"
-          prepend-icon="mdi-stop"
-          :disabled="batchDisabled"
-          @click="emit('batchStop')"
-        >
-          {{ t("instances.list.batch.stop") }}
-        </v-btn>
-      </div>
       <v-btn
         variant="text"
         prepend-icon="mdi-refresh"
@@ -299,13 +256,6 @@ function toggleColumn(column: InstanceColumnName, visible: boolean | null): void
 .instance-list-toolbar__sort {
   flex: 1 1 190px;
   min-width: 0;
-}
-
-.instance-list-toolbar__batch {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 .instance-list-toolbar__actions {

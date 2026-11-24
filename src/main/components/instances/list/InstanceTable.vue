@@ -31,6 +31,10 @@ function isSelectable(item: InstanceRow): boolean {
   return !item.external;
 }
 
+/* Meta parts under the name duplicate the optional columns, so each part is shown only while its column is hidden. */
+const showVersionMeta = computed(() => props.hiddenColumns.includes("version"));
+const showPortMeta = computed(() => props.hiddenColumns.includes("port"));
+
 const emit = defineEmits<{
   start: [instance: InstanceStatus];
   stop: [instance: InstanceStatus];
@@ -66,7 +70,7 @@ const headers = computed<DataTableHeader[]>(() => {
       title: t("instances.list.columns.state"),
       key: "state",
       sortable: false,
-      width: 220,
+      width: 170,
     },
   ];
   if (!props.hiddenColumns.includes("version")) {
@@ -74,7 +78,7 @@ const headers = computed<DataTableHeader[]>(() => {
       title: t("instances.list.columns.version"),
       key: "version",
       sortable: false,
-      width: 110,
+      minWidth: 130,
     });
   }
   if (!props.hiddenColumns.includes("port")) {
@@ -82,7 +86,7 @@ const headers = computed<DataTableHeader[]>(() => {
       title: t("instances.list.columns.port"),
       key: "port",
       sortable: false,
-      width: 90,
+      minWidth: 110,
     });
   }
   visible.push({
@@ -145,19 +149,22 @@ const headers = computed<DataTableHeader[]>(() => {
               </template>
             </span>
             <span
-              v-else
+              v-else-if="showVersionMeta || showPortMeta"
               class="instance-meta page-muted page-nums"
-              :aria-label="
-                t('instances.list.meta', {
-                  version: item.version,
-                  port:
-                    item.state === 'running' ? item.port : item.configured_port,
-                })
-              "
             >
-              <v-icon size="12" icon="mdi-tag-outline" aria-hidden="true" />
+              <template v-if="showVersionMeta">
+                <v-icon
+                  size="12"
+                  icon="mdi-tag-outline"
+                  aria-hidden="true"
+                />
                 <span>{{ item.version }}</span>
-                <span aria-hidden="true">·</span>
+                <span
+                  v-if="showPortMeta"
+                  aria-hidden="true"
+                >·</span>
+              </template>
+              <template v-if="showPortMeta">
                 <v-icon size="12" icon="mdi-ethernet" aria-hidden="true" />
                 <span>
                   {{
@@ -166,6 +173,7 @@ const headers = computed<DataTableHeader[]>(() => {
                       : item.configured_port
                   }}
                 </span>
+              </template>
             </span>
           </div>
         </div>
