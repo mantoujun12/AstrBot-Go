@@ -831,6 +831,12 @@ fn validate_proxy_target(method: &str, path: &str, locale: Locale) -> Result<()>
     if !path.starts_with('/') || path.starts_with("//") {
         return Err(rejected());
     }
+    // Backslashes are treated as path separators by some HTTP clients and
+    // URL parsers; reject them before the slash-split segment walk so that
+    // `..\..\plugins` cannot escape the allowlisted prefix.
+    if path_only.contains('\\') {
+        return Err(rejected());
+    }
     // Dot segments — literal or percent-encoded — are normalized away by URL
     // parsers and would escape the allowlisted prefix.
     if path_only.split('/').any(is_dot_segment) {
@@ -865,6 +871,12 @@ fn validate_media_path(path: &str, locale: Locale) -> Result<()> {
     };
 
     if !path.starts_with('/') || path.starts_with("//") {
+        return Err(rejected());
+    }
+    // Backslashes are treated as path separators by some HTTP clients and
+    // URL parsers; reject them before the slash-split segment walk so that
+    // backslash-encoded traversals cannot escape the allowlisted prefixes.
+    if path_only.contains('\\') {
         return Err(rejected());
     }
     if path_only.split('/').any(is_dot_segment) {
@@ -1626,6 +1638,9 @@ mod tests {
             "/api/v1/files/%2E%2E/content",
             "/api/v1/files/.%2e/content",
             "/api/v1/files/%2e./content",
+            // Backslash separators must be rejected before the segment walk.
+            "/api/v1/files/..\\content",
+            "/api/v1/files\\content",
         ] {
             assert!(validate_media_path(path, locale).is_err(), "{path}");
         }
@@ -1842,6 +1857,9 @@ mod tests {
             ("GET", "/api/v1/chat/.%2e/plugins"),
             ("GET", "/api/v1/chat/%2e./plugins"),
             ("GET", "/api/v1/chat/%2e/plugins"),
+            // Backslash traversal must be rejected before the segment walk.
+            ("GET", "/api/v1/chat/..\\..\\plugins"),
+            ("GET", "/api/v1/chat\\..\\..\\plugins"),
         ] {
             assert!(
                 validate_proxy_target(method, path, locale).is_err(),
