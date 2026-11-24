@@ -19,6 +19,8 @@ defineProps<{
   loading: boolean;
 }>();
 
+const selected = defineModel<string[]>("selected", { required: true });
+
 const emit = defineEmits<{
   start: [instance: InstanceStatus];
   stop: [instance: InstanceStatus];
@@ -56,6 +58,16 @@ const { t } = useI18n();
     />
     <div v-for="row in rows" :key="row.id" class="page-card instance-card">
       <div class="instance-card__header">
+        <v-checkbox
+          v-if="!row.external"
+          v-model="selected"
+          :value="row.id"
+          class="instance-card__select"
+          color="primary"
+          density="compact"
+          hide-details
+          :aria-label="t('instances.list.batch.select', { name: row.name })"
+        />
         <v-tooltip location="top">
           <template #activator="{ props: tooltipProps }">
             <v-icon
@@ -160,6 +172,10 @@ const { t } = useI18n();
   flex-direction: column;
   gap: 12px;
   padding: 16px;
+}
+
+.instance-card__select {
+  flex: none;
 }
 
 .instance-card__header {

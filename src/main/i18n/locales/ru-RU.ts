@@ -732,6 +732,21 @@ const ruRU = {
         portAsc: "Порт (по возрастанию)",
         label: "Сортировка",
       },
+      batch: {
+        selected: "Выбрано: {count}",
+        start: "Запустить",
+        restart: "Перезапустить",
+        stop: "Остановить",
+        select: "Выбрать экземпляр «{name}»",
+        confirm: {
+          restartTitle: "Перезапуск экземпляров",
+          stopTitle: "Остановка экземпляров",
+          restart: "Перезапустить {count} экземпляров?",
+          stop: "Остановить {count} экземпляров?",
+        },
+        result:
+          "Готово: успешно — {count}, пропущено — {skipped}, с ошибками — {failed}",
+      },
       view: {
         table: "Таблица",
         cards: "Карточки",

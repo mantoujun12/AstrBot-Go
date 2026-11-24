@@ -102,6 +102,46 @@ const upgradeAllTargets = ref<InstanceStatus[]>([]);
 const upgradeAllRelease = ref<GitHubRelease | null>(null);
 let updatesRequest = 0;
 
+/* Batch start/restart/stop selection (launcher instances only). */
+
+type BatchAction = "start" | "restart" | "stop";
+
+const selectedIds = ref<string[]>([]);
+const batchActionRunning = ref(false);
+const batchConfirmAction = ref<BatchAction | null>(null);
+const batchConfirmOpen = ref(false);
+
+const selectedInstances = computed(() =>
+  selectedIds.value
+    .map((id) => instances.value.find((instance) => instance.id === id))
+    .filter((instance): instance is InstanceStatus => instance !== undefined),
+);
+
+const batchDisabled = computed(
+  () => batchActionRunning.value || batchUpgradeRunning.value,
+);
+
+const batchConfirmTitle = computed(() =>
+  batchConfirmAction.value === "restart"
+    ? t("instances.list.batch.confirm.restartTitle")
+    : t("instances.list.batch.confirm.stopTitle"),
+);
+
+const batchConfirmMessage = computed(() =>
+  t(
+    batchConfirmAction.value === "restart"
+      ? "instances.list.batch.confirm.restart"
+      : "instances.list.batch.confirm.stop",
+    { count: selectedInstances.value.length },
+  ),
+);
+
+const batchConfirmLabel = computed(() =>
+  batchConfirmAction.value === "restart"
+    ? t("instances.list.batch.restart")
+    : t("instances.list.batch.stop"),
+);
+
 const portsInUse = computed(() =>
   instances.value.map((instance) => instance.configured_port),
 );
@@ -1103,6 +1143,80 @@ async function handleRestart(instance: InstanceStatus): Promise<void> {
   });
 }
 
+function askBatch(action: BatchAction): void {
+  if (batchDisabled.value || selectedInstances.value.length === 0) {
+    return;
+  }
+  if (action === "start") {
+    void runBatch("start");
+    return;
+  }
+  batchConfirmAction.value = action;
+  batchConfirmOpen.value = true;
+}
+
+async function handleBatchConfirm(): Promise<void> {
+  const action = batchConfirmAction.value;
+  batchConfirmOpen.value = false;
+  batchConfirmAction.value = null;
+  if (action === null || batchActionRunning.value) {
+    return;
+  }
+  await runBatch(action);
+}
+
+/**
+ * Sequential batch over the selection: skips busy instances, toasts each
+ * failure, clears the selection, and summarizes once at the end.
+ */
+async function runBatch(action: BatchAction): Promise<void> {
+  const targets = [...selectedInstances.value];
+  batchActionRunning.value = true;
+  let succeeded = 0;
+  let skipped = 0;
+  let failed = 0;
+  try {
+    for (const target of targets) {
+      if (isInstanceBusy(target.id)) {
+        skipped += 1;
+        continue;
+      }
+      const ok = await run(
+        action === "start"
+          ? startKey(target.id)
+          : action === "stop"
+            ? stopKey(target.id)
+            : restartKey(target.id),
+        async () => {
+          if (action === "start") {
+            await startInstance(target.id);
+          } else if (action === "stop") {
+            await stopInstance(target.id);
+          } else {
+            await restartInstance(target.id);
+          }
+        },
+      );
+      if (ok) {
+        succeeded += 1;
+      } else {
+        failed += 1;
+      }
+    }
+  } finally {
+    batchActionRunning.value = false;
+    selectedIds.value = [];
+  }
+  showToast(
+    t("instances.list.batch.result", {
+      count: succeeded,
+      skipped,
+      failed,
+    }),
+    failed > 0 ? "error" : "success",
+  );
+}
+
 async function handleOpenCoreFolder(instance: InstanceStatus): Promise<void> {
   try {
     await openInstanceCoreFolder(instance.id);
@@ -1200,9 +1314,14 @@ const rowContext = computed<InstanceRowContext>(() => ({
       :upgrade-all-loading="batchUpgradeRunning"
       :upgrade-all-disabled="batchUpgradeRunning || updatesLoading"
       :create-disabled="snapshot === null || batchUpgradeRunning"
+      :selected-count="selectedInstances.length"
+      :batch-disabled="batchDisabled"
       @refresh="handleRefresh"
       @upgrade-all="askUpgradeAll"
       @create="openCreate"
+      @batch-start="askBatch('start')"
+      @batch-restart="askBatch('restart')"
+      @batch-stop="askBatch('stop')"
     />
 
     <v-alert
@@ -1290,6 +1409,7 @@ const rowContext = computed<InstanceRowContext>(() => ({
 
     <InstanceTable
       v-else-if="viewMode === 'table'"
+      v-model:selected="selectedIds"
       :rows="filteredRows"
       :loading="loading"
       :ctx="rowContext"
@@ -1315,6 +1435,7 @@ const rowContext = computed<InstanceRowContext>(() => ({
 
     <InstanceCards
       v-else
+      v-model:selected="selectedIds"
       :rows="filteredRows"
       :ctx="rowContext"
       :loading="loading"
@@ -1394,6 +1515,17 @@ const rowContext = computed<InstanceRowContext>(() => ({
       color="warning"
       :loading="batchUpgradeRunning"
       @confirm="handleUpgradeAll"
+    />
+
+    <ConfirmDialog
+      v-model="batchConfirmOpen"
+      :title="batchConfirmTitle"
+      :message="batchConfirmMessage"
+      :confirm-label="batchConfirmLabel"
+      :cancel-label="t('common.actions.cancel')"
+      color="warning"
+      :loading="batchActionRunning"
+      @confirm="handleBatchConfirm"
     />
 
     <LockCheckDialog
