@@ -521,7 +521,7 @@ defineExpose({ openUpload });
           />
           <div v-else class="page-table-card">
             <v-data-table
-              v-model:selected="selectedNames"
+              v-model="selectedNames"
               :headers="localHeaders"
               :items="filteredSkills"
               item-value="name"

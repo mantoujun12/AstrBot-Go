@@ -240,7 +240,7 @@ function removeOne(jobId: string): void {
 
     <div class="page-table-card">
       <v-data-table
-        v-model:selected="selected"
+        v-model="selected"
         :headers="headers"
         :items="jobs"
         item-value="job_id"

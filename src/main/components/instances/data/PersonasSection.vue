@@ -219,7 +219,7 @@ function removeOne(personaIdToRemove: string): void {
 
     <div class="page-table-card">
       <v-data-table
-        v-model:selected="selected"
+        v-model="selected"
         :headers="headers"
         :items="filteredPersonas"
         item-value="persona_id"
