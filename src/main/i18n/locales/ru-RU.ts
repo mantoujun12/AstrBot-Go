@@ -710,6 +710,12 @@ const ruRU = {
         name: "Название",
         state: "Состояние",
         actions: "Действия",
+        version: "Версия",
+        port: "Порт",
+      },
+      columnSettings: {
+        buttonAria: "Настройки столбцов",
+        title: "Столбцы",
       },
       meta: "Версия {version} · Порт {port}",
       empty: "Экземпляров нет",
@@ -731,6 +737,21 @@ const ruRU = {
         versionDesc: "Версия (новые — старые)",
         portAsc: "Порт (по возрастанию)",
         label: "Сортировка",
+      },
+      batch: {
+        selected: "Выбрано: {count}",
+        start: "Запустить",
+        restart: "Перезапустить",
+        stop: "Остановить",
+        select: "Выбрать экземпляр «{name}»",
+        confirm: {
+          restartTitle: "Перезапуск экземпляров",
+          stopTitle: "Остановка экземпляров",
+          restart: "Перезапустить {count} экземпляров?",
+          stop: "Остановить {count} экземпляров?",
+        },
+        result:
+          "Готово: успешно — {count}, пропущено — {skipped}, с ошибками — {failed}",
       },
       view: {
         table: "Таблица",

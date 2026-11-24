@@ -8,18 +8,32 @@ import InstanceRowActions from "./InstanceRowActions.vue";
 import type { InstanceStatus } from "../../../types/launcher";
 import type {
   ExternalInstanceRow,
+  InstanceColumnName,
   InstanceRow,
 } from "../../../composables/useInstanceList";
+import { externalRunningPort } from "../../../composables/useInstanceList";
 import type {
   ClearKind,
   InstanceRowContext,
 } from "./instanceRowContext";
 
-defineProps<{
+const props = defineProps<{
   rows: InstanceRow[];
   loading: boolean;
   ctx: InstanceRowContext;
+  hiddenColumns: InstanceColumnName[];
 }>();
+
+const selected = defineModel<string[]>("selected", { required: true });
+
+/** External rows cannot be started or stopped, so they never join batch selection. */
+function isSelectable(item: InstanceRow): boolean {
+  return !item.external;
+}
+
+/* Meta parts under the name duplicate the optional columns, so each part is shown only while its column is hidden. */
+const showVersionMeta = computed(() => props.hiddenColumns.includes("version"));
+const showPortMeta = computed(() => props.hiddenColumns.includes("port"));
 
 const emit = defineEmits<{
   start: [instance: InstanceStatus];
@@ -44,35 +58,57 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const headers = computed<DataTableHeader[]>(() => [
-  {
-    title: t("instances.list.columns.name"),
-    key: "name",
-    sortable: false,
-    minWidth: 200,
-  },
-  {
-    title: t("instances.list.columns.state"),
-    key: "state",
-    sortable: false,
-    width: 220,
-  },
-  {
+const headers = computed<DataTableHeader[]>(() => {
+  const visible: DataTableHeader[] = [
+    {
+      title: t("instances.list.columns.name"),
+      key: "name",
+      sortable: false,
+      minWidth: 200,
+    },
+    {
+      title: t("instances.list.columns.state"),
+      key: "state",
+      sortable: false,
+      width: 170,
+    },
+  ];
+  if (!props.hiddenColumns.includes("version")) {
+    visible.push({
+      title: t("instances.list.columns.version"),
+      key: "version",
+      sortable: false,
+      minWidth: 130,
+    });
+  }
+  if (!props.hiddenColumns.includes("port")) {
+    visible.push({
+      title: t("instances.list.columns.port"),
+      key: "port",
+      sortable: false,
+      minWidth: 110,
+    });
+  }
+  visible.push({
     title: t("instances.list.columns.actions"),
     key: "actions",
     sortable: false,
     align: "end",
     minWidth: 240,
-  },
-]);
+  });
+  return visible;
+});
 </script>
 
 <template>
   <div class="page-table-card">
     <v-data-table
+      v-model="selected"
       :headers="headers"
       :items="rows"
+      :item-selectable="isSelectable"
       item-value="id"
+      show-select
       :loading="loading"
       hide-default-footer
       :items-per-page="-1"
@@ -113,19 +149,22 @@ const headers = computed<DataTableHeader[]>(() => [
               </template>
             </span>
             <span
-              v-else
+              v-else-if="showVersionMeta || showPortMeta"
               class="instance-meta page-muted page-nums"
-              :aria-label="
-                t('instances.list.meta', {
-                  version: item.version,
-                  port:
-                    item.state === 'running' ? item.port : item.configured_port,
-                })
-              "
             >
-              <v-icon size="12" icon="mdi-tag-outline" aria-hidden="true" />
+              <template v-if="showVersionMeta">
+                <v-icon
+                  size="12"
+                  icon="mdi-tag-outline"
+                  aria-hidden="true"
+                />
                 <span>{{ item.version }}</span>
-                <span aria-hidden="true">·</span>
+                <span
+                  v-if="showPortMeta"
+                  aria-hidden="true"
+                >·</span>
+              </template>
+              <template v-if="showPortMeta">
                 <v-icon size="12" icon="mdi-ethernet" aria-hidden="true" />
                 <span>
                   {{
@@ -134,6 +173,7 @@ const headers = computed<DataTableHeader[]>(() => [
                       : item.configured_port
                   }}
                 </span>
+              </template>
             </span>
           </div>
         </div>
@@ -145,6 +185,20 @@ const headers = computed<DataTableHeader[]>(() => [
           :state="item.state"
         />
         <InstanceStatusCell v-else :instance="item" />
+      </template>
+
+      <template #item.version="{ item }">
+        <span v-if="item.external" class="page-cell page-muted">—</span>
+        <span v-else class="page-cell page-nums">{{ item.version }}</span>
+      </template>
+
+      <template #item.port="{ item }">
+        <span v-if="item.external" class="page-cell page-nums">{{
+          externalRunningPort(item) ?? "—"
+        }}</span>
+        <span v-else class="page-cell page-nums">{{
+          item.state === "running" ? item.port : item.configured_port
+        }}</span>
       </template>
 
       <template #item.actions="{ item }">

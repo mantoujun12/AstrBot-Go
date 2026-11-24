@@ -676,7 +676,13 @@ const zhCN = {
       "columns": {
         "name": "名称",
         "state": "状态",
-        "actions": "操作"
+        "actions": "操作",
+        "version": "版本",
+        "port": "端口"
+      },
+      "columnSettings": {
+        "buttonAria": "列设置",
+        "title": "列"
       },
       "meta": "版本 {version} · 端口 {port}",
       "empty": "暂无实例",
@@ -698,6 +704,20 @@ const zhCN = {
         "versionDesc": "版本（新→旧）",
         "portAsc": "端口（小→大）",
         "label": "排序"
+      },
+      "batch": {
+        "selected": "已选择 {count} 个",
+        "start": "启动",
+        "restart": "重启",
+        "stop": "停止",
+        "select": "选择实例“{name}”",
+        "confirm": {
+          "restartTitle": "重启实例",
+          "stopTitle": "停止实例",
+          "restart": "重启 {count} 个实例？",
+          "stop": "停止 {count} 个实例？"
+        },
+        "result": "完成：成功 {count} 个，跳过 {skipped} 个，失败 {failed} 个"
       },
       "view": {
         "table": "表格视图",

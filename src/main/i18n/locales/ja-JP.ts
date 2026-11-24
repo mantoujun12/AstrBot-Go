@@ -692,6 +692,12 @@ const jaJP = {
         name: "名前",
         state: "状態",
         actions: "操作",
+        version: "バージョン",
+        port: "ポート",
+      },
+      columnSettings: {
+        buttonAria: "列設定",
+        title: "列",
       },
       meta: "バージョン {version} · ポート {port}",
       empty: "インスタンスはありません",
@@ -713,6 +719,21 @@ const jaJP = {
         versionDesc: "バージョン（新しい順）",
         portAsc: "ポート（昇順）",
         label: "並べ替え",
+      },
+      batch: {
+        selected: "{count} 件選択中",
+        start: "起動",
+        restart: "再起動",
+        stop: "停止",
+        select: "インスタンス「{name}」を選択",
+        confirm: {
+          restartTitle: "インスタンスの一括再起動",
+          stopTitle: "インスタンスの一括停止",
+          restart: "{count} 件のインスタンスを再起動しますか？",
+          stop: "{count} 件のインスタンスを停止しますか？",
+        },
+        result:
+          "完了：成功 {count} 件、スキップ {skipped} 件、失敗 {failed} 件",
       },
       view: {
         table: "テーブル表示",

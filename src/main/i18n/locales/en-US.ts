@@ -693,6 +693,12 @@ const enUS = {
         name: "Name",
         state: "State",
         actions: "Actions",
+        version: "Version",
+        port: "Port",
+      },
+      columnSettings: {
+        buttonAria: "Column settings",
+        title: "Columns",
       },
       meta: "Version {version} · Port {port}",
       empty: "No instances",
@@ -714,6 +720,21 @@ const enUS = {
         versionDesc: "Version (new to old)",
         portAsc: "Port (low to high)",
         label: "Sort",
+      },
+      batch: {
+        selected: "{count} selected",
+        start: "Start",
+        restart: "Restart",
+        stop: "Stop",
+        select: "Select instance \"{name}\"",
+        confirm: {
+          restartTitle: "Restart Instances",
+          stopTitle: "Stop Instances",
+          restart: "Restart {count} instances?",
+          stop: "Stop {count} instances?",
+        },
+        result:
+          "Completed: {count} succeeded, {skipped} skipped, {failed} failed",
       },
       view: {
         table: "Table view",
