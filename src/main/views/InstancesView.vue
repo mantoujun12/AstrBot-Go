@@ -1517,7 +1517,6 @@ const rowContext = computed<InstanceRowContext>(() => ({
     />
 
     <InstanceBatchBar
-      v-if="selectedInstances.length > 0"
       :selected-count="selectedInstances.length"
       :disabled="batchDisabled"
       @start="askBatch('start')"

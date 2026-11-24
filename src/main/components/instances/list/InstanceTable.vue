@@ -103,7 +103,7 @@ const headers = computed<DataTableHeader[]>(() => {
 <template>
   <div class="page-table-card">
     <v-data-table
-      v-model:selected="selected"
+      v-model="selected"
       :headers="headers"
       :items="rows"
       :item-selectable="isSelectable"
