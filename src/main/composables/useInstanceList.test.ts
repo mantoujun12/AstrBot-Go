@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { DiscoveredInstance, InstanceStatus } from "../types/launcher";
+import { readCachedListPrefs } from "../utils/instanceListCache";
 import {
   compareVersionsDesc,
   externalRunningPort,
@@ -54,6 +55,55 @@ function externalRow(
 function names(rows: readonly InstanceRow[]): string[] {
   return rows.map((row) => row.name);
 }
+
+describe("readCachedListPrefs", () => {
+  // Storage key from src/main/utils/instanceListCache.ts.
+  const cacheKey = "launcher.instances.listPrefs";
+
+  afterEach(() => {
+    localStorage.removeItem(cacheKey);
+  });
+
+  it("defaults hidden columns for caches written before the field existed", () => {
+    localStorage.setItem(
+      cacheKey,
+      JSON.stringify({ viewMode: "cards", sortKey: "nameAsc" }),
+    );
+    expect(readCachedListPrefs()).toEqual({
+      viewMode: "cards",
+      sortKey: "nameAsc",
+      hiddenColumns: [],
+    });
+  });
+
+  it("keeps valid hidden columns", () => {
+    localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        viewMode: "table",
+        sortKey: "nameAsc",
+        hiddenColumns: ["port"],
+      }),
+    );
+    expect(readCachedListPrefs().hiddenColumns).toEqual(["port"]);
+  });
+
+  it("falls back to defaults for unknown hidden column names", () => {
+    localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        viewMode: "table",
+        sortKey: "nameAsc",
+        hiddenColumns: ["bogus"],
+      }),
+    );
+    expect(readCachedListPrefs()).toEqual({
+      viewMode: "table",
+      sortKey: "nameAsc",
+      hiddenColumns: [],
+    });
+  });
+});
 
 describe("sortInstanceRows", () => {
   it("sorts names ascending case-insensitively", () => {

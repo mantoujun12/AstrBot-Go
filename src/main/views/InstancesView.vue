@@ -173,6 +173,7 @@ const {
   sourceFilter,
   sortKey,
   viewMode,
+  hiddenColumns,
   filteredRows,
   resetFilters,
 } = useInstanceList(() => instanceRows.value);
@@ -1194,6 +1195,7 @@ const rowContext = computed<InstanceRowContext>(() => ({
       v-model:source-filter="sourceFilter"
       v-model:sort-key="sortKey"
       v-model:view-mode="viewMode"
+      v-model:hidden-columns="hiddenColumns"
       :refresh-loading="loading || updatesLoading || discoveryLoading || refreshing"
       :refresh-disabled="batchUpgradeRunning"
       :show-upgrade-all="batchUpgradeRunning || batchUpgradeTargets.length > 0"
@@ -1293,6 +1295,7 @@ const rowContext = computed<InstanceRowContext>(() => ({
       :rows="filteredRows"
       :loading="loading"
       :ctx="rowContext"
+      :hidden-columns="hiddenColumns"
       @start="handleStart"
       @stop="handleStop"
       @restart="handleRestart"

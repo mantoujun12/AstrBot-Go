@@ -693,6 +693,12 @@ const enUS = {
         name: "Name",
         state: "State",
         actions: "Actions",
+        version: "Version",
+        port: "Port",
+      },
+      columnSettings: {
+        buttonAria: "Column settings",
+        title: "Columns",
       },
       meta: "Version {version} · Port {port}",
       empty: "No instances",
