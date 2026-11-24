@@ -405,11 +405,11 @@ async function performUpload(): Promise<void> {
     });
     showToast(t("skills.toasts.installed", { names: installed.join(", ") }));
     uploadOpen.value = false;
-    if (instanceId.value !== target) {
+    if (instanceId.value === target) {
+      await loadSkills();
+    } else {
       // The instance watcher reloads the skills for the new selection.
       instanceId.value = target;
-    } else {
-      await loadSkills();
     }
   } catch (requestError) {
     showErrorToast(requestError);
