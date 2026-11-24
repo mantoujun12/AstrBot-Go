@@ -14,6 +14,7 @@ import RepairDialog from "../components/instances/RepairDialog.vue";
 import ResourceMonitorDialog from "../components/instances/ResourceMonitorDialog.vue";
 import InstanceCards from "../components/instances/list/InstanceCards.vue";
 import InstanceListToolbar from "../components/instances/list/InstanceListToolbar.vue";
+import InstanceBatchBar from "../components/instances/list/InstanceBatchBar.vue";
 import InstanceTable from "../components/instances/list/InstanceTable.vue";
 import type {
   ClearKind,
