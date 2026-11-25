@@ -719,6 +719,18 @@ fn regenerate_payload(provider: Option<&str>, model: Option<&str>) -> Value {
     body
 }
 
+/// True for dot segments in both literal and percent-encoded form.
+///
+/// URL parsers normalize `%2e` to `.` before resolving the path, so
+/// `%2e%2e` is equivalent to `..` and would escape an allowlisted prefix.
+fn is_dot_segment(segment: &str) -> bool {
+    let lower = segment.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        "." | ".." | "%2e" | "%2e%2e" | ".%2e" | "%2e."
+    )
+}
+
 /// Percent-encode one path segment (RFC 3986 unreserved characters stay
 /// plain) so a session or message id cannot escape the chat route prefix.
 fn encode_path_segment(value: &str) -> String {
@@ -810,7 +822,10 @@ async fn create_session(
 /// unrelated dashboard features (plugins, backups, system updates) through the
 /// proxy.
 fn validate_proxy_target(method: &str, path: &str, locale: Locale) -> Result<()> {
-    let path_only = path.split('?').next().unwrap_or("");
+    let without_query = path.split('?').next().unwrap_or("");
+    // Fragments are stripped by reqwest before forwarding; strip them here too
+    // so that `%2e%2e#fragment` is not seen as a single non-dot segment.
+    let path_only = without_query.split('#').next().unwrap_or("");
     let rejected = || {
         log::warn!("Rejected dashboard proxy request: {method} {path_only}");
         AppError::network(locale.dashboard_forbidden())
@@ -819,12 +834,20 @@ fn validate_proxy_target(method: &str, path: &str, locale: Locale) -> Result<()>
     if !path.starts_with('/') || path.starts_with("//") {
         return Err(rejected());
     }
-    // Dot segments would be normalized away by the URL parser and escape the
-    // allowlisted prefix.
-    if path_only
-        .split('/')
-        .any(|segment| segment == "." || segment == "..")
-    {
+    // Backslashes are treated as path separators by some HTTP clients and
+    // URL parsers; reject them before the slash-split segment walk so that
+    // `..\..\plugins` cannot escape the allowlisted prefix.
+    if path_only.contains('\\') {
+        return Err(rejected());
+    }
+    // Encoded slashes (%2f) can be decoded by upstream servers before route
+    // resolution, injecting extra path separators that bypass segment checks.
+    if path_only.to_ascii_lowercase().contains("%2f") {
+        return Err(rejected());
+    }
+    // Dot segments — literal or percent-encoded — are normalized away by URL
+    // parsers and would escape the allowlisted prefix.
+    if path_only.split('/').any(is_dot_segment) {
         return Err(rejected());
     }
 
@@ -849,7 +872,10 @@ fn validate_proxy_target(method: &str, path: &str, locale: Locale) -> Result<()>
 /// attachment id (`/api/v1/files/{id}/content`) and by stored filename
 /// (`/api/v1/files/content?filename=...`).
 fn validate_media_path(path: &str, locale: Locale) -> Result<()> {
-    let (path_only, query) = path.split_once('?').unwrap_or((path, ""));
+    let (before_query, query) = path.split_once('?').unwrap_or((path, ""));
+    // Fragments are stripped by reqwest before forwarding; strip them here too
+    // so that `%2e%2e#fragment` is not seen as a single non-dot segment.
+    let path_only = before_query.split('#').next().unwrap_or("");
     let rejected = || {
         log::warn!("Rejected chat media request: {path_only}");
         AppError::network(locale.dashboard_forbidden())
@@ -858,10 +884,18 @@ fn validate_media_path(path: &str, locale: Locale) -> Result<()> {
     if !path.starts_with('/') || path.starts_with("//") {
         return Err(rejected());
     }
-    if path_only
-        .split('/')
-        .any(|segment| segment == "." || segment == "..")
-    {
+    // Backslashes are treated as path separators by some HTTP clients and
+    // URL parsers; reject them before the slash-split segment walk so that
+    // backslash-encoded traversals cannot escape the allowlisted prefixes.
+    if path_only.contains('\\') {
+        return Err(rejected());
+    }
+    // Encoded slashes (%2f) can be decoded by upstream servers before route
+    // resolution, injecting extra path separators that bypass segment checks.
+    if path_only.to_ascii_lowercase().contains("%2f") {
+        return Err(rejected());
+    }
+    if path_only.split('/').any(is_dot_segment) {
         return Err(rejected());
     }
 
@@ -1615,6 +1649,20 @@ mod tests {
             "/api/v1/chat/sessions",
             "api/v1/files/abc/content",
             "//api/v1/files/abc/content",
+            // Percent-encoded dot segments must be blocked like their literal equivalents.
+            "/api/v1/files/%2e%2e/content",
+            "/api/v1/files/%2E%2E/content",
+            "/api/v1/files/.%2e/content",
+            "/api/v1/files/%2e./content",
+            // Backslash separators must be rejected before the segment walk.
+            "/api/v1/files/..\\content",
+            "/api/v1/files\\content",
+            // A six-segment backslash path would pass the shape check without the guard.
+            "/api/v1/files/..\\..\\plugins/content",
+            // Fragments must be stripped before segment validation.
+            "/api/v1/files/%2e%2e#x/content",
+            // Encoded slashes must be rejected since upstream can decode them.
+            "/api/v1/files/%2f../content",
         ] {
             assert!(validate_media_path(path, locale).is_err(), "{path}");
         }
@@ -1825,6 +1873,19 @@ mod tests {
             ("GET", "/api/v1/chat/../plugins"),
             ("GET", "/api/v1/chat/sessions/../../plugins"),
             ("GET", ""),
+            // Percent-encoded dot segments must be treated the same as literal ones.
+            ("GET", "/api/v1/chat/%2e%2e/plugins"),
+            ("GET", "/api/v1/chat/%2E%2E/plugins"),
+            ("GET", "/api/v1/chat/.%2e/plugins"),
+            ("GET", "/api/v1/chat/%2e./plugins"),
+            ("GET", "/api/v1/chat/%2e/plugins"),
+            // Backslash traversal must be rejected before the segment walk.
+            ("GET", "/api/v1/chat/..\\..\\plugins"),
+            ("GET", "/api/v1/chat\\..\\..\\plugins"),
+            // Fragments must be stripped before segment validation.
+            ("GET", "/api/v1/chat/%2e%2e#fragment"),
+            // Encoded slashes must be rejected since upstream can decode them.
+            ("GET", "/api/v1/chat/%2f../plugins"),
         ] {
             assert!(
                 validate_proxy_target(method, path, locale).is_err(),
