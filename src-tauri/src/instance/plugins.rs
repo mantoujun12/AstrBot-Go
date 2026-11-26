@@ -16,7 +16,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 
-use crate::archive::{extract_zip_flat, validate_zip_archive};
+use crate::archive::{extract_zip_flat, resolve_within_dir, validate_zip_archive};
 use crate::error::{AppError, Result};
 use crate::instance::data_manage::{db_err, ensure_table, open_db};
 use crate::utils::log_redact;
@@ -354,6 +354,9 @@ pub fn uninstall_plugin(
         .as_ref()
         .and_then(|m| m.name.clone())
         .filter(|n| !n.trim().is_empty())
+        // Uninstall-time metadata is untrusted (the plugin may rewrite it);
+        // an invalid name falls back to the validated directory name.
+        .filter(|n| validate_plugin_dir_name(n).is_ok())
         .unwrap_or_else(|| dir_name.to_string());
 
     fs::remove_dir_all(&dir).map_err(|e| AppError::io(format!("删除插件失败：{e}")))?;
@@ -367,9 +370,11 @@ pub fn uninstall_plugin(
         }
     }
     if delete_data {
-        let plugin_data = data_dir.join("plugin_data").join(&data_name);
+        let plugin_data_root = data_dir.join("plugin_data");
+        let plugin_data = plugin_data_root.join(&data_name);
         if plugin_data.is_dir() {
-            fs::remove_dir_all(&plugin_data)
+            let resolved = resolve_within_dir(&plugin_data_root, &plugin_data)?;
+            fs::remove_dir_all(&resolved)
                 .map_err(|e| AppError::io(format!("删除插件数据失败：{e}")))?;
         }
     }
@@ -814,6 +819,44 @@ mod tests {
         assert!(!dir.path().join("plugins/my_plugin").exists());
         assert!(!dir.path().join("plugin_data/my_plugin").exists());
         assert!(!dir.path().join("config/my_plugin_config.json").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn uninstall_ignores_traversal_metadata_names() -> Result<()> {
+        let dir = TempDir::new("uninstall-traversal")?;
+        let sentinel = dir.path().join("config");
+        fs::create_dir_all(&sentinel)?;
+        fs::write(sentinel.join("keep.txt"), "{}")?;
+        let plugin_data = dir.path().join("plugin_data");
+        fs::create_dir_all(&plugin_data)?;
+
+        // The plugin rewrote its metadata after install; the untrusted names
+        // must fall back to the validated directory name and delete nothing
+        // outside `plugin_data`.
+        for (metadata_name, dir_name) in [("..", "evil_dotdot"), ("../../x", "evil_escape")] {
+            write_plugin(dir.path(), dir_name, &format!("name: {metadata_name}\n"))?;
+            uninstall_plugin(dir.path(), dir_name, false, true)?;
+            assert!(sentinel.join("keep.txt").is_file(), "{metadata_name}");
+            assert!(plugin_data.is_dir(), "{metadata_name}");
+            assert!(!dir.path().join("plugins").join(dir_name).exists());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn uninstall_cleans_metadata_named_plugin_data() -> Result<()> {
+        let dir = TempDir::new("uninstall-named")?;
+        write_plugin(dir.path(), "staged_dir", "name: real_name\n")?;
+        let plugin_data = dir.path().join("plugin_data");
+        fs::create_dir_all(plugin_data.join("real_name"))?;
+        fs::create_dir_all(plugin_data.join("staged_dir"))?;
+
+        uninstall_plugin(dir.path(), "staged_dir", false, true)?;
+        assert!(!dir.path().join("plugins/staged_dir").exists());
+        assert!(!plugin_data.join("real_name").exists());
+        // Only the metadata name's entry is cleaned, not the dir name's.
+        assert!(plugin_data.join("staged_dir").is_dir());
         Ok(())
     }
 
