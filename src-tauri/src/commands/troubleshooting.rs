@@ -70,13 +70,17 @@ pub async fn check_lock(
 #[tauri::command]
 pub async fn clear_instance_data(instance_id: String, state: State<'_, AppState>) -> Result<()> {
     let _guard = state.process_manager.acquire_guard(&instance_id)?;
-    instance::clear_instance_data(&instance_id)
+    tokio::task::spawn_blocking(move || instance::clear_instance_data(&instance_id))
+        .await
+        .map_err(|e| AppError::process(format!("Clear instance data task panicked: {}", e)))?
 }
 
 #[tauri::command]
 pub async fn clear_instance_venv(instance_id: String, state: State<'_, AppState>) -> Result<()> {
     let _guard = state.process_manager.acquire_guard(&instance_id)?;
-    instance::clear_instance_venv(&instance_id)
+    tokio::task::spawn_blocking(move || instance::clear_instance_venv(&instance_id))
+        .await
+        .map_err(|e| AppError::process(format!("Clear instance venv task panicked: {}", e)))?
 }
 
 #[tauri::command]
@@ -87,7 +91,9 @@ pub async fn clear_uv_cache() -> Result<()> {
 #[tauri::command]
 pub async fn clear_pycache(instance_id: String, state: State<'_, AppState>) -> Result<()> {
     let _guard = state.process_manager.acquire_guard(&instance_id)?;
-    instance::clear_pycache(&instance_id)
+    tokio::task::spawn_blocking(move || instance::clear_pycache(&instance_id))
+        .await
+        .map_err(|e| AppError::process(format!("Clear pycache task panicked: {}", e)))?
 }
 
 #[tauri::command]
