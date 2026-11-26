@@ -253,7 +253,8 @@
   },
   "refs": {
     "title": "引用",
-    "sources": "来源"
+    "sources": "来源",
+    "close": "关闭"
   },
   "connection": {
     "title": "连接状态提醒",

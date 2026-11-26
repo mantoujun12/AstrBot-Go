@@ -253,7 +253,8 @@
   },
   "refs": {
     "title": "参照",
-    "sources": "出典"
+    "sources": "出典",
+    "close": "閉じる"
   },
   "connection": {
     "title": "接続状態のお知らせ",

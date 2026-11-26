@@ -403,6 +403,7 @@ function handleClear(): void {
       v-if="logError"
       type="error"
       variant="tonal"
+      density="comfortable"
       class="logs-error"
       role="alert"
     >

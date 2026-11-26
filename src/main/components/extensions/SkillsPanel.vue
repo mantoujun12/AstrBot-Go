@@ -736,6 +736,7 @@ defineExpose({ openUpload });
               indeterminate
               color="primary"
               height="3"
+              rounded
             />
             <v-alert
               v-else-if="editorFilesError"

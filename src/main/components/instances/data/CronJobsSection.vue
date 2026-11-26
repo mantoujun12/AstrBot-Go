@@ -266,6 +266,7 @@ function removeOne(jobId: string): void {
             :model-value="item.enabled"
             inset
             color="primary"
+            density="compact"
             hide-details
             :disabled="readonly"
             :aria-label="t('instanceData.cronJobs.fields.enabled')"

@@ -253,7 +253,8 @@
   },
   "refs": {
     "title": "References",
-    "sources": "Sources"
+    "sources": "Sources",
+    "close": "Close"
   },
   "connection": {
     "title": "Connection Status Notice",
