@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { i18n } from "../i18n";
 import type { AppSnapshot, DataDirChangeResult } from "../types/launcher";
+import { isHttpUrl } from "../utils/network";
 
 export function getAppSnapshot(): Promise<AppSnapshot> {
   return invoke<AppSnapshot>("get_app_snapshot");
@@ -13,7 +14,10 @@ export function openFolder(path: string): Promise<void> {
   return invoke("open_folder", { path });
 }
 
-export function openExternalUrl(url: string): Promise<void> {
+export async function openExternalUrl(url: string): Promise<void> {
+  if (!isHttpUrl(url)) {
+    throw new Error(i18n.global.t("errors.unsupportedExternalUrl"));
+  }
   return openUrl(url);
 }
 

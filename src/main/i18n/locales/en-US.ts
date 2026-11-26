@@ -269,6 +269,7 @@ const enUS = {
     updateFailed: "Launcher update failed. Try again later.",
     operationFailed: "Operation failed",
     operationFailedWithDetail: "Operation failed: {detail}",
+    unsupportedExternalUrl: "Unsupported link: only http and https URLs can be opened",
     lock: {
       title: "File in use",
       detailLocked: "The target path is in use. Close related processes and try again.",

@@ -278,6 +278,7 @@ const ruRU = {
     updateFailed: "Не удалось обновить лаунчер. Повторите попытку позже.",
     operationFailed: "Операция не выполнена",
     operationFailedWithDetail: "Операция не выполнена: {detail}",
+    unsupportedExternalUrl: "Неподдерживаемая ссылка: открыть можно только ссылки http и https",
     lock: {
       title: "Файл занят",
       detailLocked:

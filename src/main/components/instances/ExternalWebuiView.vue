@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { openExternalUrl } from "../../services/app";
+import { isHttpUrl } from "../../utils/network";
 
 type FrameState = "idle" | "loading" | "ready" | "error";
 
@@ -53,12 +54,12 @@ async function openInBrowser(): Promise<void> {
   }
 }
 
-const showIframe = computed(() => props.url !== "");
+const showIframe = computed(() => isHttpUrl(props.url));
 
 watch(
   () => props.url,
   (url) => {
-    if (url !== "") {
+    if (isHttpUrl(url)) {
       startFrameLoad();
     } else {
       clearLoadTimer();
