@@ -1,6 +1,7 @@
 import { computed, ref } from "vue";
 
 import type { DiscoveredInstance } from "../types/launcher";
+import { isHttpUrl } from "../utils/network";
 
 export const HOME_TAB = "home";
 
@@ -10,7 +11,7 @@ const activeTab = ref<string>(HOME_TAB);
 /**
  * Registry for tabs backed by discovered (external) instances instead of
  * launcher-managed ones: display name plus the WebUI origin to embed. Only
- * instances with a `webui_url` can open a tab.
+ * instances with an http(s) `webui_url` can open a tab.
  */
 const externalTabs = ref<
   Map<string, { name: string; url: string; state: DiscoveredInstance["state"] }>
@@ -28,7 +29,7 @@ export function openInstanceTab(instanceId: string): void {
 export function openExternalInstanceTab(
   instance: Pick<DiscoveredInstance, "id" | "name" | "webui_url" | "state">,
 ): void {
-  if (instance.webui_url === null) {
+  if (instance.webui_url === null || !isHttpUrl(instance.webui_url)) {
     return;
   }
   externalTabs.value.set(instance.id, {

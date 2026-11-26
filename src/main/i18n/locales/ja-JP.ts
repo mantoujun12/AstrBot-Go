@@ -268,6 +268,7 @@ const jaJP = {
     updateFailed: "ランチャーの更新に失敗しました。後でもう一度お試しください。",
     operationFailed: "操作に失敗しました",
     operationFailedWithDetail: "操作に失敗しました：{detail}",
+    unsupportedExternalUrl: "サポートされていないリンク：http と https のリンクのみ開けます",
     lock: {
       title: "ファイルが使用中",
       detailLocked: "対象パスが使用中です。関連するプロセスを閉じてから再試行してください",

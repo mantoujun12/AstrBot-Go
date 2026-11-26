@@ -253,6 +253,7 @@ const zhCN = {
     "updateFailed": "启动器更新失败，请稍后重试",
     "operationFailed": "操作失败",
     "operationFailedWithDetail": "操作失败：{detail}",
+    "unsupportedExternalUrl": "不支持的链接：仅能打开 http 与 https 链接",
     "lock": {
       "title": "文件被占用",
       "detailLocked": "目标路径被占用，请关闭相关进程后重试",
