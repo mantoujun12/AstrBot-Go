@@ -254,26 +254,34 @@ pub(crate) fn run_capped(program: &str, args: &[&str]) -> Option<String> {
     Some(text)
 }
 
-/// Forcefully terminate a spawned discovery child by PID. Uses the platform
-/// termination tool, which lives in system directories and cannot be
-/// shadowed by user PATH entries.
+/// Forcefully terminate a spawned discovery child by PID. Resolves the
+/// platform termination tool through [`locate_program`] instead of letting
+/// the OS search order pick it, so a binary dropped next to the launcher or
+/// on a relative PATH entry cannot shadow it. If the tool cannot be resolved,
+/// the child is left running and a warning is logged rather than risking the
+/// wrong process.
 ///
 /// `status()` blocks until the helper exits, reaping it instead of leaking a
 /// zombie (a bare `spawn()` without `wait()` would leave one behind on every
 /// timeout).
 fn kill_process(pid: u32) {
     #[cfg(windows)]
-    let mut command = {
-        let mut command = Command::new("taskkill");
-        command.args(["/F", "/T", "/PID", &pid.to_string()]);
-        command
-    };
+    let name = "taskkill";
     #[cfg(not(windows))]
-    let mut command = {
-        let mut command = Command::new("kill");
-        command.args(["-9", &pid.to_string()]);
-        command
+    let name = "kill";
+    let Some(tool) = locate_program(name) else {
+        log::warn!(
+            "Cannot terminate discovery helper process {}: {} not found",
+            pid,
+            name
+        );
+        return;
     };
+    let mut command = Command::new(tool);
+    #[cfg(windows)]
+    command.args(["/F", "/T", "/PID", &pid.to_string()]);
+    #[cfg(not(windows))]
+    command.args(["-9", &pid.to_string()]);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
