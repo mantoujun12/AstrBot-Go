@@ -101,7 +101,15 @@
     "statusKeyMissing": "未配置登录凭据"
   },
   "ipython": {
-    "output": "输出"
+    "output": "输出",
+    "noCode": "暂无可用代码"
+  },
+  "htmlGenUi": {
+    "viewLabel": "HTML GenUI 视图",
+    "preview": "预览",
+    "source": "源码",
+    "frameTitle": "生成的 HTML UI 预览",
+    "defaultTitle": "HTML UI"
   },
   "toolStatus": {
     "done": "已完成",

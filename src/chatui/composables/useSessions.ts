@@ -104,7 +104,7 @@ export function useSessions(chatboxMode: boolean = false) {
             }
             editTitleDialog.value = false;
         } catch (err) {
-            console.error('重命名会话失败:', err);
+            console.error('重命名会话失败：', err);
         }
     }
 

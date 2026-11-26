@@ -3,7 +3,7 @@
   <div class="html-genui-node" :class="{ 'is-dark': isDark, 'is-loading': isLoading }">
     <div class="html-genui-header">
       <div class="html-genui-title">{{ panelTitle }}</div>
-      <div class="html-genui-toggle" role="tablist" aria-label="HTML GenUI view">
+      <div class="html-genui-toggle" role="tablist" :aria-label="tm('htmlGenUi.viewLabel')">
         <button
           class="html-genui-toggle-button"
           :class="{ active: viewMode === 'preview' }"
@@ -12,7 +12,7 @@
           :aria-selected="viewMode === 'preview'"
           @click="viewMode = 'preview'"
         >
-          Preview
+          {{ tm("htmlGenUi.preview") }}
         </button>
         <button
           class="html-genui-toggle-button"
@@ -22,7 +22,7 @@
           :aria-selected="viewMode === 'source'"
           @click="viewMode = 'source'"
         >
-          Source
+          {{ tm("htmlGenUi.source") }}
         </button>
       </div>
     </div>
@@ -32,7 +32,7 @@
       class="html-genui-frame"
       :srcdoc="renderedSrcdoc"
       :sandbox="sandboxPolicy"
-      title="Generated HTML UI preview"
+      :title="tm('htmlGenUi.frameTitle')"
       loading="lazy"
     ></iframe>
     <pre v-else class="html-genui-source"><code>{{ htmlContent }}</code></pre>
@@ -41,7 +41,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useModuleI18n } from "@/i18n/composables";
 
+const { tm } = useModuleI18n("features/chat");
 const RENDER_THROTTLE_MS = 500;
 const sandboxPolicy =
   "allow-forms allow-modals allow-pointer-lock allow-popups allow-scripts";
@@ -69,7 +71,7 @@ const htmlContent = computed(() =>
 const isLoading = computed(() => Boolean(props.loading || props.node?.loading));
 const isDark = computed(() => Boolean(props.isDark));
 const panelTitle = computed(
-  () => props.title?.trim() || attrValue("title") || "HTML UI",
+  () => props.title?.trim() || attrValue("title") || tm("htmlGenUi.defaultTitle"),
 );
 
 watch(
