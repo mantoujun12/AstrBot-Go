@@ -110,8 +110,8 @@ async fn deploy_instance_with_version_impl(
             log_redact::path_name(&zip_path)
         );
         return Err(AppError::io(format!(
-            "Version zip file not found: {:?}",
-            zip_path
+            "Version zip file not found: {}",
+            log_redact::path_name(&zip_path)
         )));
     }
 
@@ -213,8 +213,8 @@ pub async fn repair_instance(
     let zip_path = PathBuf::from(&installed.zip_path);
     if !zip_path.exists() {
         return Err(AppError::io(format!(
-            "Version zip file not found: {:?}",
-            zip_path
+            "Version zip file not found: {}",
+            log_redact::path_name(&zip_path)
         )));
     }
 
@@ -234,8 +234,9 @@ pub async fn repair_instance(
     if venv_dir.exists() {
         fs::remove_dir_all(&venv_dir).map_err(|e| {
             AppError::io(format!(
-                "Failed to remove venv directory {:?}: {}",
-                venv_dir, e
+                "Failed to remove venv directory {}: {}",
+                log_redact::path_name(&venv_dir),
+                e
             ))
         })?;
     }
@@ -250,8 +251,9 @@ pub async fn repair_instance(
             if core_dir.exists() {
                 fs::remove_dir_all(&core_dir).map_err(|e| {
                     AppError::io(format!(
-                        "Failed to remove core directory {:?}: {}",
-                        core_dir, e
+                        "Failed to remove core directory {}: {}",
+                        log_redact::path_name(&core_dir),
+                        e
                     ))
                 })?;
             }
@@ -299,8 +301,9 @@ fn clear_core_except_data(core_dir: &Path) -> Result<()> {
 
     let entries = fs::read_dir(core_dir).map_err(|e| {
         AppError::io(format!(
-            "Failed to read core directory {:?}: {}",
-            core_dir, e
+            "Failed to read core directory {}: {}",
+            log_redact::path_name(core_dir),
+            e
         ))
     })?;
 
@@ -315,11 +318,20 @@ fn clear_core_except_data(core_dir: &Path) -> Result<()> {
 
         if file_type.is_dir() {
             fs::remove_dir_all(&path).map_err(|e| {
-                AppError::io(format!("Failed to clear directory {:?}: {}", path, e))
+                AppError::io(format!(
+                    "Failed to clear directory {}: {}",
+                    log_redact::path_name(&path),
+                    e
+                ))
             })?;
         } else {
-            fs::remove_file(&path)
-                .map_err(|e| AppError::io(format!("Failed to clear file {:?}: {}", path, e)))?;
+            fs::remove_file(&path).map_err(|e| {
+                AppError::io(format!(
+                    "Failed to clear file {}: {}",
+                    log_redact::path_name(&path),
+                    e
+                ))
+            })?;
         }
     }
 
@@ -354,8 +366,9 @@ fn preserve_selected_data(
         .join(format!(".repair-preserve-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&temp_dir).map_err(|e| {
         AppError::io(format!(
-            "Failed to create repair preserve directory {:?}: {}",
-            temp_dir, e
+            "Failed to create repair preserve directory {}: {}",
+            log_redact::path_name(&temp_dir),
+            e
         ))
     })?;
 
@@ -396,21 +409,32 @@ fn preserve_relative_paths(preserve_scope: RepairPreserveScope) -> Vec<PathBuf> 
 }
 
 fn copy_path(source: &Path, target: &Path) -> Result<()> {
-    let metadata = fs::metadata(source)
-        .map_err(|e| AppError::io(format!("Failed to read metadata {:?}: {}", source, e)))?;
+    let metadata = fs::metadata(source).map_err(|e| {
+        AppError::io(format!(
+            "Failed to read metadata {}: {}",
+            log_redact::path_name(source),
+            e
+        ))
+    })?;
 
     if metadata.is_dir() {
         copy_dir_recursive(source, target)?;
     } else {
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).map_err(|e| {
-                AppError::io(format!("Failed to create directory {:?}: {}", parent, e))
+                AppError::io(format!(
+                    "Failed to create directory {}: {}",
+                    log_redact::path_name(parent),
+                    e
+                ))
             })?;
         }
         fs::copy(source, target).map_err(|e| {
             AppError::io(format!(
-                "Failed to copy {:?} to {:?}: {}",
-                source, target, e
+                "Failed to copy {} to {}: {}",
+                log_redact::path_name(source),
+                log_redact::path_name(target),
+                e
             ))
         })?;
     }
@@ -419,12 +443,21 @@ fn copy_path(source: &Path, target: &Path) -> Result<()> {
 }
 
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
-    fs::create_dir_all(target)
-        .map_err(|e| AppError::io(format!("Failed to create directory {:?}: {}", target, e)))?;
+    fs::create_dir_all(target).map_err(|e| {
+        AppError::io(format!(
+            "Failed to create directory {}: {}",
+            log_redact::path_name(target),
+            e
+        ))
+    })?;
 
-    for entry in fs::read_dir(source)
-        .map_err(|e| AppError::io(format!("Failed to read directory {:?}: {}", source, e)))?
-    {
+    for entry in fs::read_dir(source).map_err(|e| {
+        AppError::io(format!(
+            "Failed to read directory {}: {}",
+            log_redact::path_name(source),
+            e
+        ))
+    })? {
         let entry = entry.map_err(|e| AppError::io(e.to_string()))?;
         let source_path = entry.path();
         let target_path = target.join(entry.file_name());
@@ -435,13 +468,19 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
         } else if file_type.is_file() {
             if let Some(parent) = target_path.parent() {
                 fs::create_dir_all(parent).map_err(|e| {
-                    AppError::io(format!("Failed to create directory {:?}: {}", parent, e))
+                    AppError::io(format!(
+                        "Failed to create directory {}: {}",
+                        log_redact::path_name(parent),
+                        e
+                    ))
                 })?;
             }
             fs::copy(&source_path, &target_path).map_err(|e| {
                 AppError::io(format!(
-                    "Failed to copy {:?} to {:?}: {}",
-                    source_path, target_path, e
+                    "Failed to copy {} to {}: {}",
+                    log_redact::path_name(&source_path),
+                    log_redact::path_name(&target_path),
+                    e
                 ))
             })?;
         }
@@ -739,8 +778,8 @@ fn extract_webui_archive(zip_path: &Path, temp_dist_dir: &Path, version: &str) -
 
     let installed_version = read_trimmed(&webui_version_file(temp_dist_dir)).ok_or_else(|| {
         AppError::io(format!(
-            "Downloaded WebUI archive does not contain {:?}",
-            webui_version_file(temp_dist_dir)
+            "Downloaded WebUI archive does not contain {}",
+            log_redact::path_name(&webui_version_file(temp_dist_dir))
         ))
     })?;
 
@@ -757,8 +796,8 @@ fn extract_webui_archive(zip_path: &Path, temp_dist_dir: &Path, version: &str) -
 fn replace_webui_dist(dist_dir: &Path, temp_dist_dir: &Path) -> Result<()> {
     let parent = dist_dir.parent().ok_or_else(|| {
         AppError::io(format!(
-            "Failed to resolve parent directory for WebUI dist {:?}",
-            dist_dir
+            "Failed to resolve parent directory for WebUI dist {}",
+            log_redact::path_name(dist_dir)
         ))
     })?;
     let backup_dist_dir = parent.join(format!(".dashboard-dist-backup-{}", uuid::Uuid::new_v4()));
@@ -766,8 +805,10 @@ fn replace_webui_dist(dist_dir: &Path, temp_dist_dir: &Path) -> Result<()> {
     let backup_created = if dist_dir.exists() {
         fs::rename(dist_dir, &backup_dist_dir).map_err(|e| {
             AppError::io(format!(
-                "Failed to move existing WebUI directory {:?} to backup {:?}: {}",
-                dist_dir, backup_dist_dir, e
+                "Failed to move existing WebUI directory {} to backup {}: {}",
+                log_redact::path_name(dist_dir),
+                log_redact::path_name(&backup_dist_dir),
+                e
             ))
         })?;
         true
@@ -789,15 +830,21 @@ fn replace_webui_dist(dist_dir: &Path, temp_dist_dir: &Path) -> Result<()> {
                 }
                 if let Err(rollback_error) = fs::rename(&backup_dist_dir, dist_dir) {
                     return Err(AppError::io(format!(
-                        "Failed to replace WebUI {:?} with {:?}: {}. Rollback from {:?} also failed: {}",
-                        dist_dir, temp_dist_dir, replace_error, backup_dist_dir, rollback_error
+                        "Failed to replace WebUI {} with {}: {}. Rollback from {} also failed: {}",
+                        log_redact::path_name(dist_dir),
+                        log_redact::path_name(temp_dist_dir),
+                        replace_error,
+                        log_redact::path_name(&backup_dist_dir),
+                        rollback_error
                     )));
                 }
             }
 
             Err(AppError::io(format!(
-                "Failed to replace WebUI directory {:?} with {:?}: {}",
-                dist_dir, temp_dist_dir, replace_error
+                "Failed to replace WebUI directory {} with {}: {}",
+                log_redact::path_name(dist_dir),
+                log_redact::path_name(temp_dist_dir),
+                replace_error
             )))
         }
     }
@@ -808,8 +855,9 @@ fn clear_dir_if_exists(path: &Path) -> Result<()> {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(AppError::io(format!(
-            "Failed to remove directory {:?}: {}",
-            path, e
+            "Failed to remove directory {}: {}",
+            log_redact::path_name(path),
+            e
         ))),
     }
 }

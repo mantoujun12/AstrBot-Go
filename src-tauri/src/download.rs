@@ -534,8 +534,8 @@ pub async fn download_version(
         .to_str()
         .ok_or_else(|| {
             AppError::io(format!(
-                "Version zip path is not valid UTF-8: {:?}",
-                zip_path
+                "Version zip path is not valid UTF-8: {}",
+                log_redact::path_name(&zip_path)
             ))
         })?
         .to_string();

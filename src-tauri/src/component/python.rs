@@ -228,7 +228,12 @@ pub async fn create_venv(venv_dir: &Path, version: &str) -> Result<()> {
     let python_exe = get_python_for_version(version)?;
     let venv_dir_arg = venv_dir
         .to_str()
-        .ok_or_else(|| AppError::python(format!("venv path is not valid UTF-8: {:?}", venv_dir)))?
+        .ok_or_else(|| {
+            AppError::python(format!(
+                "venv path is not valid UTF-8: {}",
+                log_redact::path_name(venv_dir)
+            ))
+        })?
         .to_string();
 
     if venv_dir.exists() {

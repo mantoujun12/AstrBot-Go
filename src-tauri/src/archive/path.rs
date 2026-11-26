@@ -3,6 +3,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::error::{AppError, Result};
 use crate::utils::archive_path::parse_entry_rel_path;
+use crate::utils::log_redact;
 
 pub(super) fn normalize_entry_path(path: &str) -> String {
     path.replace('\\', "/")
@@ -29,7 +30,8 @@ fn canonicalize_longest_prefix(path: &Path) -> Result<PathBuf> {
             Component::ParentDir => {
                 if !normalized.pop() && !normalized.has_root() {
                     return Err(AppError::io(format!(
-                        "failed to normalize path {path:?}: parent traversal escapes root",
+                        "failed to normalize path {}: parent traversal escapes root",
+                        log_redact::path_name(path)
                     )));
                 }
             }

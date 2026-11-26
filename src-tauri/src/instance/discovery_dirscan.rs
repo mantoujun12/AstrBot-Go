@@ -16,6 +16,7 @@ use super::discovery::{
 use super::types::CmdConfig;
 use crate::error::{AppError, Result};
 use crate::process::InstanceState;
+use crate::utils::log_redact;
 
 const SOURCE_ID: &str = "dir_scan";
 const SOURCE_TITLE_KEY: &str = "settings.instances.sources.dir_scan";
@@ -185,7 +186,11 @@ fn collect_candidate_dirs(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
         // instances below the branch look like a complete scan.
         Ok(entries) => entries,
         Err(error) => {
-            log::debug!("Directory scan skipped unreadable {dir:?}: {error}");
+            log::debug!(
+                "Directory scan skipped unreadable {}: {}",
+                log_redact::path_name(dir),
+                error
+            );
             return;
         }
     };
