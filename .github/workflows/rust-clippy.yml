@@ -27,14 +27,14 @@ jobs:
       actions: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           components: clippy
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
 
@@ -53,7 +53,9 @@ jobs:
             librsvg2-dev
 
       - name: Install required cargo tools
-        run: cargo install clippy-sarif sarif-fmt
+        run: |
+          cargo install clippy-sarif --locked --version 0.8.0
+          cargo install sarif-fmt --locked --version 0.8.0
 
       - name: Run rust-clippy
         working-directory: src-tauri
@@ -65,7 +67,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           sarif_file: src-tauri/rust-clippy-results.sarif
           wait-for-processing: true
