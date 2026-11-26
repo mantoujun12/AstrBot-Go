@@ -4,12 +4,19 @@
     <div v-if="isOpen" class="refs-sidebar chat-side-panel">
       <div class="sidebar-header">
         <h3 class="sidebar-title">{{ tm("refs.title") }}</h3>
-        <v-btn
-          icon="mdi-close"
-          size="small"
-          variant="text"
-          @click="close"
-        ></v-btn>
+        <v-tooltip location="top">
+          <template #activator="{ props: closeTooltipProps }">
+            <v-btn
+              v-bind="closeTooltipProps"
+              icon="mdi-close"
+              size="small"
+              variant="text"
+              :aria-label="tm('refs.close')"
+              @click="close"
+            />
+          </template>
+          <span>{{ tm("refs.close") }}</span>
+        </v-tooltip>
       </div>
 
       <div class="refs-list">

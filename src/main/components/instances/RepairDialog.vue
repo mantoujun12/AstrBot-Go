@@ -74,6 +74,8 @@ watch(
             :key="option.value"
             :label="option.title"
             :value="option.value"
+            color="primary"
+            density="compact"
           />
         </v-radio-group>
       </v-card-text>

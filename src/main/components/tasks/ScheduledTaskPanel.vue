@@ -163,11 +163,13 @@ async function retryInit(): Promise<void> {
         indeterminate
         color="primary"
         height="3"
+        rounded
       />
       <v-alert
         v-else-if="error"
         type="error"
         variant="tonal"
+        density="comfortable"
         class="scheduled-tasks__error"
       >
         <div class="scheduled-tasks__error-row">

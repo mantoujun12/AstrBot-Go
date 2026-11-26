@@ -9,6 +9,7 @@
 ### Fixed
 
 - Component runtime installs (Python, Node.js, uv) now download and extract into a staging directory before replacing the installed runtime, so a failed download or extraction no longer breaks the existing runtime.
+- Aligned switch, alert, progress bar, and radio option styling with the project control conventions, and added an accessible label to the reference sidebar close button.
 
 ## 中文
 
@@ -21,3 +22,4 @@
 ### 修复
 
 - 组件运行时（Python、Node.js、uv）安装现先在暂存目录中完成下载与解压，再替换现有运行时，下载或解压失败不会再破坏已安装的运行时。
+- 统一开关、提示条、进度条和单选项的样式规范，并为引用侧栏的关闭按钮补充无障碍标签。

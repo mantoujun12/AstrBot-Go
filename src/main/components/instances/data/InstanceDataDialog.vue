@@ -539,6 +539,7 @@ function openCopy(preselect: CopyPreselect): void {
             indeterminate
             color="primary"
             height="3"
+            rounded
           />
           <v-alert
             v-else-if="loadError"

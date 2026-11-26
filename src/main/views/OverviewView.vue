@@ -503,6 +503,7 @@ function retry(): void {
       v-if="error"
       type="error"
       variant="tonal"
+      density="comfortable"
       class="overview-alert page-alert"
       role="alert"
     >

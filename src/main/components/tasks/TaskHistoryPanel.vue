@@ -164,11 +164,13 @@ function errorText(task: TaskRecord): string {
         indeterminate
         color="primary"
         height="3"
+        rounded
       />
       <v-alert
         v-else-if="error"
         type="error"
         variant="tonal"
+        density="comfortable"
         class="task-history__error"
       >
         <div class="task-history__error-row">

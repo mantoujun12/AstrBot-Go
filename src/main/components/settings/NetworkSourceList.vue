@@ -415,6 +415,8 @@ async function runTest(event: MouseEvent): Promise<void> {
         v-for="source in options"
         :key="source.key"
         :value="source.key"
+        color="primary"
+        density="compact"
         class="network-source__row"
       >
         <template #label>

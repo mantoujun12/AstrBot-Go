@@ -563,6 +563,7 @@ onBeforeUnmount(stopPolling);
           v-if="pollError"
           type="error"
           variant="tonal"
+          density="comfortable"
           class="resource-charts__error"
           role="alert"
         >

@@ -94,6 +94,8 @@ function checkDetail(check: InstanceHealthCheck): string {
           v-if="loading"
           color="primary"
           indeterminate
+          height="5"
+          rounded
           class="health-check-dialog__progress"
         />
         <v-alert
