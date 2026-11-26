@@ -38,7 +38,11 @@ pub async fn delete_instance(
     state: State<'_, AppState>,
 ) -> Result<()> {
     let _guard = state.process_manager.acquire_guard(&instance_id)?;
-    let result = instance::delete_instance(&instance_id);
+    let blocking_instance_id = instance_id.clone();
+    let result =
+        tokio::task::spawn_blocking(move || instance::delete_instance(&blocking_instance_id))
+            .await
+            .map_err(|e| AppError::process(format!("Delete instance task panicked: {}", e)))?;
     // Do not leak per-instance in-memory state for a removed instance; it
     // otherwise keeps growing the maps for the manager lifetime.
     state.process_manager.forget_restart_tracking(&instance_id);
