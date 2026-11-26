@@ -6,6 +6,7 @@
 - Harden external link handling: only `http`/`https` URLs can be opened or embedded; other URI schemes are rejected.
 - Tab-shortcut bridge messages are now accepted only from windows of live embedded instance-WebUI frames, so other frames (for example model-generated HTML panels) can no longer switch, reorder, or close launcher tabs.
 - Tightened Tauri window capabilities to least privilege: the main window no longer holds the broad `core:default` set (path, image, menu, tray, webview, event emit), and the chat and tray panel windows can no longer broadcast events.
+- Applied a Content Security Policy to the webview that blocks injected inline and remote scripts, as defense-in-depth for chat markdown, generated HTML previews, and embedded WebUI pages.
 
 ### Fixed
 
@@ -21,6 +22,7 @@
 - 强化外部链接处理：仅可打开或嵌入 `http`/`https` 地址，其他 URI 协议将被拒绝。
 - 标签页快捷键桥接消息现在仅接受来自已嵌入的实例 WebUI 框架窗口，其他框架（例如模型生成的 HTML 面板）不再能切换、重排或关闭启动器标签页。
 - 收紧 Tauri 窗口能力至最小权限：主窗口不再持有宽泛的 `core:default` 权限集（路径、图片、菜单、托盘、Web 视图、事件广播），聊天窗口与托盘面板窗口也不再允许广播事件。
+- 为 webview 启用内容安全策略（CSP），阻止注入的内联或远程脚本在应用内执行，作为聊天 Markdown、生成的 HTML 预览与内嵌 WebUI 页面的纵深防御。
 
 ### 修复
 
