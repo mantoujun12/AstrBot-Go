@@ -26,6 +26,28 @@ const WINDOWS_11_FIRST_BUILD: u32 = 22000;
 #[allow(dead_code)]
 const WINDOWS_11_22H2_BUILD: u32 = 22621;
 
+/// Origins the launcher window itself is served from across platforms and
+/// build modes. Single source of truth for sub-frame bridge scripts: a
+/// cross-origin frame cannot read its parent's origin, so it addresses the
+/// launcher by trying each origin here and letting the browser deliver only
+/// to the one that matches.
+pub(crate) const LAUNCHER_ORIGINS: &[&str] = &[
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "tauri://localhost",
+    "http://localhost:1420",
+];
+
+/// Renders [`LAUNCHER_ORIGINS`] as a JavaScript array literal for injection
+/// into bridge scripts.
+pub(crate) fn launcher_origins_js_array() -> String {
+    let literals: Vec<String> = LAUNCHER_ORIGINS
+        .iter()
+        .map(|origin| format!("{origin:?}"))
+        .collect();
+    format!("[{}]", literals.join(", "))
+}
+
 /// Initialization script applied to every document the main window loads,
 /// including cross-origin frames: the hosted AstrBot WebUI runs in an
 /// iframe the launcher page cannot touch, so the Vue side `postMessage`s
@@ -35,13 +57,13 @@ const WINDOWS_11_22H2_BUILD: u32 = 22621;
 /// one applied session so SPA navigation does not re-consume it. Mirrors
 /// the bootstrap strategy of AstrBot-Desktop's `bridge_bootstrap.js`.
 ///
-/// `__ALLOWED_ORIGINS__` is replaced by [`webui_session_bridge_script`].
+/// `__LAUNCHER_ORIGINS__` is replaced by [`webui_session_bridge_script`].
 const WEBUI_SESSION_BRIDGE: &str = r#"
 (function () {
   if (window.parent === window) return;
   var origin = window.location.origin;
   if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(origin)) return;
-  var ALLOWED_ORIGINS = __ALLOWED_ORIGINS__;
+  var ALLOWED_ORIGINS = __LAUNCHER_ORIGINS__;
   var apply = function (event) {
     if (ALLOWED_ORIGINS.indexOf(event.origin) === -1) return;
     var data = event.data;
@@ -64,22 +86,20 @@ const WEBUI_SESSION_BRIDGE: &str = r#"
 /// Builds the bridge script with the launcher origins that may send it a
 /// session. The Vite dev server origin is trusted in debug builds only: a
 /// packaged release must not accept a local process that squats the dev port
-/// as a session sender.
+/// as a session sender. [`LAUNCHER_ORIGINS`] is the full list shared with the
+/// tab-shortcut bridge; the session bridge drops the dev origin in release
+/// builds.
 fn webui_session_bridge_script() -> String {
-    let mut allowed_origins = vec![
-        "http://tauri.localhost",
-        "https://tauri.localhost",
-        "tauri://localhost",
-    ];
-    if cfg!(debug_assertions) {
-        allowed_origins.push("http://localhost:1420");
+    let mut allowed_origins = LAUNCHER_ORIGINS.to_vec();
+    if !cfg!(debug_assertions) {
+        allowed_origins.retain(|origin| *origin != "http://localhost:1420");
     }
     let origins = allowed_origins
         .iter()
-        .map(|origin| format!("\"{origin}\""))
+        .map(|origin| format!("{origin:?}"))
         .collect::<Vec<_>>()
         .join(", ");
-    WEBUI_SESSION_BRIDGE.replace("__ALLOWED_ORIGINS__", &format!("[{origins}]"))
+    WEBUI_SESSION_BRIDGE.replace("__LAUNCHER_ORIGINS__", &format!("[{origins}]"))
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
