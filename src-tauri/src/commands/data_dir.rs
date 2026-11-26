@@ -64,5 +64,9 @@ pub async fn open_folder(path: String) -> Result<()> {
     if !dir.is_dir() {
         return Err(AppError::other("目标文件夹不存在"));
     }
-    open_path(&dir, None::<&str>).map_err(|e| AppError::io(e.to_string()))
+    // The webview may only open the data directory itself or a folder inside
+    // it; a compromised UI must not drive the file manager anywhere else.
+    let scoped_dir = crate::archive::resolve_within_dir(&get_data_dir(), &dir)
+        .map_err(|_| AppError::other("只能打开数据目录内的文件夹"))?;
+    open_path(&scoped_dir, None::<&str>).map_err(|e| AppError::io(e.to_string()))
 }
