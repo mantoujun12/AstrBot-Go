@@ -1,5 +1,6 @@
 import { onBeforeUnmount, onMounted } from "vue";
 import { HOME_TAB, useTabsStore } from "../stores/tabs";
+import { isEmbeddedWebuiSource } from "../utils/webuiFrameRegistry";
 
 /**
  * Message marker used by the all-frames bridge script defined in
@@ -34,6 +35,19 @@ function isBridgeMessage(value: unknown): value is BridgeMessage {
     typeof message.key === "string" &&
     typeof message.shiftKey === "boolean"
   );
+}
+
+/**
+ * Bridge trust rule: the message must carry the bridge payload and come from
+ * the window of a live embedded instance-WebUI frame (see
+ * `webuiFrameRegistry`). Anything else — model-generated HTML panels,
+ * popups, foreign frames — is ignored.
+ */
+export function isTrustedBridgeEvent(event: {
+  source: MessageEventSource | null;
+  data: unknown;
+}): event is { source: MessageEventSource | null; data: BridgeMessage } {
+  return isEmbeddedWebuiSource(event.source) && isBridgeMessage(event.data);
 }
 
 /**
@@ -169,13 +183,12 @@ export function useTabShortcuts(): void {
   }
 
   function onMessage(event: MessageEvent<unknown>): void {
-    const data = event.data;
-    if (!isBridgeMessage(data)) {
+    if (!isTrustedBridgeEvent(event)) {
       return;
     }
     handleShortcut({
-      key: data.key,
-      shiftKey: data.shiftKey,
+      key: event.data.key,
+      shiftKey: event.data.shiftKey,
       ctrlKey: true,
       altKey: false,
       metaKey: false,

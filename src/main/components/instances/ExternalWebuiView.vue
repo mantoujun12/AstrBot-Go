@@ -3,6 +3,10 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { openExternalUrl } from "../../services/app";
 import { isHttpUrl } from "../../utils/network";
+import {
+  registerEmbeddedWebuiFrame,
+  unregisterEmbeddedWebuiFrame,
+} from "../../utils/webuiFrameRegistry";
 
 type FrameState = "idle" | "loading" | "ready" | "error";
 
@@ -15,6 +19,7 @@ const { t } = useI18n();
 
 const frameState = ref<FrameState>("idle");
 const frameKey = ref(0);
+const frameRef = ref<HTMLIFrameElement | null>(null);
 let loadTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearLoadTimer(): void {
@@ -69,8 +74,17 @@ watch(
   { immediate: true },
 );
 
+// Authenticates the tab-shortcut bridge: only the window of the live
+// embedded WebUI frame may drive launcher tabs. The ref watcher swaps the
+// registration on iframe reloads (`:key` remount) and removal.
+watch(frameRef, (frame, previous) => {
+  unregisterEmbeddedWebuiFrame(previous);
+  registerEmbeddedWebuiFrame(frame);
+});
+
 onBeforeUnmount(() => {
   clearLoadTimer();
+  unregisterEmbeddedWebuiFrame(frameRef.value);
 });
 </script>
 
@@ -109,6 +123,7 @@ onBeforeUnmount(() => {
         class="instance-webui__frame-wrap"
       >
         <iframe
+          ref="frameRef"
           :key="frameKey"
           :src="url"
           title="AstrBot WebUI"

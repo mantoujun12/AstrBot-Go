@@ -19,6 +19,10 @@ import { useProgressStore } from "../stores/progress";
 import { useTabsStore } from "../stores/tabs";
 import { showErrorToast } from "../stores/toast";
 import type { InstanceStatus } from "../types/launcher";
+import {
+  registerEmbeddedWebuiFrame,
+  unregisterEmbeddedWebuiFrame,
+} from "../utils/webuiFrameRegistry";
 
 type FrameState = "idle" | "loading" | "ready" | "error";
 
@@ -232,8 +236,17 @@ watch(
   { immediate: true },
 );
 
+// Authenticates the tab-shortcut bridge: only the window of the live
+// embedded WebUI frame may drive launcher tabs. The ref watcher swaps the
+// registration on iframe reloads (`:key` remount) and removal.
+watch(iframeRef, (frame, previous) => {
+  unregisterEmbeddedWebuiFrame(previous);
+  registerEmbeddedWebuiFrame(frame);
+});
+
 onBeforeUnmount(() => {
   clearLoadTimer();
+  unregisterEmbeddedWebuiFrame(iframeRef.value);
 });
 </script>
 
