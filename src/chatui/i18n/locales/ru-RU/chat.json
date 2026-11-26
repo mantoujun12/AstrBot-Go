@@ -101,7 +101,15 @@
     "statusKeyMissing": "Учётные данные не настроены"
   },
   "ipython": {
-    "output": "Вывод"
+    "output": "Вывод",
+    "noCode": "Код недоступен"
+  },
+  "htmlGenUi": {
+    "viewLabel": "Представление HTML GenUI",
+    "preview": "Предпросмотр",
+    "source": "Исходный код",
+    "frameTitle": "Предпросмотр сгенерированного HTML-интерфейса",
+    "defaultTitle": "HTML-интерфейс"
   },
   "toolStatus": {
     "done": "Готово",

@@ -101,7 +101,15 @@
     "statusKeyMissing": "Login not configured"
   },
   "ipython": {
-    "output": "Output"
+    "output": "Output",
+    "noCode": "No code available"
+  },
+  "htmlGenUi": {
+    "viewLabel": "HTML GenUI view",
+    "preview": "Preview",
+    "source": "Source",
+    "frameTitle": "Generated HTML UI preview",
+    "defaultTitle": "HTML UI"
   },
   "toolStatus": {
     "done": "Done",

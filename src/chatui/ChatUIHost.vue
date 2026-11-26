@@ -7,7 +7,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDisplay, useTheme } from "vuetify";import type { UnlistenFn } from "@tauri-apps/api/event";
+import { useDisplay, useTheme } from "vuetify";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { applyLanguagePreference, i18n } from "../main/i18n";
 import { normalizeLocaleTag } from "../main/i18n/locale";
 import { toUserMessage } from "../main/services/errors";

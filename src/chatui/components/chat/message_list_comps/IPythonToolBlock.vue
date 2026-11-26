@@ -7,7 +7,7 @@
                 <div v-if="shikiReady && code" class="code-highlighted"
                     v-html="highlightedCode"></div>
                 <pre v-else class="code-fallback"
-                    :class="{ 'dark-theme': isDark }">{{ code || 'No code available' }}</pre>
+                    :class="{ 'dark-theme': isDark }">{{ code || tm('ipython.noCode') }}</pre>
             </div>
 
             <!-- Result Section -->

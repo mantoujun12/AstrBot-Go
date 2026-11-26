@@ -101,7 +101,15 @@
     "statusKeyMissing": "ログイン情報未設定"
   },
   "ipython": {
-    "output": "出力"
+    "output": "出力",
+    "noCode": "利用可能なコードがありません"
+  },
+  "htmlGenUi": {
+    "viewLabel": "HTML GenUI ビュー",
+    "preview": "プレビュー",
+    "source": "ソース",
+    "frameTitle": "生成された HTML UI のプレビュー",
+    "defaultTitle": "HTML UI"
   },
   "toolStatus": {
     "done": "完了",
