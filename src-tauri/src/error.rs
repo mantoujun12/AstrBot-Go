@@ -5,6 +5,8 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::utils::log_redact;
+
 /// Application error that can be serialized for Tauri commands.
 #[derive(Debug)]
 pub struct AppError {
@@ -269,7 +271,7 @@ impl From<toml::ser::Error> for AppError {
 
 impl From<reqwest::Error> for AppError {
     fn from(err: reqwest::Error) -> Self {
-        Self::network(err.to_string())
+        Self::network(log_redact::redact_text(&err.to_string()))
     }
 }
 

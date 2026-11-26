@@ -7,6 +7,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 use crate::utils::paths::{
     get_component_dir, get_node_bin_dir, get_node_exe_path, get_nodejs_shim_dir, get_npm_exe_path,
     get_npm_prefix_bin_dir, get_npm_prefix_modules_dir, get_npx_exe_path,
@@ -135,8 +136,13 @@ fn generate_sh_shim(
     ));
 
     let path = shim_dir.join(tool);
-    std::fs::write(&path, &script)
-        .map_err(|e| AppError::io(format!("Failed to write shim {}: {}", path.display(), e)))?;
+    std::fs::write(&path, &script).map_err(|e| {
+        AppError::io(format!(
+            "Failed to write shim {}: {}",
+            log_redact::path_name(&path),
+            e
+        ))
+    })?;
 
     // chmod +x
     set_executable(&path)?;
@@ -174,8 +180,13 @@ fn generate_cmd_shim(
     script.push_str(&format!("\"{}\" %*\r\n", real_bin.display()));
 
     let path = shim_dir.join(format!("{}.cmd", tool));
-    std::fs::write(&path, &script)
-        .map_err(|e| AppError::io(format!("Failed to write shim {}: {}", path.display(), e)))?;
+    std::fs::write(&path, &script).map_err(|e| {
+        AppError::io(format!(
+            "Failed to write shim {}: {}",
+            log_redact::path_name(&path),
+            e
+        ))
+    })?;
 
     Ok(())
 }
@@ -218,8 +229,13 @@ fn generate_ps1_shim(
     ));
 
     let path = shim_dir.join(format!("{}.ps1", tool));
-    std::fs::write(&path, &script)
-        .map_err(|e| AppError::io(format!("Failed to write shim {}: {}", path.display(), e)))?;
+    std::fs::write(&path, &script).map_err(|e| {
+        AppError::io(format!(
+            "Failed to write shim {}: {}",
+            log_redact::path_name(&path),
+            e
+        ))
+    })?;
 
     Ok(())
 }
@@ -235,10 +251,21 @@ fn shell_escape(s: &str) -> String {
 fn set_executable(path: &std::path::Path) -> Result<()> {
     use std::os::unix::fs::PermissionsExt as _;
     let mut perms = std::fs::metadata(path)
-        .map_err(|e| AppError::io(format!("Failed to read permissions for {:?}: {}", path, e)))?
+        .map_err(|e| {
+            AppError::io(format!(
+                "Failed to read permissions for {}: {}",
+                log_redact::path_name(path),
+                e
+            ))
+        })?
         .permissions();
     perms.set_mode(0o755);
-    std::fs::set_permissions(path, perms)
-        .map_err(|e| AppError::io(format!("Failed to set permissions for {:?}: {}", path, e)))?;
+    std::fs::set_permissions(path, perms).map_err(|e| {
+        AppError::io(format!(
+            "Failed to set permissions for {}: {}",
+            log_redact::path_name(path),
+            e
+        ))
+    })?;
     Ok(())
 }

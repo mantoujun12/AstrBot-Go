@@ -325,16 +325,18 @@ pub async fn update_instance(
             if core_dir.exists() {
                 std::fs::remove_dir_all(&core_dir).map_err(|e| {
                     AppError::io(format!(
-                        "Failed to remove core directory {:?}: {}",
-                        core_dir, e
+                        "Failed to remove core directory {}: {}",
+                        log_redact::path_name(&core_dir),
+                        e
                     ))
                 })?;
             }
             if venv_dir.exists() {
                 std::fs::remove_dir_all(&venv_dir).map_err(|e| {
                     AppError::io(format!(
-                        "Failed to remove venv directory {:?}: {}",
-                        venv_dir, e
+                        "Failed to remove venv directory {}: {}",
+                        log_redact::path_name(&venv_dir),
+                        e
                     ))
                 })?;
             }

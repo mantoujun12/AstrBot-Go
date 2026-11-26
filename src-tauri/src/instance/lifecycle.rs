@@ -272,7 +272,10 @@ pub async fn launch_instance(
 
     let main_py = core_dir.join("main.py");
     if !main_py.exists() {
-        return Err(AppError::io(core_dir.display().to_string()));
+        return Err(AppError::io(format!(
+            "Instance core main.py is missing: {}",
+            log_redact::path_name(&core_dir)
+        )));
     }
 
     // Build command with environment variables

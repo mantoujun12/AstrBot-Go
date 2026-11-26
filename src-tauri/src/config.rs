@@ -6,6 +6,7 @@ use std::sync::{Arc, LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
+use crate::utils::log_redact;
 use crate::utils::paths::{config_json_path, ensure_data_dirs, manifest_json_path};
 
 static STORE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
@@ -212,7 +213,7 @@ fn restrict_record_permissions(path: &Path) -> Result<()> {
     use std::os::unix::fs::PermissionsExt as _;
 
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))
-        .map_err(|e| AppError::config(format!("chmod {}: {}", path.display(), e)))
+        .map_err(|e| AppError::config(format!("chmod {}: {}", log_redact::path_name(path), e)))
 }
 
 /// Serialize and write a JSON record atomically (temp file + rename).
@@ -221,12 +222,12 @@ fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let payload = serde_json::to_vec_pretty(value).map_err(|e| AppError::config(e.to_string()))?;
     let temp = path.with_extension("json.tmp");
     fs::write(&temp, payload)
-        .map_err(|e| AppError::config(format!("write {}: {}", path.display(), e)))?;
+        .map_err(|e| AppError::config(format!("write {}: {}", log_redact::path_name(path), e)))?;
     // Set the mode on the temp file so the rename publishes it already private.
     #[cfg(unix)]
     restrict_record_permissions(&temp)?;
     fs::rename(&temp, path)
-        .map_err(|e| AppError::config(format!("rename {}: {}", path.display(), e)))?;
+        .map_err(|e| AppError::config(format!("rename {}: {}", log_redact::path_name(path), e)))?;
     Ok(())
 }
 
@@ -237,7 +238,7 @@ fn read_json_text(path: &Path) -> Result<Option<String>> {
     }
     fs::read_to_string(path)
         .map(Some)
-        .map_err(|e| AppError::config(format!("read {}: {}", path.display(), e)))
+        .map_err(|e| AppError::config(format!("read {}: {}", log_redact::path_name(path), e)))
 }
 
 fn write_config_record(path: &Path, config: AppConfig) -> Result<AppConfig> {

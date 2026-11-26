@@ -12,6 +12,7 @@ use crate::config::load_config;
 use crate::error::{AppError, Result};
 use crate::network_config;
 use crate::platform::get_nodejs_os_arch;
+use crate::utils::log_redact;
 use crate::utils::net::fetch_json;
 use crate::utils::paths::{
     get_component_dir, get_node_exe_path, get_nodejs_npm_cache, get_nodejs_npm_prefix,
@@ -233,22 +234,25 @@ async fn do_install_nodejs(client: &Client, app_handle: Option<&AppHandle>) -> R
     let node_exe = get_node_exe_path(&target_dir);
     if !node_exe.exists() {
         return Err(AppError::io(format!(
-            "Node.js {} extracted but node executable not found: {:?}",
-            version, node_exe
+            "Node.js {} extracted but node executable not found: {}",
+            version,
+            log_redact::path_name(&node_exe)
         )));
     }
     let npm_exe = get_npm_exe_path(&target_dir);
     if !npm_exe.exists() {
         return Err(AppError::io(format!(
-            "Node.js {} extracted but npm executable not found: {:?}",
-            version, npm_exe
+            "Node.js {} extracted but npm executable not found: {}",
+            version,
+            log_redact::path_name(&npm_exe)
         )));
     }
     let npx_exe = get_npx_exe_path(&target_dir);
     if !npx_exe.exists() {
         return Err(AppError::io(format!(
-            "Node.js {} extracted but npx executable not found: {:?}",
-            version, npx_exe
+            "Node.js {} extracted but npx executable not found: {}",
+            version,
+            log_redact::path_name(&npx_exe)
         )));
     }
 
