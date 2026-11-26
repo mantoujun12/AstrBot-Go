@@ -34,12 +34,14 @@ const WINDOWS_11_22H2_BUILD: u32 = 22621;
 /// known launcher origins may send, and the listener removes itself after
 /// one applied session so SPA navigation does not re-consume it. Mirrors
 /// the bootstrap strategy of AstrBot-Desktop's `bridge_bootstrap.js`.
+///
+/// `__ALLOWED_ORIGINS__` is replaced by [`webui_session_bridge_script`].
 const WEBUI_SESSION_BRIDGE: &str = r#"
 (function () {
   if (window.parent === window) return;
   var origin = window.location.origin;
   if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(origin)) return;
-  var ALLOWED_ORIGINS = ["http://tauri.localhost", "https://tauri.localhost", "tauri://localhost", "http://localhost:1420"];
+  var ALLOWED_ORIGINS = __ALLOWED_ORIGINS__;
   var apply = function (event) {
     if (ALLOWED_ORIGINS.indexOf(event.origin) === -1) return;
     var data = event.data;
@@ -58,6 +60,27 @@ const WEBUI_SESSION_BRIDGE: &str = r#"
   window.addEventListener("message", apply);
 })();
 "#;
+
+/// Builds the bridge script with the launcher origins that may send it a
+/// session. The Vite dev server origin is trusted in debug builds only: a
+/// packaged release must not accept a local process that squats the dev port
+/// as a session sender.
+fn webui_session_bridge_script() -> String {
+    let mut allowed_origins = vec![
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "tauri://localhost",
+    ];
+    if cfg!(debug_assertions) {
+        allowed_origins.push("http://localhost:1420");
+    }
+    let origins = allowed_origins
+        .iter()
+        .map(|origin| format!("\"{origin}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    WEBUI_SESSION_BRIDGE.replace("__ALLOWED_ORIGINS__", &format!("[{origins}]"))
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RevealOutcome {
@@ -146,7 +169,7 @@ pub fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<tauri::Webvie
         // Second script: applies to iframes too (WebView2 injects
         // document-created scripts into every frame), so the hosted WebUI
         // can receive the passwordless session. See `WEBUI_SESSION_BRIDGE`.
-        .initialization_script(WEBUI_SESSION_BRIDGE)
+        .initialization_script(webui_session_bridge_script())
         .build()?;
     configure_main_window(&window);
     Ok(window)
@@ -640,5 +663,32 @@ fn restore_instances(app: &tauri::App) {
                 });
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn webui_session_bridge_script_trusts_dev_origin_only_in_debug_builds() {
+        let script = webui_session_bridge_script();
+
+        assert!(!script.contains("__ALLOWED_ORIGINS__"));
+        for origin in [
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+            "tauri://localhost",
+        ] {
+            assert!(
+                script.contains(&format!("\"{origin}\"")),
+                "missing trusted launcher origin: {origin}"
+            );
+        }
+        assert_eq!(
+            script.contains("http://localhost:1420"),
+            cfg!(debug_assertions),
+            "the Vite dev origin must only be trusted in debug builds"
+        );
     }
 }
