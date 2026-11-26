@@ -4,7 +4,8 @@
   "description": "Capability for the standalone chat window. It loads the app snapshot, drives the chat commands and controls its own window chrome (drag, minimize, maximize, close, title, decorum snap overlay); application commands such as get_app_snapshot are not permission-gated, so only the core event and window permissions are listed.",
   "windows": ["chat"],
   "permissions": [
-    "core:event:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "core:window:allow-close",
     "core:window:allow-is-maximized",
     "core:window:allow-minimize",
