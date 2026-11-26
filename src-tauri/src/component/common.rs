@@ -206,8 +206,9 @@ fn clear_stale_stage_dirs(parent: &Path, target_dir: &Path) -> Result<()> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
         Err(e) => {
             return Err(AppError::io(format!(
-                "Failed to read component parent dir {:?}: {}",
-                parent, e
+                "Failed to read component parent dir {}: {}",
+                log_redact::path_name(parent),
+                e
             )))
         }
     };
@@ -232,9 +233,9 @@ fn clear_stale_stage_dirs(parent: &Path, target_dir: &Path) -> Result<()> {
                 remove_stage_dir(&path);
             } else if let Err(e) = fs::rename(&path, target_dir) {
                 log::warn!(
-                    "Failed to restore component backup {:?} to {:?}: {}",
-                    path,
-                    target_dir,
+                    "Failed to restore component backup {} to {}: {}",
+                    log_redact::path_name(&path),
+                    log_redact::path_name(target_dir),
                     e
                 );
             }
