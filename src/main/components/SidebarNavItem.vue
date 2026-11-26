@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import type { Component } from "vue";
+
 defineProps<{
-  icon: string;
+  icon: Component;
   label: string;
   to?: string;
   /** Right-edge arrow hint for entries that open something instead of navigating. */
-  appendIcon?: string;
+  appendIcon?: Component;
   beta?: boolean;
   tooltipDisabled: boolean;
   active?: boolean;
@@ -34,14 +36,19 @@ const emit = defineEmits<{
         @click="emit('select')"
       >
         <template #prepend>
-          <v-icon :icon="icon" size="18" />
+          <component :is="icon" :size="18" class="sidebar-lucide-icon" />
         </template>
         <v-list-item-title>{{ label }}</v-list-item-title>
         <template v-if="beta || appendIcon" #append>
           <v-chip v-if="beta" size="x-small" color="purple" variant="tonal">
             Beta
           </v-chip>
-          <v-icon v-if="appendIcon" :icon="appendIcon" size="16" class="sidebar-nav-append" />
+          <component
+            :is="appendIcon"
+            v-if="appendIcon"
+            :size="16"
+            class="sidebar-nav-append"
+          />
         </template>
       </v-list-item>
     </template>

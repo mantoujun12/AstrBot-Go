@@ -1,6 +1,19 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
+import {
+  Archive,
+  ChevronRight,
+  ClipboardCheck,
+  FileText,
+  House,
+  MessageCircle,
+  PanelLeft,
+  Puzzle,
+  Server,
+  Settings,
+  Tags,
+} from "@lucide/vue";
 import SidebarNavItem from "./SidebarNavItem.vue";
 import { openChatWindow } from "../services/chat";
 import { showErrorToast } from "../stores/toast";
@@ -46,16 +59,16 @@ async function handleOpenChat(): Promise<void> {
     <div class="launcher-sidebar__content">
       <v-list nav density="comfortable" class="launcher-sidebar__nav">
         <SidebarNavItem
-          icon="mdi-chat-outline"
+          :icon="MessageCircle"
           :label="t('shell.nav.chat')"
           beta
-          append-icon="mdi-chevron-right"
+          :append-icon="ChevronRight"
           :tooltip-disabled="!props.rail"
           :active="false"
           @select="handleOpenChat"
         />
         <SidebarNavItem
-          icon="mdi-view-dashboard-outline"
+          :icon="House"
           :label="t('shell.nav.overview')"
           to="/"
           :tooltip-disabled="!props.rail"
@@ -63,7 +76,7 @@ async function handleOpenChat(): Promise<void> {
           @select="emit('navigate')"
         />
         <SidebarNavItem
-          icon="mdi-server-outline"
+          :icon="Server"
           :label="t('shell.nav.instances')"
           to="/instances"
           :tooltip-disabled="!props.rail"
@@ -71,7 +84,7 @@ async function handleOpenChat(): Promise<void> {
           @select="emit('navigate')"
         />
         <SidebarNavItem
-          icon="mdi-tag-multiple-outline"
+          :icon="Tags"
           :label="t('shell.nav.versions')"
           to="/versions"
           :tooltip-disabled="!props.rail"
@@ -79,7 +92,7 @@ async function handleOpenChat(): Promise<void> {
           @select="emit('navigate')"
         />
         <SidebarNavItem
-          icon="mdi-archive-outline"
+          :icon="Archive"
           :label="t('shell.nav.backups')"
           to="/backups"
           :tooltip-disabled="!props.rail"
@@ -87,7 +100,7 @@ async function handleOpenChat(): Promise<void> {
           @select="emit('navigate')"
         />
         <SidebarNavItem
-          icon="mdi-clipboard-check-outline"
+          :icon="ClipboardCheck"
           :label="t('shell.nav.tasks')"
           to="/tasks"
           :tooltip-disabled="!props.rail"
@@ -95,7 +108,7 @@ async function handleOpenChat(): Promise<void> {
           @select="emit('navigate')"
         />
         <SidebarNavItem
-          icon="mdi-text-box-outline"
+          :icon="FileText"
           :label="t('shell.nav.logs')"
           to="/logs"
           :tooltip-disabled="!props.rail"
@@ -103,7 +116,7 @@ async function handleOpenChat(): Promise<void> {
           @select="emit('navigate')"
         />
         <SidebarNavItem
-          icon="mdi-puzzle-outline"
+          :icon="Puzzle"
           :label="t('shell.nav.extensions')"
           beta
           to="/extensions"
@@ -120,7 +133,7 @@ async function handleOpenChat(): Promise<void> {
           class="launcher-sidebar__nav launcher-sidebar__footer-nav"
         >
           <SidebarNavItem
-            icon="mdi-cog-outline"
+            :icon="Settings"
             :label="t('shell.nav.settings')"
             to="/settings"
             :tooltip-disabled="!props.rail"
@@ -132,11 +145,12 @@ async function handleOpenChat(): Promise<void> {
         <v-btn
           v-if="props.permanent"
           class="launcher-sidebar__toggle"
-          :icon="props.rail ? 'mdi-chevron-right' : 'mdi-chevron-left'"
           :aria-label="toggleLabel"
           variant="text"
           @click="emit('toggle')"
-        />
+        >
+          <PanelLeft :size="20" />
+        </v-btn>
       </div>
     </div>
   </v-navigation-drawer>
@@ -222,7 +236,10 @@ async function handleOpenChat(): Promise<void> {
   min-width: 0;
 }
 
-.launcher-sidebar__nav :deep(.v-icon) {
+.launcher-sidebar__nav :deep(.sidebar-lucide-icon) {
+  flex: 0 0 auto;
+  color: currentcolor;
+  stroke-width: 2;
   opacity: 0.9;
 }
 
