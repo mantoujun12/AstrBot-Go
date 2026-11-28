@@ -44,6 +44,11 @@ const jaJP = {
   },
   trayPanel: {
     title: "AstrBot Go",
+    view: {
+      label: "表示切り替え",
+      instances: "インスタンス",
+      overview: "概要",
+    },
     openMainWindow: "メインウィンドウを開く",
     openSettings: "設定を開く",
     quit: "終了",

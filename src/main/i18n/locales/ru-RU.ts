@@ -44,6 +44,11 @@ const ruRU = {
   },
   trayPanel: {
     title: "AstrBot Go",
+    view: {
+      label: "Вид панели",
+      instances: "Экземпляры",
+      overview: "Обзор",
+    },
     openMainWindow: "Открыть главное окно",
     openSettings: "Открыть настройки",
     quit: "Выход",
