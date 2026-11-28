@@ -42,6 +42,11 @@ const zhCN = {
   },
   "trayPanel": {
     "title": "AstrBot Go",
+    "view": {
+      "label": "视图切换",
+      "instances": "实例",
+      "overview": "概览"
+    },
     "openMainWindow": "打开主窗口",
     "openSettings": "打开设置",
     "quit": "退出",

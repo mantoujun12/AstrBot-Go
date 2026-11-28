@@ -42,6 +42,7 @@ const PANEL_MAX_HEIGHT = 600;
 const PANEL_BORDER_HEIGHT = 2;
 const FRAME_PADDING = 6;
 const CLOCK_INTERVAL_MS = 30_000;
+const COMPONENT_TOTAL = 3;
 
 const STATE_LABEL_KEYS: Record<InstanceState, string> = {
   running: "common.instanceState.running",
@@ -51,6 +52,7 @@ const STATE_LABEL_KEYS: Record<InstanceState, string> = {
 };
 
 type InstanceActionKind = "start" | "stop" | "restart";
+type TrayView = "instances" | "overview";
 
 interface TrayInstanceItem {
   id: string;
@@ -78,6 +80,7 @@ const confirmQuit = ref(false);
 const headerRef = ref<HTMLElement | null>(null);
 const listRef = ref<HTMLElement | null>(null);
 const footerRef = ref<HTMLElement | null>(null);
+const activeView = ref<TrayView>("instances");
 
 const themeClass = computed(() => theme.themeClasses.value);
 
@@ -116,6 +119,54 @@ const items = computed<TrayInstanceItem[]>(() => {
       duration,
     };
   });
+});
+// Miniature of the main window's overview stat cards, computed entirely from
+// the snapshot the panel already receives, so no extra backend call is needed.
+const overviewStats = computed(() => {
+  const current = snapshot.value;
+  if (!current) {
+    return [];
+  }
+
+  const running = current.instances.filter(
+    (instance: InstanceStatus) => instance.state === "running",
+  ).length;
+  const installedComponents = current.components.components.filter(
+    (component) => component.installed,
+  ).length;
+
+  return [
+    {
+      key: "instances",
+      icon: "mdi-robot-outline",
+      label: t("overview.stats.instances"),
+      value: String(current.instances.length),
+    },
+    {
+      key: "running",
+      icon: "mdi-play-circle-outline",
+      label: t("overview.stats.running"),
+      value: String(running),
+    },
+    {
+      key: "versions",
+      icon: "mdi-package-variant-closed",
+      label: t("overview.stats.versions"),
+      value: String(current.versions.length),
+    },
+    {
+      key: "backups",
+      icon: "mdi-archive-outline",
+      label: t("overview.stats.backups"),
+      value: String(current.backups.length),
+    },
+    {
+      key: "components",
+      icon: "mdi-puzzle-outline",
+      label: t("overview.stats.components"),
+      value: `${installedComponents} / ${COMPONENT_TOTAL}`,
+    },
+  ];
 });
 
 let loadSequence = 0;
@@ -462,6 +513,7 @@ watch(
     loading.value,
     loadFailed.value,
     snapshot.value === null,
+    activeView.value,
   ],
   () => {
     void nextTick(scheduleHeightReport);
@@ -564,7 +616,23 @@ onBeforeUnmount(() => {
     :aria-label="t('trayPanel.title')"
   >
     <header ref="headerRef" class="tray-panel__header">
-      <span class="tray-panel__title">{{ t("trayPanel.title") }}</span>
+      <v-btn-toggle
+        v-model="activeView"
+        class="tray-panel__switch"
+        mandatory
+        divided
+        density="compact"
+        variant="outlined"
+        color="primary"
+        :aria-label="t('trayPanel.view.label')"
+      >
+        <v-btn size="small" value="instances" prepend-icon="mdi-format-list-bulleted">
+          {{ t("trayPanel.view.instances") }}
+        </v-btn>
+        <v-btn size="small" value="overview" prepend-icon="mdi-view-dashboard-outline">
+          {{ t("trayPanel.view.overview") }}
+        </v-btn>
+      </v-btn-toggle>
       <v-btn
         class="tray-panel__icon-button"
         icon="mdi-cog-outline"
@@ -605,12 +673,12 @@ onBeforeUnmount(() => {
         {{ t("trayPanel.loadFailed") }}
       </p>
       <p
-        v-else-if="items.length === 0 && !loadFailed"
+        v-else-if="activeView === 'instances' && items.length === 0 && !loadFailed"
         class="tray-panel__message"
       >
         {{ t("trayPanel.empty") }}
       </p>
-      <template v-else>
+      <template v-else-if="activeView === 'instances'">
         <div v-for="item in items" :key="item.id" class="tray-panel__item">
           <button
             type="button"
@@ -711,6 +779,21 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </template>
+      <div v-else class="tray-panel__stats" role="list">
+        <div
+          v-for="stat in overviewStats"
+          :key="stat.key"
+          class="tray-panel__stat"
+          role="listitem"
+          :aria-label="
+            t('overview.stats.ariaLabel', { label: stat.label, value: stat.value })
+          "
+        >
+          <v-icon :icon="stat.icon" size="18" aria-hidden="true" />
+          <span class="tray-panel__stat-label">{{ stat.label }}</span>
+          <span class="tray-panel__stat-value">{{ stat.value }}</span>
+        </div>
+      </div>
     </div>
 
     <footer ref="footerRef" class="tray-panel__footer">
@@ -780,14 +863,15 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
-.tray-panel__title {
+.tray-panel__switch {
+  flex: 1 1 auto;
   min-width: 0;
+  border-radius: var(--astrbot-radius-control);
   overflow: hidden;
-  font-size: 0.84rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.tray-panel__switch .v-btn {
+  flex: 1 1 auto;
 }
 
 .tray-panel__icon-button {
@@ -974,6 +1058,43 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.tray-panel__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+}
+
+.tray-panel__stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: var(--astrbot-radius-control);
+  color: rgba(var(--v-theme-on-surface), 0.85);
+}
+
+.tray-panel__stat .tray-panel__stat-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tray-panel__stat .tray-panel__stat-value {
+  flex: 0 0 auto;
+  font-size: 0.84rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tray-panel__stat .v-icon {
+  flex: 0 0 auto;
+  color: rgb(var(--v-theme-primary));
+}
 .tray-panel__footer {
   display: flex;
   align-items: center;

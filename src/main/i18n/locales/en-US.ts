@@ -44,6 +44,11 @@ const enUS = {
   },
   trayPanel: {
     title: "AstrBot Go",
+    view: {
+      label: "Panel view",
+      instances: "Instances",
+      overview: "Overview",
+    },
     openMainWindow: "Open main window",
     openSettings: "Open settings",
     quit: "Quit",
